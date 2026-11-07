@@ -1,0 +1,9 @@
+{
+  "_notice": "SYNTHETIC DEMO FIXTURE. Not real ads. Import only with options.is_synthetic=true.",
+  "results": [
+    {"id": "demo_ad_1", "pageId": "demo_page_1", "pageName": "DEMO Store A", "title": "DEMO Leakproof Underwear", "bodies": ["Daily protection. Get the 5-pack for your weekly rotation."], "linkUrl": "https://example.com/demo-a", "startDate": "2026-10-20", "isActive": true, "targetCountries": ["US"]},
+    {"id": "demo_ad_2", "pageId": "demo_page_2", "pageName": "DEMO Store B", "title": "DEMO Leakproof Underwear", "bodies": ["Buy 3 get 2 free."], "linkUrl": "https://example.org/demo-b", "startDate": "2026-11-01", "isActive": true, "targetCountries": ["US"]},
+    {"id": "demo_ad_3", "pageId": "demo_page_3", "pageName": "DEMO Store C", "title": "DEMO Cable Organizer Clips", "bodies": ["One for every desk and nightstand."], "linkUrl": "https://example.net/demo-c", "startDate": "2026-10-28", "isActive": true, "currency": "USD"}
+  ]
+}
+
