@@ -135,3 +135,4 @@ class LandingPageExtractor:
         """Strip HTML tags while preserving spaces."""
         text = re.sub(r"<[^>]+>", " ", html)
         return " ".join(text.split())
+

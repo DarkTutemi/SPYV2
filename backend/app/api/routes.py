@@ -18,6 +18,7 @@ from app.api.pain import router as pain_router
 from app.api.clusters import router as clusters_router
 from app.api.temporal import router as temporal_router
 from app.api.alerts import router as alerts_router
+from app.api.reviews import router as reviews_router
 
 router = APIRouter()
 
@@ -33,4 +34,5 @@ router.include_router(pain_router, prefix="/pain", tags=["Pain Discovery"])
 router.include_router(clusters_router, prefix="/clusters", tags=["Clusters"])
 router.include_router(temporal_router, prefix="/temporal", tags=["Temporal Intelligence"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts & Scheduler"])
+router.include_router(reviews_router, prefix="/reviews", tags=["Analyst Decision Workflow"])
 

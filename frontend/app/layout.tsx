@@ -9,6 +9,7 @@ const nav = [
   ["/emerging", "Emerging Radar"],
   ["/analytics", "Historical Analytics"],
   ["/alerts", "Alerts & Pipeline"],
+  ["/reviews", "Decisions & Queue"],
   ["/pain", "Pain & Trends"],
   ["/products", "Discovery Feed"],
   ["/clusters", "Product Clusters"],

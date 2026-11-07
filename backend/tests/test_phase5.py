@@ -157,3 +157,4 @@ async def test_pain_api_endpoints(client, db):
     assert trends_body["keyword"] == "magnetic cable clips"
     assert trends_body["geo"] == "US"
     assert len(trends_body["trajectory"]) >= 1
+

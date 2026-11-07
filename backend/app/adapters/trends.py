@@ -107,3 +107,4 @@ class GoogleTrendsAdapter:
             }
             for r in rows
         ]
+

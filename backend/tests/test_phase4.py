@@ -187,3 +187,4 @@ async def test_bundle_api_endpoints(client, db):
     assert res_scenarios.status_code == 200
     scenarios_data = res_scenarios.json()
     assert len(scenarios_data["aov_scenarios"]) == 3
+

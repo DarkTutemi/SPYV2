@@ -199,3 +199,4 @@ class BundleIntelligenceEngine:
         offer.evidence_type = offer_dict.get("evidence_type", EvidenceType.OBSERVED_FACT)
 
         return offer
+
