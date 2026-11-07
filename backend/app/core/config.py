@@ -45,6 +45,13 @@ class Settings(BaseSettings):
 
     # ── Apify ────────────────────────────────────────────────────────────
     apify_api_token: str = ""
+    apify_primary_actor: str = "automation-lab/facebook-ads-library"
+    apify_fallback_actor: str = "curious_coder/facebook-ads-library-scraper"
+    apify_daily_budget_usd: float = 5.0
+    apify_monthly_budget_usd: float = 50.0
+    apify_max_ads_per_query: int = 100
+    apify_request_timeout_seconds: int = 120
+    apify_auto_collection_enabled: bool = False
 
     # ── LLM ──────────────────────────────────────────────────────────────
     llm_provider: str = "google"

@@ -1,8 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+
+type DiscoveryStatus = {
+  status: string;
+  configured: boolean;
+  primary_actor: string;
+  fallback_actor: string;
+  daily_budget_usd: number;
+  monthly_budget_usd: number;
+  estimated_spent_today_usd: number;
+  estimated_spent_month_usd: number;
+  auto_collection_enabled: boolean;
+  message: string;
+  scheduler_status?: {
+    running: boolean;
+    collection_running: boolean;
+    last_run: string | null;
+    last_collection: string | null;
+    interval_minutes: number;
+    scheduler_active: boolean;
+  };
+};
 
 export default function SettingsPage() {
+  const [discStatus, setDiscStatus] = useState<DiscoveryStatus | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<"primary" | "fallback">("primary");
+  const [dailyBudget, setDailyBudget] = useState<number>(5.0);
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(50.0);
+  const [autoCollect, setAutoCollect] = useState<boolean>(false);
+  const [isTriggering, setIsTriggering] = useState<boolean>(false);
+  const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
+
   const [emergenceWeights] = useState({
     "Independent advertiser acceleration": 0.30,
     "New creative acceleration": 0.25,
@@ -27,22 +57,176 @@ export default function SettingsPage() {
     "Decision simplicity": 0.10,
   });
 
+  useEffect(() => {
+    api<DiscoveryStatus>("/discovery/status")
+      .then((res) => {
+        setDiscStatus(res);
+        setDailyBudget(res.daily_budget_usd);
+        setMonthlyBudget(res.monthly_budget_usd);
+        setAutoCollect(res.auto_collection_enabled);
+      })
+      .catch((e) => console.warn("Failed to load discovery status", e));
+  }, []);
+
+  const handleManualTrigger = async () => {
+    setIsTriggering(true);
+    setTriggerMsg(null);
+    try {
+      const res = await api<{ success: boolean; status?: string; records_valid?: number; error?: string }>("/discovery/run", {
+        method: "POST",
+        body: JSON.stringify({
+          max_ads: 30,
+          use_fallback: selectedProvider === "fallback",
+          force: true,
+        }),
+      });
+      if (res.success) {
+        setTriggerMsg(`Discovery run completed: ${res.records_valid ?? 0} valid US ads processed.`);
+      } else {
+        setTriggerMsg(`Discovery run stopped: ${res.error || res.status}`);
+      }
+    } catch (e: any) {
+      setTriggerMsg(`Error: ${e.message || String(e)}`);
+    } finally {
+      setIsTriggering(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">System Configuration & Scoring Weights</h1>
+        <h1 className="text-2xl font-bold text-slate-900">System Configuration & Settings</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Review engine weights, data source parameters, and LLM classification configuration.
+          Review live data provider settings, budget limits, collection schedules, and scoring weights.
         </p>
       </div>
 
-      {/* Notice */}
-      <div className="p-4 bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs rounded-lg space-y-1">
-        <p className="font-semibold">Deterministic Scoring Engine Architecture</p>
-        <p>
-          All opportunity scores are calculated via deterministic heuristics. AI is never used to fabricate scores.
-          Each score record snapshots the exact weights used at the moment of computation.
-        </p>
+      {/* Live Provider & Budget Settings */}
+      <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b pb-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">
+              Live Data Provider & Budget Guardrails
+            </h2>
+            <p className="text-xs text-slate-500">Autonomous Meta Ad Library collection via Apify actors</p>
+          </div>
+          <span
+            className={`px-2.5 py-1 text-xs font-semibold rounded ${
+              discStatus?.status === "READY"
+                ? "bg-emerald-100 text-emerald-800"
+                : discStatus?.status === "NOT_CONFIGURED"
+                ? "bg-amber-100 text-amber-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {discStatus?.status || "CHECKING"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div className="space-y-3">
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Active Live Provider</label>
+              <select
+                value={selectedProvider}
+                onChange={(e) => setSelectedProvider(e.target.value as "primary" | "fallback")}
+                className="w-full border rounded p-2 text-xs bg-slate-50"
+              >
+                <option value="primary">
+                  Primary: {discStatus?.primary_actor || "automation-lab/facebook-ads-library"}
+                </option>
+                <option value="fallback">
+                  Fallback: {discStatus?.fallback_actor || "curious_coder/facebook-ads-library-scraper"}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Apify API Authentication</label>
+              <div className="p-2.5 rounded bg-slate-50 border flex items-center justify-between">
+                <span className="font-mono text-slate-600">
+                  {discStatus?.configured ? "Token loaded from env (APIFY_API_TOKEN)" : "Token missing from .env"}
+                </span>
+                <span className={discStatus?.configured ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
+                  {discStatus?.configured ? "AUTHENTICATED" : "NOT CONFIGURED"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Autonomous Collection Schedule</label>
+              <div className="p-2.5 rounded bg-slate-50 border text-slate-600 space-y-1">
+                <div>Interval: Every {discStatus?.scheduler_status?.interval_minutes || 360} minutes (6 hours)</div>
+                <div>Status: {discStatus?.scheduler_status?.scheduler_active ? "Active In-Process Loop" : "Idle"}</div>
+                <div>Last Run: {discStatus?.scheduler_status?.last_run?.slice(0, 19) || "Never"}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Hard Spend Caps (Fail-Closed)</label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-slate-500 text-[11px]">Daily Max USD</span>
+                  <input
+                    type="number"
+                    value={dailyBudget}
+                    onChange={(e) => setDailyBudget(Number(e.target.value))}
+                    className="w-full border rounded p-1.5 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <span className="text-slate-500 text-[11px]">Monthly Max USD</span>
+                  <input
+                    type="number"
+                    value={monthlyBudget}
+                    onChange={(e) => setMonthlyBudget(Number(e.target.value))}
+                    className="w-full border rounded p-1.5 text-xs font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded bg-slate-50 border space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Spent Today:</span>
+                <span className="font-mono font-bold">${discStatus?.estimated_spent_today_usd ?? "0.00"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Spent This Month:</span>
+                <span className="font-mono font-bold">${discStatus?.estimated_spent_month_usd ?? "0.00"}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Auto-Collection Toggle</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="autoCollectToggle"
+                  checked={autoCollect}
+                  onChange={(e) => setAutoCollect(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                <label htmlFor="autoCollectToggle" className="text-slate-700">
+                  Allow automatic paid runs during scheduled cycles (Default: Disabled)
+                </label>
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <button
+                onClick={handleManualTrigger}
+                disabled={isTriggering}
+                className="w-full py-2 bg-slate-900 text-white rounded font-medium hover:bg-slate-800 disabled:opacity-50 text-xs"
+              >
+                {isTriggering ? "Running Live Discovery…" : "Run Bounded Discovery Now (1 Seed Query)"}
+              </button>
+              {triggerMsg && <p className="text-xs mt-2 text-slate-700 font-medium">{triggerMsg}</p>}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Weights Cards */}
@@ -101,57 +285,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-
-      {/* Collection & Integration Status */}
-      <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">
-          Source Integrations & Access Status
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
-              <tr>
-                <th className="py-2 px-3">Integration</th>
-                <th className="py-2 px-3">Mode</th>
-                <th className="py-2 px-3">Status</th>
-                <th className="py-2 px-3">Geographic Scope</th>
-                <th className="py-2 px-3">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
-              <tr>
-                <td className="py-2.5 px-3 font-semibold text-slate-800">Meta Ad Library</td>
-                <td className="py-2.5 px-3 font-mono">Dataset Import / Apify</td>
-                <td className="py-2.5 px-3 text-emerald-600 font-medium">Ready</td>
-                <td className="py-2.5 px-3">US Only</td>
-                <td className="py-2.5 px-3 text-slate-500">Official API excludes US commercial ads; file import active</td>
-              </tr>
-              <tr>
-                <td className="py-2.5 px-3 font-semibold text-slate-800">Google Trends</td>
-                <td className="py-2.5 px-3 font-mono">Adapter / Heuristic</td>
-                <td className="py-2.5 px-3 text-emerald-600 font-medium">Active</td>
-                <td className="py-2.5 px-3">US Only</td>
-                <td className="py-2.5 px-3 text-slate-500">Relative search volume trajectory</td>
-              </tr>
-              <tr>
-                <td className="py-2.5 px-3 font-semibold text-slate-800">Reddit Consumer Discussions</td>
-                <td className="py-2.5 px-3 font-mono">JSON / CSV Import</td>
-                <td className="py-2.5 px-3 text-emerald-600 font-medium">Active</td>
-                <td className="py-2.5 px-3">US Only</td>
-                <td className="py-2.5 px-3 text-slate-500">Free API is non-commercial only; file import used for compliance</td>
-              </tr>
-              <tr>
-                <td className="py-2.5 px-3 font-semibold text-slate-800">AI Mechanism Classification</td>
-                <td className="py-2.5 px-3 font-mono">Gemini 2.0 Flash / Heuristics</td>
-                <td className="py-2.5 px-3 text-emerald-600 font-medium">Active (Fallback Ready)</td>
-                <td className="py-2.5 px-3">US Consumer Context</td>
-                <td className="py-2.5 px-3 text-slate-500">Categorizes multi-unit mechanisms and tags as AI_INFERENCE</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }
-

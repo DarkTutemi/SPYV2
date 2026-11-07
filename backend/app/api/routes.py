@@ -19,6 +19,7 @@ from app.api.clusters import router as clusters_router
 from app.api.temporal import router as temporal_router
 from app.api.alerts import router as alerts_router
 from app.api.reviews import router as reviews_router
+from app.api.discovery import router as discovery_router
 
 router = APIRouter()
 
@@ -35,4 +36,5 @@ router.include_router(clusters_router, prefix="/clusters", tags=["Clusters"])
 router.include_router(temporal_router, prefix="/temporal", tags=["Temporal Intelligence"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts & Scheduler"])
 router.include_router(reviews_router, prefix="/reviews", tags=["Analyst Decision Workflow"])
+router.include_router(discovery_router, prefix="", tags=["Live Discovery"])
 
