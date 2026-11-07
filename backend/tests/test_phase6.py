@@ -320,7 +320,7 @@ async def test_provider_timeout_and_backoff(db):
 
     attempts = 0
 
-    async def mock_post(url, json=None, headers=None):
+    async def mock_post(url, json=None, headers=None, **kwargs):
         nonlocal attempts
         attempts += 1
         return httpx.Response(429, request=httpx.Request("POST", url))

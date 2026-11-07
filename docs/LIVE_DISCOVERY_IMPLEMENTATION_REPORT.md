@@ -188,3 +188,4 @@ All 16 frontend Next.js routes compiled cleanly with zero build errors:
   2. Toggle `APIFY_AUTO_COLLECTION_ENABLED=true` in `.env` or enable in Settings.
   3. The system will autonomously poll the Meta Ad Library using the prioritized seeds within the configured $5/day budget cap.
   4. Alternatively, operators can immediately upload free or trial Apify JSON exports via `/import` or the API (`/api/v1/discovery/import-fixture`) to populate the system without incurring any live API charges.
+

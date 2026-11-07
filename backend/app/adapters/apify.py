@@ -107,8 +107,7 @@ class ApifyProviderAdapter:
         }
 
     async def _calculate_current_spend(self) -> tuple[float, float]:
-        """Estimate current spend based on recorded Apify runs."""
-        # Baseline estimate: $0.001 per ad record fetched
+        """Calculate spend based on actual Apify run charges, with record-based fallback."""
         try:
             now = datetime.now(timezone.utc)
             start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -116,23 +115,32 @@ class ApifyProviderAdapter:
 
             # Query runs
             result_day = await self.db.execute(
-                select(func.sum(CollectionRun.records_fetched)).join(CollectionJob).filter(
+                select(CollectionRun).join(CollectionJob).filter(
                     CollectionJob.job_type == "apify_live",
                     CollectionRun.started_at >= start_of_day,
                 )
             )
-            records_today = result_day.scalar() or 0
+            runs_today = result_day.scalars().all()
 
             result_month = await self.db.execute(
-                select(func.sum(CollectionRun.records_fetched)).join(CollectionJob).filter(
+                select(CollectionRun).join(CollectionJob).filter(
                     CollectionJob.job_type == "apify_live",
                     CollectionRun.started_at >= start_of_month,
                 )
             )
-            records_month = result_month.scalar() or 0
+            runs_month = result_month.scalars().all()
 
-            cost_today = records_today * 0.0012
-            cost_month = records_month * 0.0012
+            def sum_runs(runs):
+                total = 0.0
+                for r in runs:
+                    if r.errors and isinstance(r.errors, dict) and "actual_cost_usd" in r.errors:
+                        total += float(r.errors["actual_cost_usd"])
+                    else:
+                        total += (r.records_fetched or 0) * 0.0012
+                return total
+
+            cost_today = sum_runs(runs_today)
+            cost_month = sum_runs(runs_month)
             return cost_today, cost_month
         except Exception as e:
             logger.warning("Error calculating Apify spend: %s", e)
@@ -323,19 +331,25 @@ class ApifyProviderAdapter:
         await self.db.flush()
 
         try:
-            # 1. Trigger Apify Actor Run
+            # 1. Trigger Apify Actor Run with cloud-side hard spending cap
+            spent_today, spent_month = await self._calculate_current_spend()
+            remaining_budget = max(0.01, min(self.daily_budget_usd - spent_today, self.monthly_budget_usd - spent_month))
+
             actor_id_slug = actor_name.replace("/", "~")
-            run_data = await self._start_actor_run(actor_id_slug, run_input)
+            run_data = await self._start_actor_run(actor_id_slug, run_input, max_charge_usd=remaining_budget)
             apify_run_id = run_data.get("id")
             dataset_id = run_data.get("defaultDatasetId")
 
             if not apify_run_id or not dataset_id:
                 raise RuntimeError(f"Failed to start Apify actor {actor_name}: invalid response.")
 
-            # 2. Wait for completion
-            final_status = await self._wait_for_run_completion(apify_run_id)
+            # 2. Wait for completion and extract provider-reported usage
+            final_run_data = await self._wait_for_run_completion(apify_run_id)
+            final_status = final_run_data.get("status")
             if final_status != "SUCCEEDED":
                 raise RuntimeError(f"Apify actor run {apify_run_id} finished with status: {final_status}")
+
+            actual_cost = float(final_run_data.get("usageTotalUsd") or final_run_data.get("usageUsd") or 0.0)
 
             # 3. Fetch Dataset Records
             raw_records = await self.fetch_dataset(dataset_id)
@@ -367,7 +381,8 @@ class ApifyProviderAdapter:
             run.records_new = import_result.records_new
             run.records_updated = import_result.records_updated
             run.records_duplicate = import_result.records_duplicate + (len(raw_records) - len(valid_records))
-            run.coverage_notes = f"Validated {len(valid_records)}/{len(raw_records)} records as verified US ads."
+            run.coverage_notes = f"Cost: ${actual_cost:.4f} USD | Validated {len(valid_records)}/{len(raw_records)} records as verified US ads."
+            run.errors = {"actual_cost_usd": actual_cost} if actual_cost > 0 else None
 
             data_source.last_successful_collection = datetime.now(timezone.utc)
             await self.db.commit()
@@ -377,6 +392,7 @@ class ApifyProviderAdapter:
                 "success": True,
                 "actor": actor_name,
                 "apify_run_id": apify_run_id,
+                "actual_cost_usd": actual_cost,
                 "records_fetched": len(raw_records),
                 "records_valid": len(valid_records),
                 "records_new": import_result.records_new,
@@ -400,9 +416,16 @@ class ApifyProviderAdapter:
                 "records_valid": 0,
             }
 
-    async def _start_actor_run(self, actor_slug: str, run_input: dict[str, Any]) -> dict[str, Any]:
-        """Post execution to Apify with exponential retry."""
+    async def _start_actor_run(
+        self, actor_slug: str, run_input: dict[str, Any], max_charge_usd: Optional[float] = None
+    ) -> dict[str, Any]:
+        """Post execution to Apify with exponential retry and cloud-side spend cap enforcement."""
         url = f"{APIFY_BASE_URL}/acts/{actor_slug}/runs"
+        params: dict[str, Any] = {}
+        if max_charge_usd is not None and max_charge_usd > 0:
+            params["maxTotalChargeUsd"] = round(max_charge_usd, 4)
+            params["timeout"] = self.timeout_seconds
+
         headers = {
             "Authorization": f"Bearer {self.api_token}",
             "Content-Type": "application/json",
@@ -413,7 +436,7 @@ class ApifyProviderAdapter:
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
             for attempt in range(retries):
                 try:
-                    resp = await client.post(url, json=run_input, headers=headers)
+                    resp = await client.post(url, json=run_input, params=params, headers=headers)
                     if resp.status_code in (200, 201):
                         return resp.json().get("data", {})
                     elif resp.status_code in (401, 403):
@@ -432,8 +455,8 @@ class ApifyProviderAdapter:
 
         raise RuntimeError("Exceeded retry attempts starting Apify actor run.")
 
-    async def _wait_for_run_completion(self, run_id: str, poll_interval: float = 3.0, max_wait: float = 180.0) -> str:
-        """Poll run status until terminal status or timeout."""
+    async def _wait_for_run_completion(self, run_id: str, poll_interval: float = 3.0, max_wait: float = 180.0) -> dict[str, Any]:
+        """Poll run status until terminal status or timeout. Returns full run payload."""
         url = f"{APIFY_BASE_URL}/actor-runs/{run_id}"
         headers = {"Authorization": f"Bearer {self.api_token}"}
 
@@ -448,7 +471,7 @@ class ApifyProviderAdapter:
                     data = resp.json().get("data", {})
                     status = data.get("status")
                     if status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
-                        return status
+                        return data
                 await asyncio.sleep(poll_interval)
 
     async def fetch_run_status(self, run_id: str) -> dict[str, Any]:
