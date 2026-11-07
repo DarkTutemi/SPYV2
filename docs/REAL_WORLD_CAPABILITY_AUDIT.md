@@ -228,3 +228,4 @@ Attempted to trigger a live, read-only discovery using built-in tools without pa
 ### F. What exactly prevents this platform from becoming an operational US product spy engine?
 **The absence of a funded, recurring US advertising data ingestion pipeline.**
 Because official APIs (Meta, TikTok, Reddit) legally withhold or charge prohibitively for US commercial advertising archives, the system relies on Apify scraper exports. Adding an Apify API token ($5–$20/month) and running a recurring ad library collection actor is the single missing bridge required to transform this software framework into a live, operational US product intelligence system.
+
