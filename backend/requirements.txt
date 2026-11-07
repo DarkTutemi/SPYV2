@@ -30,11 +30,11 @@ python-dotenv>=1.0.0
 structlog>=24.4.0
 
 # Image Processing (Phase 2)
-# imagededup>=0.3.2
-# Pillow>=10.4.0
+Pillow>=10.4.0
+imagehash>=4.3.1
 
 # Semantic Similarity (Phase 2)
-# sentence-transformers>=3.0.0
+# sentence-transformers>=3.0.0  # Large download (~400MB); uncomment when needed
 
 # Trends (Phase 3)
 # trendspy>=0.1.0

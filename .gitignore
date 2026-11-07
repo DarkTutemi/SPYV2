@@ -18,6 +18,8 @@ out/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # Environment

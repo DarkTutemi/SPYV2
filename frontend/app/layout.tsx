@@ -6,10 +6,16 @@ export const metadata: Metadata = { title: "US WIN HUNTER", description: "Eviden
 
 const nav = [
   ["/", "Opportunity Ranking"],
+  ["/emerging", "Emerging Radar"],
+  ["/analytics", "Historical Analytics"],
+  ["/alerts", "Alerts & Pipeline"],
+  ["/pain", "Pain & Trends"],
   ["/products", "Discovery Feed"],
+  ["/clusters", "Product Clusters"],
   ["/advertisers", "Advertiser Explorer"],
   ["/import", "Import Data"],
   ["/health", "Data Health"],
+  ["/settings", "Configuration & Weights"],
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

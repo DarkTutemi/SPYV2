@@ -30,14 +30,25 @@ function Components({ title, c }: { title: string; c?: Comp }) {
   );
 }
 
+type AovScenario = { quantity: number; estimated_order_value: number | null; is_within_target_aov: boolean; source: string; status: string };
+type BundleAnalysis = {
+  bundle_mechanism: string;
+  is_natural_bundle: boolean;
+  classification_confidence: number;
+  reasoning: string;
+  aov_scenarios: AovScenario[];
+};
+
 export default function ProductReport({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [r, setR] = useState<Report | null>(null);
   const [ads, setAds] = useState<Ad[]>([]);
+  const [bundleAnalysis, setBundleAnalysis] = useState<BundleAnalysis | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     api<Report>(`/products/${id}/report`).then(setR).catch((e) => setErr(String(e)));
     api<Ad[]>(`/advertisements/?product_id=${id}&page_size=200`).then(setAds).catch(() => {});
+    api<BundleAnalysis>(`/bundles/scenarios/${id}`).then(setBundleAnalysis).catch(() => {});
   }, [id]);
   if (err) return <p className="text-red-600">{err}</p>;
   if (!r) return <p>Loading…</p>;
@@ -76,10 +87,99 @@ export default function ProductReport({ params }: { params: Promise<{ id: string
           <div className="flex items-end gap-1 h-24">{r.momentum_data.map((m) => <div key={m.date} title={`${m.date}: ${m.ads}`} className="bg-slate-700 w-2" style={{ height: `${Math.min(100, m.ads * 5)}%` }} />)}</div>}
       </section>
 
-      <section className="bg-white rounded shadow p-3">
-        <h2 className="font-semibold mb-2">Bundle offers (observed — not proof of purchases)</h2>
-        {r.bundle_offers.length === 0 ? <p className="text-sm text-slate-500">No bundle offers observed.</p> :
-          <ul className="text-sm">{r.bundle_offers.map((b) => <li key={b.id}>{b.quantity} units · {b.bundle_price_usd != null ? `$${b.bundle_price_usd}` : "price unknown"} · {b.bundle_mechanism} · {b.bundle_status}</li>)}</ul>}
+      <section className="bg-white rounded shadow p-4 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+          <h2 className="font-semibold text-slate-800">
+            Bundle Intelligence (Engine F)
+          </h2>
+          {bundleAnalysis && (
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                  bundleAnalysis.is_natural_bundle
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {bundleAnalysis.is_natural_bundle ? "Natural Multi-Unit Demand" : "Forced Discount / Unclear Demand"}
+              </span>
+              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono">
+                {bundleAnalysis.bundle_mechanism}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {bundleAnalysis?.reasoning && (
+          <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-100">
+            <span className="font-semibold text-slate-700">Mechanism Analysis: </span>
+            {bundleAnalysis.reasoning}
+          </p>
+        )}
+
+        {/* $30-$90 AOV Scenarios for 3, 5, 10 units */}
+        {bundleAnalysis?.aov_scenarios && bundleAnalysis.aov_scenarios.length > 0 && (
+          <div className="space-y-1.5">
+            <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              Target AOV Feasibility ($30–$90 USD Window)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {bundleAnalysis.aov_scenarios.map((s) => (
+                <div
+                  key={s.quantity}
+                  className={`p-2.5 rounded border text-xs flex flex-col justify-between ${
+                    s.is_within_target_aov
+                      ? "bg-emerald-50/60 border-emerald-200"
+                      : "bg-slate-50 border-slate-200"
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-bold text-slate-800">{s.quantity} Units</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                        s.is_within_target_aov
+                          ? "bg-emerald-200 text-emerald-900"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {s.is_within_target_aov ? "$30–$90 AOV FIT" : "Outside Target"}
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {s.estimated_order_value !== null ? `$${s.estimated_order_value.toFixed(2)}` : "Unknown Price"}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1 truncate">{s.source}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Observed competitor bundle offers */}
+        <div className="space-y-1.5 pt-2">
+          <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+            Observed Competitor Bundle Offers
+          </h3>
+          <p className="text-[11px] text-slate-500">
+            Competitor offering a bundle is observable activity, NOT proof of customer purchase quantities.
+          </p>
+          {r.bundle_offers.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No explicit bundle offers observed yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 text-xs">
+              {r.bundle_offers.map((b) => (
+                <li key={b.id} className="py-1.5 flex items-center justify-between">
+                  <span className="font-medium text-slate-800">{b.quantity} Units Pack</span>
+                  <span className="text-slate-600">
+                    {b.bundle_price_usd != null ? `$${b.bundle_price_usd.toFixed(2)}` : "Price unrecorded"}
+                  </span>
+                  <span className="text-slate-500 font-mono text-[11px]">{b.bundle_mechanism}</span>
+                  <span className="text-slate-400 uppercase text-[10px]">{b.bundle_status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
 
       <section className="bg-white rounded shadow p-3">

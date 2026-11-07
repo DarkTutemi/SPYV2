@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.api.routes import router as api_router
+from app.services.scheduler import get_scheduler
 
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,16 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
 
+    # Start background scheduler (only in non-test environments)
+    scheduler = get_scheduler()
+    if settings.app_env != "testing":
+        scheduler.start()
+        logger.info("Background scheduler started")
+
     yield
 
+    # Shutdown
+    scheduler.stop()
     logger.info("US WIN HUNTER shutting down")
 
 
