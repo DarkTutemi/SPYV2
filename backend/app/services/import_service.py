@@ -235,6 +235,11 @@ class ImportService:
         """Extract or update advertisement from a Meta ad record."""
         ext_id = str(record.get("id") or record.get("adArchiveID") or "")
 
+        # Parse dates
+        start_date = self._parse_date(
+            record.get("startDate") or record.get("ad_delivery_start_time")
+        )
+
         if ext_id:
             existing = await self.db.execute(
                 select(Advertisement).where(
@@ -246,12 +251,9 @@ class ImportService:
             if ad:
                 ad.last_seen_at = datetime.now(timezone.utc)
                 ad.is_active = record.get("isActive", record.get("is_active", True))
+                if not ad.advertiser_start_date and start_date:
+                    ad.advertiser_start_date = start_date
                 return ad
-
-        # Parse dates
-        start_date = self._parse_date(
-            record.get("startDate") or record.get("ad_delivery_start_time")
-        )
 
         # Build ad URL
         ad_url = record.get("snapshotUrl") or record.get("ad_snapshot_url") or ""
@@ -349,6 +351,7 @@ class ImportService:
             return product
 
         # Create new product
+        geo_confidence = self._assess_geo_confidence(record)
         product = Product(
             name=product_name[:500],
             normalized_name=norm_name[:500],
@@ -356,6 +359,7 @@ class ImportService:
             image_url=ad.creative_url,
             source_url=landing_url or ad.ad_url,
             target_country="US",
+            us_relevance_confidence=geo_confidence,
             source_type=DataSourceType.META_AD_LIBRARY,
             functional_use_case=None,
             customer_pain=None,
@@ -517,6 +521,17 @@ class ImportService:
 
     def _extract_geo_context(self, record: dict) -> str:
         """Extract geographic context from a record."""
+        geo_evidence = record.get("geo_evidence_type")
+        if geo_evidence == "EXPLICIT_US_TARGETING":
+            return "US (Explicit Targeting)"
+        elif geo_evidence == "OBSERVED_US_DELIVERY":
+            return "US (Observed Regional Delivery)"
+        elif geo_evidence == "US_SEARCH_FILTER":
+            return "US (Search Filter - Not Confirmed Targeting)"
+        elif geo_evidence == "NON_US_TARGETING":
+            countries = record.get("targetCountries") or []
+            return f"Non-US: {countries}"
+
         countries = record.get("targetCountries") or record.get("delivery_by_region") or []
         if isinstance(countries, list):
             if "US" in countries:
@@ -526,11 +541,25 @@ class ImportService:
         # Check currency
         currency = record.get("currency", "")
         if currency == "USD":
-            return "US"  # But not definitive evidence
+            return "US (Currency USD)"  # But not definitive evidence
         return "unknown"
 
     def _assess_geo_confidence(self, record: dict) -> ConfidenceLevel:
         """Assess confidence of US geographic targeting."""
+        geo_conf = record.get("geo_confidence")
+        if geo_conf == "HIGH":
+            return ConfidenceLevel.HIGH
+        elif geo_conf == "MEDIUM":
+            return ConfidenceLevel.MEDIUM
+        elif geo_conf == "LOW":
+            return ConfidenceLevel.LOW
+
+        geo_evidence = record.get("geo_evidence_type")
+        if geo_evidence in ("EXPLICIT_US_TARGETING", "OBSERVED_US_DELIVERY"):
+            return ConfidenceLevel.HIGH
+        elif geo_evidence == "US_SEARCH_FILTER":
+            return ConfidenceLevel.MEDIUM
+
         countries = record.get("targetCountries") or record.get("delivery_by_region") or []
         if isinstance(countries, list) and "US" in countries:
             return ConfidenceLevel.HIGH

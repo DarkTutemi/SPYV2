@@ -67,6 +67,36 @@ async def get_discovery_status(db: AsyncSession = Depends(get_db)):
     return status
 
 
+@router.get("/dry-run")
+async def get_dry_run_payload(
+    query: str = Query(default="washable microfiber mop pads multi pack washable rotation"),
+    max_ads: int = Query(default=20, ge=1, le=100),
+    sort_by: str = Query(default="recent"),
+    max_charge_usd: float = Query(default=0.50, ge=0.01, le=10.0),
+    only_ads_newer_than: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate an inspected dry-run payload conforming to the official Apify Actor schema.
+    Does not initiate network calls or incur charges.
+    """
+    adapter = ApifyProviderAdapter(db)
+    return adapter.build_dry_run_payload(
+        query=query,
+        max_ads=max_ads,
+        sort_by=sort_by,
+        max_charge_usd=max_charge_usd,
+        only_ads_newer_than=only_ads_newer_than,
+    )
+
+
+@router.get("/first-live-run/config")
+async def get_first_live_run_config(db: AsyncSession = Depends(get_db)):
+    """Inspect the exact verified configuration prepared for the first bounded live test."""
+    adapter = ApifyProviderAdapter(db)
+    return adapter.prepare_first_live_run_config()
+
+
 @router.get("/seeds")
 async def list_seeds(
     limit: int = Query(default=50, ge=1, le=200),

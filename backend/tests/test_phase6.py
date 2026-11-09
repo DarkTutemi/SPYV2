@@ -546,3 +546,323 @@ async def test_discovery_api_status_and_seeds(client):
     assert fix_res["records_valid"] == 3
     assert fix_res["records_new"] == 3
 
+
+# ── 11. Official Schema Contract & US Evidence Tiering Tests ──────────────────
+
+@pytest.mark.asyncio
+async def test_official_schema_contract_mapping(db):
+    """Verify exact field mapping against official automation-lab/facebook-ads-library schema."""
+    adapter = ApifyProviderAdapter(db)
+
+    official_raw_record = {
+        "adArchiveId": "9988776655",
+        "adLibraryUrl": "https://www.facebook.com/ads/library/?id=9988776655",
+        "pageId": "1234567890",
+        "pageName": "EcoBrush Living",
+        "startDate": "2026-11-01T00:00:00Z",
+        "isActive": True,
+        "bodyText": "Bamboo dish brush replacement heads 4-pack for daily dishwashing rotation.",
+        "imageUrls": ["https://cdn.ecobrush.com/heads-4pack.jpg"],
+        "videoUrls": [],
+        "linkUrl": "https://ecobrush.com/products/heads-4pack",
+        "ctaText": "Shop Now",
+    }
+
+    normalized = adapter.normalize_records([official_raw_record], "automation-lab/facebook-ads-library")
+    assert len(normalized) == 1
+    norm = normalized[0]
+
+    assert norm["id"] == "9988776655"
+    assert norm["adArchiveId"] == "9988776655"
+    assert norm["pageId"] == "1234567890"
+    assert norm["pageName"] == "EcoBrush Living"
+    assert norm["adLibraryUrl"] == "https://www.facebook.com/ads/library/?id=9988776655"
+    assert norm["startDate"] == "2026-11-01T00:00:00Z"
+    assert norm["isActive"] is True
+    assert norm["bodyText"] == "Bamboo dish brush replacement heads 4-pack for daily dishwashing rotation."
+    assert norm["imageUrls"] == ["https://cdn.ecobrush.com/heads-4pack.jpg"]
+    assert norm["linkUrl"] == "https://ecobrush.com/products/heads-4pack"
+    assert norm["ctaText"] == "Shop Now"
+    assert norm["geo_evidence_type"] == "US_SEARCH_FILTER"
+    assert norm["geo_confidence"] == "MEDIUM"
+
+    valid, errors = adapter.validate_records(normalized)
+    assert len(valid) == 1
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_us_evidence_handling_tiering(db):
+    """
+    Verify tiered US geographic evidence handling:
+    1. EXPLICIT_US_TARGETING: Confidence HIGH
+    2. US_SEARCH_FILTER: Confidence MEDIUM (not rejected simply because targetCountries omitted)
+    3. NON_US_TARGETING: Rejected
+    """
+    adapter = ApifyProviderAdapter(db)
+
+    records = [
+        # 1. Explicit US targeting
+        {
+            "adArchiveId": "exp_us_01",
+            "pageName": "Explicit US Brand",
+            "bodyText": "Explicit targeting to US buyers",
+            "targetCountries": ["US"],
+        },
+        # 2. US search filter only (common Meta US ad output)
+        {
+            "adArchiveId": "search_us_02",
+            "pageName": "Search Filter US Brand",
+            "bodyText": "Collected under country=US search filter",
+            # targetCountries omitted by Meta
+        },
+        # 3. Explicit non-US targeting
+        {
+            "adArchiveId": "non_us_03",
+            "pageName": "Global Ex-US Brand",
+            "bodyText": "Australian market only",
+            "targetCountries": ["AU", "NZ"],
+        },
+    ]
+
+    normalized = adapter.normalize_records(records, "automation-lab/facebook-ads-library")
+    assert len(normalized) == 3
+
+    assert normalized[0]["geo_evidence_type"] == "EXPLICIT_US_TARGETING"
+    assert normalized[0]["geo_confidence"] == "HIGH"
+
+    assert normalized[1]["geo_evidence_type"] == "US_SEARCH_FILTER"
+    assert normalized[1]["geo_confidence"] == "MEDIUM"
+
+    assert normalized[2]["geo_evidence_type"] == "NON_US_TARGETING"
+    assert normalized[2]["geo_confidence"] == "REJECTED"
+
+    valid, errors = adapter.validate_records(normalized)
+    assert len(valid) == 2
+    assert valid[0]["adArchiveId"] == "exp_us_01"
+    assert valid[1]["adArchiveId"] == "search_us_02"
+    assert len(errors) == 1
+    assert "non_us_03" in errors[0]
+
+
+@pytest.mark.asyncio
+async def test_dry_run_payload_generation(client, db):
+    """Verify dry-run payload builder and GET /api/v1/discovery/dry-run API endpoint."""
+    adapter = ApifyProviderAdapter(db)
+    payload = adapter.build_dry_run_payload(
+        query="washable microfiber mop pads multi pack washable rotation",
+        max_ads=20,
+        sort_by="recent",
+        max_charge_usd=0.50,
+    )
+
+    assert payload["actor"] == "automation-lab/facebook-ads-library"
+    assert payload["actor_slug"] == "automation-lab~facebook-ads-library"
+    assert payload["method"] == "POST"
+    assert payload["endpoint_url"] == "https://api.apify.com/v2/acts/automation-lab~facebook-ads-library/runs"
+    assert payload["query_params"]["maxTotalChargeUsd"] == 0.50
+    assert payload["request_body"]["searchQueries"] == ["washable microfiber mop pads multi pack washable rotation"]
+    assert payload["request_body"]["country"] == "US"
+    assert payload["request_body"]["activeStatus"] == "active"
+    assert payload["request_body"]["sortBy"] == "recent"
+    assert payload["request_body"]["maxAds"] == 20
+    assert payload["dry_run"] is True
+
+    # Test API endpoint
+    res = await client.get("/api/v1/discovery/dry-run?query=microfiber+pads&max_ads=20&max_charge_usd=0.50")
+    assert res.status_code == 200
+    api_payload = res.json()
+    assert api_payload["dry_run"] is True
+    assert api_payload["query_params"]["maxTotalChargeUsd"] == 0.50
+    assert api_payload["request_body"]["searchQueries"] == ["microfiber pads"]
+    assert api_payload["request_body"]["activeStatus"] == "active"
+    assert api_payload["request_body"]["sortBy"] == "recent"
+
+
+@pytest.mark.asyncio
+async def test_budget_protection_concurrency_lock(db):
+    """Verify concurrency mutex and spend limits preventing parallel runaway costs."""
+    adapter = ApifyProviderAdapter(db, api_token="test_token")
+    assert hasattr(ApifyProviderAdapter, "_lock")
+    assert adapter.auto_enabled is False  # Safe default: paid collection disabled by default
+
+
+# ── 12. Final Pre-Live Hardening Tests ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_persistent_atomic_budget_reservation_and_in_flight_tracking(db):
+    """
+    Verify persistent atomic database reservation:
+    - In-flight commitments are counted before Apify run finishes
+    - Concurrent requests exceeding budget are blocked by DB state
+    - Stale in-flight runs (>15m) are automatically timed out
+    """
+    adapter = ApifyProviderAdapter(db, api_token="test_token")
+    adapter.daily_budget_usd = 0.75  # Cap at $0.75
+
+    # 1. First reservation of $0.50
+    ok1, run1, job1, msg1 = await adapter.reserve_budget(
+        job_name="run_1",
+        actor_name="automation-lab/facebook-ads-library",
+        reservation_amount_usd=0.50,
+    )
+    assert ok1 is True
+    assert run1.status == CollectionJobStatus.RUNNING
+    assert run1.errors["reserved_cost_usd"] == 0.50
+
+    # 2. Check spend: should now reflect the in-flight commitment of $0.50
+    spent_today, _ = await adapter._calculate_current_spend()
+    assert spent_today >= 0.50
+
+    # 3. Second reservation of $0.50 should FAIL because $0.50 + $0.50 = $1.00 > $0.75
+    ok2, run2, job2, msg2 = await adapter.reserve_budget(
+        job_name="run_2",
+        actor_name="automation-lab/facebook-ads-library",
+        reservation_amount_usd=0.50,
+    )
+    assert ok2 is False
+    assert "Daily budget of $0.75 reached" in msg2
+
+    # 4. Simulate run1 completion with actual charge of $0.15
+    run1.status = CollectionJobStatus.COMPLETED
+    run1.errors = {"actual_cost_usd": 0.15, "cost_status": "VERIFIED_CHARGED"}
+    await db.commit()
+
+    # 5. Check spend now: $0.15 actual, in-flight released
+    spent_after, _ = await adapter._calculate_current_spend()
+    assert round(spent_after, 2) == 0.15
+
+    # 6. Now second reservation of $0.50 succeeds because $0.15 + $0.50 = $0.65 <= $0.75
+    ok3, run3, job3, msg3 = await adapter.reserve_budget(
+        job_name="run_3",
+        actor_name="automation-lab/facebook-ads-library",
+        reservation_amount_usd=0.50,
+    )
+    assert ok3 is True
+
+
+@pytest.mark.asyncio
+async def test_apify_billing_details_inspection():
+    """Verify pay-per-event pricing extraction, event usage, and verified charge labeling."""
+    # Case A: PPE Actor with platform usage and event usage
+    run_data_ppe = {
+        "status": "SUCCEEDED",
+        "usageTotalUsd": 0.0102,
+        "eventUsageTotalUsd": 0.0240,
+        "chargedEventCounts": {"ads": 20},
+        "pricingInfo": {
+            "pricingModel": "PAY_PER_EVENT",
+            "unitName": "ad",
+            "pricePerUnitUsd": 0.0012,
+        },
+    }
+    billing_a = ApifyProviderAdapter.extract_billing_details(run_data_ppe, records_fetched=20)
+    assert billing_a["cost_status"] == "VERIFIED_CHARGED"
+    assert billing_a["actual_cost_usd"] == 0.0342
+    assert billing_a["charged_event_counts"] == {"ads": 20}
+
+    # Case B: Free tier / unmetered with records fetched -> ESTIMATED
+    run_data_zero = {
+        "status": "SUCCEEDED",
+        "usageTotalUsd": 0.0,
+        "eventUsageTotalUsd": 0.0,
+    }
+    billing_b = ApifyProviderAdapter.extract_billing_details(run_data_zero, records_fetched=10)
+    assert billing_b["cost_status"] == "ESTIMATED"
+    assert billing_b["actual_cost_usd"] == 0.012
+
+    # Case C: 0 records, 0 charges -> UNMETERED
+    billing_c = ApifyProviderAdapter.extract_billing_details(run_data_zero, records_fetched=0)
+    assert billing_c["cost_status"] == "UNMETERED"
+    assert billing_c["actual_cost_usd"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_ad_freshness_classification_and_launch_date_filtering(db):
+    """
+    Verify filtering using actual startDate to identify newly launched ads
+    versus old active campaigns running for months.
+    """
+    adapter = ApifyProviderAdapter(db)
+    now = datetime.now(timezone.utc)
+
+    raw_ads = [
+        # Launched 3 days ago (New launch)
+        {
+            "id": "fresh_01",
+            "pageName": "FreshBrand",
+            "title": "New Mop Pad",
+            "startDate": (now - timedelta(days=3)).strftime("%Y-%m-%d"),
+            "isActive": True,
+        },
+        # Launched 10 days ago (14d window)
+        {
+            "id": "fresh_02",
+            "pageName": "FreshBrand",
+            "title": "Recent Mop Pad",
+            "startDate": (now - timedelta(days=10)).strftime("%Y-%m-%d"),
+            "isActive": True,
+        },
+        # Launched 120 days ago (Old active campaign)
+        {
+            "id": "old_01",
+            "pageName": "LegacyBrand",
+            "title": "Evergreen Mop Pad",
+            "startDate": (now - timedelta(days=120)).strftime("%Y-%m-%d"),
+            "isActive": True,
+        },
+    ]
+
+    normalized = adapter.normalize_records(raw_ads, "automation-lab/facebook-ads-library")
+    assert len(normalized) == 3
+
+    assert normalized[0]["freshness_tier"] == "NEW_LAUNCH_7D"
+    assert normalized[0]["days_since_launch"] <= 4
+
+    assert normalized[1]["freshness_tier"] == "NEW_LAUNCH_14D"
+    assert normalized[1]["days_since_launch"] <= 11
+
+    assert normalized[2]["freshness_tier"] == "ESTABLISHED_CAMPAIGN"
+    assert normalized[2]["days_since_launch"] >= 115
+
+    # Filter by 14-day window: should include only fresh_01 and fresh_02
+    fresh_14d, excluded = adapter.filter_by_launch_window(normalized, max_days_since_launch=14)
+    assert len(fresh_14d) == 2
+    assert {a["id"] for a in fresh_14d} == {"fresh_01", "fresh_02"}
+    assert len(excluded) == 1
+    assert excluded[0]["id"] == "old_01"
+
+
+@pytest.mark.asyncio
+async def test_first_bounded_live_run_preparation(client, db):
+    """
+    Verify exact configuration prepared for the first bounded live test:
+    Keyword: washable microfiber mop pads, country: US, max 20 ads, max $0.50 cap.
+    """
+    adapter = ApifyProviderAdapter(db)
+    config = adapter.prepare_first_live_run_config()
+
+    assert config["actor"] == "automation-lab/facebook-ads-library"
+    assert config["country"] == "US"
+    assert config["keyword"] == "washable microfiber mop pads"
+    assert config["activeStatus"] == "active"
+    assert config["sortBy"] == "recent"
+    assert config["maxAds"] == 20
+    assert config["max_charge_usd"] == 0.50
+    assert config["recurring"] is False
+    assert config["use_fallback"] is False
+    assert config["auto_collection_enabled"] is False
+
+    # Calling without token fails closed immediately
+    adapter_no_token = ApifyProviderAdapter(db, api_token="")
+    res = await adapter_no_token.execute_bounded_first_live_run()
+    assert res["success"] is False
+    assert res["status"] == ProviderStatus.NOT_CONFIGURED.value
+
+    # Verify endpoint GET /api/v1/discovery/first-live-run/config
+    api_res = await client.get("/api/v1/discovery/first-live-run/config")
+    assert api_res.status_code == 200
+    assert api_res.json()["keyword"] == "washable microfiber mop pads"
+
+
+

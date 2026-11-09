@@ -198,3 +198,4 @@ While live provider calls remain blocked pending credential configuration, **all
 - **The Sole Blocker:** The system lacks an active `APIFY_API_TOKEN`.
 - **System Integrity:** The architecture, quality gates, actor input mapping, dataset normalization, cloud-side spending limits (`maxTotalChargeUsd`), and downstream intelligence engines are 100% complete and verified by 87 passing tests.
 - **Action Required for Live Proof:** The operator must supply an Apify API token in `.env` and grant explicit authorization to run the bounded 20-ad test.
+
