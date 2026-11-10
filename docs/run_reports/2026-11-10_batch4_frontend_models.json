@@ -1,0 +1,43 @@
+{
+  "report_id": "batch4_frontend_models_20261110",
+  "batch": "BATCH 4 — Frontend Commercial Classification & Honest Data Presentation",
+  "timestamp_utc": "2026-11-10T19:30:00Z",
+  "timestamp_ict": "2026-11-11T02:30:00+07:00",
+  "status": "COMPLETED",
+  "repository": "https://github.com/DarkTutemi/SPYV2",
+  "branch": "master",
+  "fixes": [
+    {
+      "bug_id": "BUG_5_FRONTEND_COMMERCIAL_PRESENTATION",
+      "description": "Updated homepage (frontend/app/page.tsx) and product detail view (frontend/app/products/[id]/page.tsx) to enforce honest multi-model presentation without penalizing single-item winners or fabricating unverified bundles.",
+      "categories_implemented": [
+        "Category A: Best Single-Product Opportunities (MODEL_A_SINGLE_PRODUCT)",
+        "Category B: Best Bundle / High-AOV Opportunities (MODEL_B_NATURAL_MULTI_UNIT & MODEL_C_HIGH_AOV_OFFER)",
+        "Category C: Best Overall Opportunities (Balanced Composite Ranking v4)",
+        "All Discoveries Feed (Full 109 Canonical Products)"
+      ],
+      "authentic_evidence_fields_displayed": [
+        "Product Name & Category",
+        "Evidence Source (Meta Ad Library, Shopify D2C, Google Trends, Amazon US)",
+        "Price & Price Evidence Taxonomy ([Observed Checkout Price], [Retail Listing Benchmark], [Advertised Price], [Scenario Modeled])",
+        "Core Opportunity Score vs Bundle Upside Score",
+        "Evidence Confidence %",
+        "Strategic Rationale (Why It Ranks High) & Downside Risks (Why It Might Fail)",
+        "Next Validation Action"
+      ],
+      "build_verification": {
+        "framework": "Next.js 15.5.29",
+        "total_routes_compiled": 16,
+        "typescript_errors": 0,
+        "lint_errors": 0,
+        "build_status": "SUCCESS"
+      }
+    }
+  ],
+  "spend_safeguards": {
+    "new_paid_apify_runs": 0,
+    "actual_new_spend_usd": 0.00,
+    "session_remaining_budget_usd": 1.9218,
+    "t14_frozen_status": "LOCKED until 2026-11-24T01:26:00+07:00"
+  }
+}

@@ -4,12 +4,20 @@ import { api, fmt } from "@/lib/api";
 
 type Comp = Record<string, { raw: number; weight: number; description: string }>;
 type Report = {
-  product: { name: string; description: string | null; image_url: string | null; source_url: string | null; functional_use_case: string | null; us_relevance_confidence: string };
+  product: { name: string; description: string | null; image_url: string | null; source_url: string | null; functional_use_case: string | null; us_relevance_confidence: string; source_type?: string | null };
   customer_pain: string | null; us_market_verified: boolean; first_observed: string | null;
   observed_advertiser_count: number; observed_active_ad_count: number; new_ads_7d: number; new_ads_14d: number; new_ads_30d: number;
   ad_persistence_days: number | null; competitor_domains: string[];
-  bundle_offers: { id: string; quantity: number; bundle_price_usd: number | null; bundle_mechanism: string; bundle_status: string; source_url: string | null }[];
+  bundle_offers: { id: string; quantity: number; bundle_price_usd: number | null; bundle_mechanism: string; bundle_status: string; source_url: string | null; price_evidence_type?: string | null }[];
   emergence_score: number | null; evidence_confidence: number | null; bundle_potential: number | null;
+  commercial_model?: string | null;
+  core_opportunity_score?: number | null;
+  bundle_upside_score?: number | null;
+  why_it_ranks_high?: string | null;
+  why_it_might_fail?: string | null;
+  what_evidence_supports_it?: string | null;
+  what_remains_unknown?: string | null;
+  next_validation_action?: string | null;
   score_components: { emergence: Comp; confidence: Comp; bundle: Comp } | null;
   momentum_data: { date: string; ads: number }[]; data_gaps: string[];
 };
@@ -74,6 +82,59 @@ export default function ProductReport({ params }: { params: Promise<{ id: string
         {stat("Days since first observed", r.ad_persistence_days)}
       </div>
       <p className="text-xs text-slate-500">“First observed” is when our data first saw it, not the product launch date. Ad counts are not sales.</p>
+
+      {/* Commercial Model Intelligence Section */}
+      <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-slate-900">Commercial Opportunity Model</h2>
+            {r.commercial_model && (
+              <span className={`text-xs px-2.5 py-0.5 rounded font-bold border ${
+                r.commercial_model === "MODEL_A_SINGLE_PRODUCT"
+                  ? "bg-sky-100 text-sky-800 border-sky-300"
+                  : r.commercial_model === "MODEL_B_NATURAL_MULTI_UNIT"
+                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                  : "bg-purple-100 text-purple-800 border-purple-300"
+              }`}>
+                {r.commercial_model === "MODEL_A_SINGLE_PRODUCT" ? "Model A: Single-Product" :
+                 r.commercial_model === "MODEL_B_NATURAL_MULTI_UNIT" ? "Model B: Natural Multi-Unit" :
+                 "Model C: High-AOV Offer"}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="text-slate-500">Core Opp: <strong className="text-sky-900">{fmt(r.core_opportunity_score)}</strong></span>
+            <span className="text-slate-500">Bundle Upside: <strong className="text-emerald-900">+{fmt(r.bundle_upside_score)}</strong></span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          {r.why_it_ranks_high && (
+            <div className="bg-emerald-50/50 border border-emerald-200 rounded p-2.5">
+              <span className="font-bold text-emerald-900 block mb-0.5">Primary Ranking Drivers</span>
+              <p className="text-slate-700">{r.why_it_ranks_high}</p>
+            </div>
+          )}
+          {r.why_it_might_fail && (
+            <div className="bg-amber-50/50 border border-amber-200 rounded p-2.5">
+              <span className="font-bold text-amber-900 block mb-0.5">Potential Commercial Risks</span>
+              <p className="text-slate-700">{r.why_it_might_fail}</p>
+            </div>
+          )}
+          {r.what_remains_unknown && (
+            <div className="bg-slate-50 border border-slate-200 rounded p-2.5">
+              <span className="font-bold text-slate-800 block mb-0.5">What Remains Unknown</span>
+              <p className="text-slate-600">{r.what_remains_unknown}</p>
+            </div>
+          )}
+          {r.next_validation_action && (
+            <div className="bg-blue-50/50 border border-blue-200 rounded p-2.5">
+              <span className="font-bold text-blue-900 block mb-0.5">Next Validation Action</span>
+              <p className="text-blue-800 font-medium">{r.next_validation_action}</p>
+            </div>
+          )}
+        </div>
+      </section>
 
       <div className="grid md:grid-cols-3 gap-3">
         <Components title="Emergence components" c={r.score_components?.emergence} />
