@@ -26,6 +26,7 @@ from app.models.models import (
     DataSourceType,
 )
 from app.adapters.apify import APIFY_BASE_URL
+from app.services.budget_manager import ApifyBudgetManager, BudgetExceededError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("new_research")
@@ -95,36 +96,65 @@ async def execute_run():
 
     cumulative_spend = 0.0
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        for spec in NEW_RUNS_SPEC:
-            key = spec["key"]
-            actor_id = spec["actor_id"]
-            budget_cap = spec["budget_cap_usd"]
-            raw_file = base_dir / spec["raw_output_file"]
-            run_input = spec["input"]
+    async with async_session_factory() as db_session:
+        bm = ApifyBudgetManager(
+            db=db_session,
+            api_token=token,
+            session_ceiling_usd=MAX_TOTAL_SESSION_CAP,
+        )
 
-            remaining_headroom = round(MAX_TOTAL_SESSION_CAP - cumulative_spend, 4)
-            if remaining_headroom <= 0.02:
-                logger.warning(f"Skipping {key}: remaining headroom ${remaining_headroom} too low.")
-                break
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for spec in NEW_RUNS_SPEC:
+                key = spec["key"]
+                actor_id = spec["actor_id"]
+                budget_cap = spec["budget_cap_usd"]
+                raw_file = base_dir / spec["raw_output_file"]
+                run_input = spec["input"]
 
-            actual_cap = min(budget_cap, remaining_headroom)
-            logger.info(f"\n=======================================================")
-            logger.info(f"STARTING RUN: {key} ({actor_id})")
-            logger.info(f"Target Budget Cap: ${actual_cap:.4f} USD")
+                # 0. Check durable budget availability
+                can_run, reason, metrics = await bm.check_budget_availability(
+                    requested_reservation_usd=budget_cap,
+                    session_id="new_research_autonomous",
+                )
+                if not can_run:
+                    logger.warning(f"Skipping {key}: durable budget gate rejected: {reason}")
+                    break
 
-            actor_slug = actor_id.replace("/", "~")
-            # 1. Start run with maxTotalChargeUsd parameter
-            start_url = f"{APIFY_BASE_URL}/acts/{actor_slug}/runs?maxTotalChargeUsd={actual_cap}"
-            start_resp = await client.post(start_url, json=run_input, headers=headers)
-            if start_resp.status_code not in (200, 201):
-                logger.error(f"Failed to start actor run {actor_id}: HTTP {start_resp.status_code} - {start_resp.text}")
-                continue
+                # Create durable spend reservation
+                reservation = await bm.create_reservation(
+                    actor_id=actor_id,
+                    reserved_amount_usd=budget_cap,
+                    input_payload=run_input,
+                    session_id="new_research_autonomous",
+                )
+                await db_session.commit()
 
-            run_data = start_resp.json().get("data", {})
-            apify_run_id = run_data.get("id")
-            dataset_id = run_data.get("defaultDatasetId")
-            logger.info(f"Apify Run ID: {apify_run_id} | Default Dataset: {dataset_id}")
+                logger.info(f"\n=======================================================")
+                logger.info(f"STARTING RUN: {key} ({actor_id}) [Reservation: {reservation.id}]")
+                logger.info(f"Target Budget Cap: ${budget_cap:.4f} USD")
+
+                actor_slug = actor_id.replace("/", "~")
+                # 1. Start run with maxTotalChargeUsd parameter
+                start_url = f"{APIFY_BASE_URL}/acts/{actor_slug}/runs?maxTotalChargeUsd={budget_cap}"
+                start_resp = await client.post(start_url, json=run_input, headers=headers)
+                if start_resp.status_code not in (200, 201):
+                    logger.error(f"Failed to start actor run {actor_id}: HTTP {start_resp.status_code} - {start_resp.text}")
+                    await bm.reconcile_run(
+                        reservation_id=reservation.id,
+                        final_status="FAILED",
+                        actual_cost_usd=0.0,
+                        notes=f"HTTP {start_resp.status_code} on start",
+                    )
+                    await db_session.commit()
+                    continue
+
+                run_data = start_resp.json().get("data", {})
+                apify_run_id = run_data.get("id")
+                dataset_id = run_data.get("defaultDatasetId")
+                logger.info(f"Apify Run ID: {apify_run_id} | Default Dataset: {dataset_id}")
+
+                await bm.mark_run_started(reservation.id, apify_run_id=apify_run_id)
+                await db_session.commit()
 
             # 2. Wait for completion (max 180s)
             run_status = "RUNNING"
@@ -161,6 +191,15 @@ async def execute_run():
             logger.info(f"Verified Apify Run Cost: ${usage_usd:.4f} USD | Charged Events: {charged_events}")
 
             cumulative_spend += usage_usd
+
+            # Reconcile durable reservation
+            await bm.reconcile_run(
+                reservation_id=reservation.id,
+                final_status="SUCCEEDED" if run_status == "SUCCEEDED" else "FAILED",
+                actual_cost_usd=usage_usd,
+                billing_detail=final_run_data,
+            )
+            await db_session.commit()
 
             run_entry = {
                 "key": key,

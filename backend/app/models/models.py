@@ -810,3 +810,30 @@ class AnalystReview(Base):
 
     product = relationship("Product", back_populates="analyst_reviews")
 
+
+class ApifyReservationStatus(str, enum.Enum):
+    RESERVED = "RESERVED"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    ABORTED = "ABORTED"
+
+
+class ApifySpendReservation(Base):
+    """Durable tracking and reservation table for Apify paid provider runs."""
+    __tablename__ = "apify_spend_reservations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    actor_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    apify_run_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, unique=True)
+    session_id: Mapped[str] = mapped_column(String(100), default="default_session", index=True)
+    reserved_amount_usd: Mapped[float] = mapped_column(Float, nullable=False)
+    actual_amount_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="RESERVED", index=True)
+    input_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    provider_billing_detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    reconciliation_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+

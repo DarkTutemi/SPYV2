@@ -1,0 +1,42 @@
+{
+  "report_id": "batch3_apify_safety_20261110",
+  "batch": "BATCH 3 — Durable Apify Budget Safety, In-Flight Reservation, and Crash Recovery",
+  "timestamp_utc": "2026-11-10T19:25:00Z",
+  "timestamp_ict": "2026-11-11T02:25:00+07:00",
+  "status": "COMPLETED",
+  "repository": "https://github.com/DarkTutemi/SPYV2",
+  "branch": "master",
+  "fixes": [
+    {
+      "bug_id": "BUG_4_APIFY_DURABLE_BUDGET_SAFEGUARDS",
+      "description": "Implemented ApifyBudgetManager backed by SQLite table apify_spend_reservations. Enforced hard session ceiling ($2.00 max), daily budget ($2.00), and monthly budget ($10.00). In-flight runs lock new paid launches until reconciled. Missing or zero billing defaults conservatively to reserved amount rather than $0.00. Automatic crash recovery reconciles orphaned in-flight runs against Apify remote status.",
+      "components_modified": [
+        "backend/app/models/models.py (ApifySpendReservation, ApifyReservationStatus)",
+        "backend/app/services/budget_manager.py (ApifyBudgetManager)",
+        "backend/execute_new_research_run.py (integrated durable budget gate)",
+        "backend/tests/test_apify_budget_safety.py"
+      ],
+      "safeguards_verified": {
+        "session_ceiling_usd": 2.00,
+        "daily_budget_usd": 2.00,
+        "monthly_budget_usd": 10.00,
+        "in_flight_lock_enforced": true,
+        "never_assume_zero_billing": true,
+        "crash_recovery_tested": true,
+        "duplicate_run_id_prevention": true
+      }
+    }
+  ],
+  "test_execution": {
+    "total_safety_tests": 5,
+    "passed": 5,
+    "failed": 0,
+    "test_file": "backend/tests/test_apify_budget_safety.py"
+  },
+  "spend_safeguards": {
+    "new_paid_apify_runs": 0,
+    "actual_new_spend_usd": 0.00,
+    "session_remaining_budget_usd": 1.9218,
+    "t14_frozen_status": "LOCKED until 2026-11-24T01:26:00+07:00"
+  }
+}
