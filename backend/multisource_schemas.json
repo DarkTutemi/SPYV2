@@ -1,0 +1,2430 @@
+{
+  "steadyscrape/tiktok-creative-center-scraper": {
+    "title": "TikTok Creative Center Top Ads Scraper",
+    "input_schema": {
+      "title": "TikTok Creative Center Top Ads Scraper input",
+      "type": "object",
+      "schemaVersion": 1,
+      "properties": {
+        "countries": {
+          "title": "Countries",
+          "type": "array",
+          "description": "The markets whose top ads you want; each country is its own search of up to 400 ads. Leave the list empty for one search across all markets together.",
+          "editor": "select",
+          "items": {
+            "type": "string",
+            "enum": [
+              "AR",
+              "AU",
+              "BR",
+              "CA",
+              "CO",
+              "FR",
+              "DE",
+              "ID",
+              "IT",
+              "JP",
+              "MY",
+              "MX",
+              "NL",
+              "PK",
+              "PH",
+              "RO",
+              "SA",
+              "SG",
+              "ZA",
+              "KR",
+              "ES",
+              "SE",
+              "TH",
+              "TR",
+              "AE",
+              "GB",
+              "US",
+              "VN"
+            ],
+            "enumTitles": [
+              "Argentina",
+              "Australia",
+              "Brazil",
+              "Canada",
+              "Colombia",
+              "France",
+              "Germany",
+              "Indonesia",
+              "Italy",
+              "Japan",
+              "Malaysia",
+              "Mexico",
+              "Netherlands",
+              "Pakistan",
+              "Philippines",
+              "Romania",
+              "Saudi Arabia",
+              "Singapore",
+              "South Africa",
+              "South Korea",
+              "Spain",
+              "Sweden",
+              "Thailand",
+              "Turkey",
+              "United Arab Emirates",
+              "United Kingdom",
+              "United States",
+              "Vietnam"
+            ]
+          },
+          "default": [
+            "US"
+          ],
+          "prefill": [
+            "US"
+          ],
+          "sectionCaption": "What to search",
+          "sectionDescription": "Every combination of country, keyword and industry is one search, ranked by TikTok. An ad found by two searches is delivered (and charged) once."
+        },
+        "period": {
+          "title": "Period",
+          "type": "string",
+          "description": "Ads that ran in the last 7, 30 or 180 days. 180 days gives the most ads (TikTok shows at most 400 per search).",
+          "editor": "select",
+          "enum": [
+            "7",
+            "30",
+            "180"
+          ],
+          "enumTitles": [
+            "Last 7 days",
+            "Last 30 days",
+            "Last 180 days"
+          ],
+          "default": "30"
+        },
+        "keywords": {
+          "title": "Keywords",
+          "type": "array",
+          "description": "Search the ads by product, brand or theme (<code>skincare</code>, <code>running shoes</code>, <code>temu</code>). Each keyword is its own search. Leave empty for the overall ranking.",
+          "editor": "stringList",
+          "prefill": []
+        },
+        "industries": {
+          "title": "Industries",
+          "type": "array",
+          "description": "TikTok's industry names, as in Creative Center: <code>Apparel & Accessories</code>, <code>Beauty & Personal Care</code>, <code>Games</code>, <code>Women's Clothing</code>, <code>Skincare</code>\u2026 (any case; \"and\" works for \"&\"), or their numeric ids. Each industry is its own search. An unknown name comes back as a free row with similar names.",
+          "editor": "stringList"
+        },
+        "objectives": {
+          "title": "Campaign objectives",
+          "type": "array",
+          "description": "Keep only ads bought for these objectives. Empty for all.",
+          "editor": "select",
+          "items": {
+            "type": "string",
+            "enum": [
+              "traffic",
+              "app_installs",
+              "conversions",
+              "video_views",
+              "reach",
+              "lead_generation",
+              "product_sales",
+              "app_promotion"
+            ],
+            "enumTitles": [
+              "Traffic",
+              "App installs",
+              "Conversions",
+              "Video views",
+              "Reach",
+              "Lead generation",
+              "Product sales",
+              "App promotion"
+            ]
+          },
+          "sectionCaption": "Filters and order"
+        },
+        "sortBy": {
+          "title": "Sort by",
+          "type": "string",
+          "description": "The order TikTok ranks the ads in. With a maximum below 400, it decides which ads you get.",
+          "editor": "select",
+          "enum": [
+            "for_you",
+            "reach",
+            "ctr",
+            "cvr",
+            "view_rate_2s",
+            "view_rate_6s",
+            "likes"
+          ],
+          "enumTitles": [
+            "For You (TikTok's pick)",
+            "Reach",
+            "CTR",
+            "Conversion rate (CVR)",
+            "2-second view rate",
+            "6-second view rate",
+            "Likes"
+          ],
+          "default": "for_you"
+        },
+        "adLanguage": {
+          "title": "Ad language",
+          "type": "string",
+          "description": "Keep only ads in this language.",
+          "editor": "select",
+          "enum": [
+            "any",
+            "en",
+            "es",
+            "ar",
+            "vi",
+            "th",
+            "de",
+            "id",
+            "pt",
+            "fr",
+            "ms",
+            "nl",
+            "ja",
+            "it",
+            "ro",
+            "zh-Hant",
+            "ko"
+          ],
+          "enumTitles": [
+            "Any language",
+            "English",
+            "Spanish",
+            "Arabic",
+            "Vietnamese",
+            "Thai",
+            "German",
+            "Indonesian",
+            "Portuguese",
+            "French",
+            "Malay",
+            "Dutch",
+            "Japanese",
+            "Italian",
+            "Romanian",
+            "Chinese (Traditional)",
+            "Korean"
+          ],
+          "default": "any"
+        },
+        "adFormat": {
+          "title": "Ad format",
+          "type": "string",
+          "description": "Spark ads are creators' own posts boosted as ads; non-Spark ads are uploaded by the advertiser.",
+          "editor": "select",
+          "enum": [
+            "any",
+            "spark",
+            "non_spark"
+          ],
+          "enumTitles": [
+            "Any format",
+            "Spark ads only",
+            "Non-Spark ads only"
+          ],
+          "default": "any"
+        },
+        "maxAdsPerSearch": {
+          "title": "Max ads per search",
+          "type": "integer",
+          "description": "In TikTok's order. TikTok ranks at most 400 ads for one search; to get more, add countries, keywords or industries.",
+          "default": 100,
+          "prefill": 10,
+          "minimum": 1,
+          "maximum": 400,
+          "sectionCaption": "How much"
+        },
+        "includeDetails": {
+          "title": "Add each ad's page (landing page, comments, shares, markets, AI analysis)",
+          "type": "boolean",
+          "description": "Opens each ad's page in Creative Center: the landing page URL, comments and shares, every country the ad ran in, the campaign objectives, Creative Center's note on why the ad works and, for the ads it has one, its AI analysis of the hook and structure. Charged as <code>ad-with-details</code> instead of <code>ad</code>.",
+          "default": false
+        },
+        "onlyNewAds": {
+          "title": "Only ads new since the last run (monitor)",
+          "type": "boolean",
+          "description": "Turns a scheduled run into a monitor: ads an earlier monitor run of yours already delivered are skipped for free, so each run delivers only the ads that entered the ranking since.",
+          "default": false
+        }
+      }
+    },
+    "pricing": [
+      {
+        "pricingModel": "PAY_PER_EVENT",
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "ad": {
+              "eventTitle": "Ad",
+              "eventDescription": "One top ad from Creative Center's ranking: ad copy, brand, industry, objective, likes, CTR rank, budget tier, badge, video links and cover. Rows that say why a search gave nothing (no_ads, invalid, blocked), duplicates and ads a monitor already delivered are free.",
+              "eventPriceUsd": 0.001,
+              "isPrimaryEvent": true
+            },
+            "ad-with-details": {
+              "eventTitle": "Ad with details",
+              "eventDescription": "One top ad together with its own page in Creative Center: landing page, comments, shares, every market it ran in, objectives, Creative Center's highlight and AI analysis. Charged instead of Ad, only in runs with details on; an ad whose page does not answer is charged as a plain Ad.",
+              "eventPriceUsd": 0.003
+            }
+          }
+        },
+        "createdAt": "2026-10-13T15:36:07.791Z",
+        "startedAt": "2026-10-13T15:36:07.791Z",
+        "apifyMarginPercentage": 0.2
+      }
+    ]
+  },
+  "tortuga/tiktok-shop-scraper": {
+    "title": "TikTok Shop Scraper \u2014 Products, Prices & Sales",
+    "input_schema": {
+      "$schema": "https://apify.com/schemas/v1/input.ide.json",
+      "title": "TikTok Shop Scraper input",
+      "type": "object",
+      "schemaVersion": 1,
+      "properties": {
+        "searchTerms": {
+          "title": "Search terms",
+          "type": "array",
+          "description": "Keywords to search on TikTok Shop US, one per line (e.g. \"bluetooth speaker\", \"lip gloss\"). Each term is paginated automatically: 25-30 products per request; TikTok's web shop stops after about 150 products per keyword.",
+          "editor": "stringList",
+          "prefill": [
+            "bluetooth speaker"
+          ]
+        },
+        "startUrls": {
+          "title": "Start URLs",
+          "type": "array",
+          "description": "TikTok Shop US URLs instead of (or in addition to) search terms: product pages (https://shop.tiktok.com/us/pdp/<slug>/<id>, www.tiktok.com/shop/pdp/... or a bare product id; always returned with full details), shop pages (https://shop.tiktok.com/us/store/<name>/<seller_id>, all products of the shop), category pages (https://shop.tiktok.com/us/c/<name>/<id>) and keyword pages (/us/k/<keyword>, /us/s?q=<keyword>; run as a search).",
+          "editor": "requestListSources",
+          "prefill": []
+        },
+        "maxItems": {
+          "title": "Max items",
+          "type": "integer",
+          "description": "Stop after this many products in total (across all search terms and URLs). Keeps cost predictable.",
+          "default": 100,
+          "minimum": 1
+        },
+        "includeDetails": {
+          "title": "Include product details",
+          "type": "boolean",
+          "description": "Also open every product page to get all variants / SKUs with their own price and stock, shipping fee and delivery estimate, the shop profile (rating, followers, products sold, response scores), description, specifications, all images, category path, rating breakdown and the top reviews TikTok shows on the page (up to 3). One extra request and one extra `detail` charge per product (see pricing).",
+          "default": false
+        },
+        "sortBy": {
+          "title": "Sort search results",
+          "type": "string",
+          "description": "Order of search-term results, as in TikTok Shop's own \"Sort by\" menu. TikTok sometimes answers sorted searches with a short unsorted list; the actor asks again and, if needed, falls back to relevance order (listed in the run's SUMMARY as sortFallback). Does not apply to shop and category URLs.",
+          "editor": "select",
+          "enum": [
+            "relevance",
+            "best_sellers",
+            "price_low",
+            "price_high",
+            "newest"
+          ],
+          "enumTitles": [
+            "Relevance",
+            "Best sellers",
+            "Price: low to high",
+            "Price: high to low",
+            "Newest"
+          ],
+          "default": "relevance"
+        },
+        "maxPagesPerSource": {
+          "title": "Max pages per search, shop or category",
+          "type": "integer",
+          "description": "How many result pages to load per search term (25-30 products each), shop (20 each) or category URL (category pages show 10-15 products each; further pages are the category's subcategories).",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 50
+        },
+        "includeSubcategories": {
+          "title": "Follow subcategories",
+          "type": "boolean",
+          "description": "For category URLs: TikTok's public category page lists only 10-15 products, so the actor continues with the category's subcategories (each another 10-15 products) until Max pages or Max items is reached.",
+          "default": true
+        },
+        "onlyNewOrChanged": {
+          "title": "Only new or changed items",
+          "type": "boolean",
+          "description": "Remember what earlier runs of this search returned and output only new items or items whose price/status changed. Use with a Schedule; unchanged items are not charged. With this on, Max items is the number of products checked each run (the watched window, e.g. the first 50 search results), so a run never digs deeper than the first one. Price, crossed-out price and the lowest / highest variant price are compared; product pages are only opened for new or changed products.",
+          "default": false
+        },
+        "monitoringKey": {
+          "title": "Monitoring key",
+          "type": "string",
+          "description": "Name for this watch, so several schedules on the same search stay separate; defaults to a key derived from the search input.",
+          "editor": "textfield",
+          "isSecret": true
+        },
+        "proxyConfiguration": {
+          "title": "Proxy",
+          "type": "object",
+          "description": "Apify's default datacenter proxy works and is the cheapest choice (no per-request proxy fee). Pages that come back as TikTok's 'Security Check' captcha (about 1 in 20 product pages) are retried automatically on a new IP. Residential proxies are not needed and were not more reliable in tests.",
+          "editor": "proxy",
+          "prefill": {
+            "useApifyProxy": true
+          },
+          "default": {
+            "useApifyProxy": true
+          }
+        }
+      },
+      "required": []
+    },
+    "pricing": [
+      {
+        "apifyMarginPercentage": 0.2,
+        "createdAt": "2026-10-09T16:15:50.958Z",
+        "startedAt": "2026-10-09T16:15:49.000Z",
+        "pricingModel": "PAY_PER_EVENT",
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "result": {
+              "eventTitle": "Product scraped",
+              "eventDescription": "One product saved to the dataset from a keyword search, shop page, category page or product URL (title, price, original price, discount, units sold, rating, review count, shop, image, labels, rank).",
+              "eventPriceUsd": 0.003,
+              "isPrimaryEvent": true
+            },
+            "detail": {
+              "eventTitle": "Product details fetched",
+              "eventDescription": "Charged in addition to the result event for each product whose page is opened: with 'Include product details' on, or for product URLs (all variants / SKUs with price and stock, shipping fee and delivery estimate, shop profile, description, specifications, images, category path, rating breakdown, top reviews).",
+              "eventPriceUsd": 0.004,
+              "isPrimaryEvent": false
+            }
+          }
+        },
+        "isPPEPlatformUsagePaidByUser": true
+      },
+      {
+        "apifyMarginPercentage": 0.2,
+        "createdAt": "2026-10-16T15:10:27.214Z",
+        "startedAt": "2026-10-16T15:10:26.000Z",
+        "pricingModel": "PAY_PER_EVENT",
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "result": {
+              "eventTitle": "Product scraped",
+              "eventDescription": "One product saved to the dataset from a keyword search, shop page, category page or product URL (title, price, original price, discount, units sold, rating, review count, shop, image, labels, rank).",
+              "eventPriceUsd": 0.003,
+              "isPrimaryEvent": true
+            },
+            "detail": {
+              "eventTitle": "Product details fetched",
+              "eventDescription": "Charged in addition to the result event for each product whose page is opened: with 'Include product details' on, or for product URLs (all variants / SKUs with price and stock, shipping fee and delivery estimate, shop profile, description, specifications, images, category path, rating breakdown, top reviews).",
+              "eventPriceUsd": 0.004,
+              "isPrimaryEvent": false
+            }
+          }
+        },
+        "notifiedAboutChangeAt": "2026-10-16T15:30:26.051Z"
+      }
+    ]
+  },
+  "scrapermagic/amazon-product-scraper": {
+    "title": "Amazon Product Scraper",
+    "input_schema": {
+      "title": "Amazon products and search",
+      "type": "object",
+      "schemaVersion": 1,
+      "properties": {
+        "country": {
+          "title": "Deliver to",
+          "type": "string",
+          "description": "Where prices, delivery dates and shipping costs are quoted for. Prices are in USD.",
+          "editor": "select",
+          "enum": [
+            "US",
+            "AT",
+            "BE",
+            "BR",
+            "CA",
+            "CL",
+            "DK",
+            "FR",
+            "DE",
+            "HK",
+            "IN",
+            "IE",
+            "IL",
+            "IT",
+            "JP",
+            "MX",
+            "NL",
+            "NZ",
+            "NO",
+            "PL",
+            "KR",
+            "SA",
+            "SG",
+            "ZA",
+            "ES",
+            "SE",
+            "CH",
+            "TW",
+            "AE",
+            "GB"
+          ],
+          "enumTitles": [
+            "United States",
+            "Austria",
+            "Belgium",
+            "Brazil",
+            "Canada",
+            "Chile",
+            "Denmark",
+            "France",
+            "Germany",
+            "Hong Kong",
+            "India",
+            "Ireland",
+            "Israel",
+            "Italy",
+            "Japan",
+            "Mexico",
+            "Netherlands",
+            "New Zealand",
+            "Norway",
+            "Poland",
+            "Republic of Korea",
+            "Saudi Arabia",
+            "Singapore",
+            "South Africa",
+            "Spain",
+            "Sweden",
+            "Switzerland",
+            "Taiwan",
+            "United Arab Emirates",
+            "United Kingdom"
+          ],
+          "default": "US"
+        },
+        "products": {
+          "title": "Products",
+          "type": "array",
+          "description": "Amazon.com ASINs or product URLs (amzn.to and a.co short links work). One dataset item per product, with details, specifications, variants and every offer.",
+          "editor": "stringList",
+          "prefill": [
+            "B01LP0U5X0"
+          ]
+        },
+        "searchQueries": {
+          "title": "Search queries",
+          "type": "array",
+          "description": "Keywords to search on Amazon.com. One dataset item per search result.",
+          "editor": "stringList",
+          "prefill": [
+            "usb c charger"
+          ]
+        },
+        "maxPagesPerQuery": {
+          "title": "Max pages per query",
+          "type": "integer",
+          "description": "Search result pages to read per query (roughly 20-60 results each).",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 20
+        },
+        "freeShippingOnly": {
+          "title": "Free shipping only",
+          "type": "boolean",
+          "description": "Skip products and search results without free shipping.",
+          "default": false
+        },
+        "maxItems": {
+          "title": "Max items",
+          "type": "integer",
+          "description": "Stop after this many dataset items (caps your cost). Empty = no limit.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "country"
+      ]
+    },
+    "pricing": [
+      {
+        "pricingModel": "PAY_PER_EVENT",
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "apify-actor-start": {
+              "eventTitle": "Actor Start",
+              "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+              "isOneTimeEvent": true,
+              "eventPriceUsd": 5e-05
+            },
+            "product": {
+              "eventTitle": "Product",
+              "eventDescription": "One Amazon product with full details (brand, rating, bullets, images, specifications, best-sellers rank, variants) and every seller offer.",
+              "eventPriceUsd": 0.003,
+              "isPrimaryEvent": true
+            },
+            "search-result": {
+              "eventTitle": "Search result",
+              "eventDescription": "One product from Amazon keyword search, with price, rating and shipping.",
+              "eventPriceUsd": 0.001
+            }
+          }
+        },
+        "startedAt": "2026-11-02T02:29:20.686Z",
+        "createdAt": "2026-11-02T02:29:20.971Z",
+        "apifyMarginPercentage": 0.2
+      }
+    ]
+  },
+  "apify/google-trends-scraper": {
+    "title": "Google Trends Scraper",
+    "input_schema": {
+      "title": "Google Trends Scraper input",
+      "description": "Enter one or more search terms to scrape their Google Trends data. You can also paste Google Trends URLs or load terms from a public Google Sheet.",
+      "type": "object",
+      "schemaVersion": 1,
+      "properties": {
+        "searchTerms": {
+          "title": "Search terms",
+          "type": "array",
+          "editor": "stringList",
+          "description": "(Required if 'spreadsheetId' is not provided) List of search terms to be scraped.",
+          "example": [
+            "webscraping"
+          ],
+          "prefill": [
+            "webscraping"
+          ]
+        },
+        "isMultiple": {
+          "title": "Multiple terms",
+          "type": "boolean",
+          "editor": "checkbox",
+          "description": "If checked, a comma is treated as a separator for multiple terms",
+          "default": false
+        },
+        "timeRange": {
+          "title": "Time range",
+          "type": "string",
+          "description": "Choose a predefined search's time range (defaults to 'Past 12 months')",
+          "editor": "select",
+          "default": "",
+          "enumTitles": [
+            "Past 12 months (output frequency: 7 days)",
+            "Past hour (output frequency: 1 minute)",
+            "Past 4 hours (output frequency: 1 minute)",
+            "Past day (output frequency: 8 minutes)",
+            "Past 7 days (output frequency: 1 hour)",
+            "Past 30 days (output frequency: 1 day)",
+            "Past 90 days (output frequency: 1 day)",
+            "Past 5 years (output frequency: 7 days)",
+            "2004 - present (output frequency: 1 month)"
+          ],
+          "enum": [
+            "",
+            "now 1-H",
+            "now 4-H",
+            "now 1-d",
+            "now 7-d",
+            "today 1-m",
+            "today 3-m",
+            "today 5-y",
+            "all"
+          ],
+          "example": "today 3-m",
+          "prefill": ""
+        },
+        "geo": {
+          "title": "Geo area",
+          "type": "string",
+          "description": "Get results from a specific geo area (defaults to 'Worldwide'). This maps to different fields in the dataset results: smaller countries like Greece return just 'interestByCity' data, while larger ones like the United States return 'interestBySubregion' data as well. When omitted (Worldwide), 'interestBy' is returned instead, which corresponds to the 'Interest by area' section on Google Trends. Note: When using Google Trends URLs from the '\ud83d\udd17 Use a Google Trends URL instead of search terms' section, the geo parameter from the URL's query string takes precedence over this setting. You can also use start URLs to retrieve 'interestByMetro' data for metropolitan areas by providing URLs with more specific geo regions like California (US) directly copied from Google Trends.",
+          "editor": "select",
+          "default": "",
+          "enumTitles": [
+            "Worldwide",
+            "Afghanistan",
+            "Albania",
+            "Algeria",
+            "American Samoa",
+            "Andorra",
+            "Angola",
+            "Anguilla",
+            "Antarctica",
+            "Antigua and Barbuda",
+            "Argentina",
+            "Armenia",
+            "Aruba",
+            "Australia",
+            "Austria",
+            "Azerbaijan",
+            "Bahamas",
+            "Bahrain",
+            "Bangladesh",
+            "Barbados",
+            "Belarus",
+            "Belgium",
+            "Belize",
+            "Benin",
+            "Bermuda",
+            "Bhutan",
+            "Bolivia, Plurinational State of",
+            "Bonaire, Sint Eustatius and Saba",
+            "Bosnia and Herzegovina",
+            "Botswana",
+            "Bouvet Island",
+            "Brazil",
+            "British Indian Ocean Territory",
+            "Brunei Darussalam",
+            "Bulgaria",
+            "Burkina Faso",
+            "Burundi",
+            "Cabo Verde",
+            "Cambodia",
+            "Cameroon",
+            "Canada",
+            "Cayman Islands",
+            "Central African Republic",
+            "Chad",
+            "Chile",
+            "China",
+            "Christmas Island",
+            "Cocos",
+            "Colombia",
+            "Comoros",
+            "Congo",
+            "Congo, the Democratic Republic of the",
+            "Cook Islands",
+            "Costa Rica",
+            "Cote d'Ivoire !C\u00f4te d'Ivoire",
+            "Croatia",
+            "Cuba",
+            "Cura\u00e7ao",
+            "Cyprus",
+            "Czechia",
+            "Denmark",
+            "Djibouti",
+            "Dominica",
+            "Dominican Republic",
+            "Ecuador",
+            "Egypt",
+            "El Salvador",
+            "Equatorial Guinea",
+            "Eritrea",
+            "Estonia",
+            "Ethiopia",
+            "Falkland Islands",
+            "Faroe Islands",
+            "Fiji",
+            "Finland",
+            "France",
+            "French Guiana",
+            "French Polynesia",
+            "French Southern Territories",
+            "Gabon",
+            "Gambia",
+            "Georgia",
+            "Germany",
+            "Ghana",
+            "Gibraltar",
+            "Greece",
+            "Greenland",
+            "Grenada",
+            "Guadeloupe",
+            "Guam",
+            "Guatemala",
+            "Guernsey",
+            "Guinea",
+            "Guinea-Bissau",
+            "Guyana",
+            "Haiti",
+            "Heard Island and McDonald Islands",
+            "Holy See",
+            "Honduras",
+            "Hong Kong",
+            "Hungary",
+            "Iceland",
+            "India",
+            "Indonesia",
+            "Iran, Islamic Republic of",
+            "Iraq",
+            "Ireland",
+            "Isle of Man",
+            "Israel",
+            "Italy",
+            "Jamaica",
+            "Japan",
+            "Jersey",
+            "Jordan",
+            "Kazakhstan",
+            "Kenya",
+            "Kiribati",
+            "Korea",
+            "Korea",
+            "Kuwait",
+            "Kyrgyzstan",
+            "Lao People's Democratic Republic",
+            "Latvia",
+            "Lebanon",
+            "Lesotho",
+            "Liberia",
+            "Libya",
+            "Liechtenstein",
+            "Lithuania",
+            "Luxembourg",
+            "Macao",
+            "Macedonia, the former Yugoslav Republic of",
+            "Madagascar",
+            "Malawi",
+            "Malaysia",
+            "Maldives",
+            "Mali",
+            "Malta",
+            "Marshall Islands",
+            "Martinique",
+            "Mauritania",
+            "Mauritius",
+            "Mayotte",
+            "Mexico",
+            "Micronesia, Federated States of",
+            "Moldova, Republic of",
+            "Monaco",
+            "Mongolia",
+            "Montenegro",
+            "Montserrat",
+            "Morocco",
+            "Mozambique",
+            "Myanmar",
+            "Namibia",
+            "Nauru",
+            "Nepal",
+            "Netherlands[note 1]",
+            "New Caledonia",
+            "New Zealand",
+            "Nicaragua",
+            "Niger",
+            "Nigeria",
+            "Niue",
+            "Norfolk Island",
+            "Northern Mariana Islands",
+            "Norway",
+            "Oman",
+            "Pakistan",
+            "Palau",
+            "Palestine, State of",
+            "Panama",
+            "Papua New Guinea",
+            "Paraguay",
+            "Peru",
+            "Philippines",
+            "Pitcairn",
+            "Poland",
+            "Portugal",
+            "Puerto Rico",
+            "Qatar",
+            "Reunion !R\u00e9union",
+            "Romania",
+            "Russian Federation",
+            "Rwanda",
+            "Saint Barth\u00e9lemy",
+            "Saint Helena, Ascension and Tristan da Cunha",
+            "Saint Kitts and Nevis",
+            "Saint Lucia",
+            "Saint Martin",
+            "Saint Pierre and Miquelon",
+            "Saint Vincent and the Grenadines",
+            "Samoa",
+            "San Marino",
+            "Sao Tome and Principe",
+            "Saudi Arabia",
+            "Senegal",
+            "Serbia",
+            "Seychelles",
+            "Sierra Leone",
+            "Singapore",
+            "Sint Maarten",
+            "Slovakia",
+            "Slovenia",
+            "Solomon Islands",
+            "Somalia",
+            "South Africa",
+            "South Georgia and the South Sandwich Islands",
+            "South Sudan",
+            "Spain",
+            "Sri Lanka",
+            "Sudan",
+            "Suriname",
+            "Svalbard and Jan Mayen",
+            "Swaziland",
+            "Sweden",
+            "Switzerland",
+            "Syrian Arab Republic",
+            "Taiwan, Province of China [note 2]",
+            "Tajikistan",
+            "Tanzania, United Republic of",
+            "Thailand",
+            "Timor-Leste",
+            "Togo",
+            "Tokelau",
+            "Tonga",
+            "Trinidad and Tobago",
+            "Tunisia",
+            "Turkey",
+            "Turkmenistan",
+            "Turks and Caicos Islands",
+            "Tuvalu",
+            "Uganda",
+            "Ukraine",
+            "United Arab Emirates",
+            "United Kingdom",
+            "United States",
+            "United States Minor Outlying Islands",
+            "Uruguay",
+            "Uzbekistan",
+            "Vanuatu",
+            "Venezuela, Bolivarian Republic of",
+            "Viet Nam",
+            "Virgin Islands, British",
+            "Virgin Islands, U.S.",
+            "Wallis and Futuna",
+            "Western Sahara",
+            "Yemen",
+            "Zambia",
+            "Zimbabwe"
+          ],
+          "enum": [
+            "",
+            "AF",
+            "AL",
+            "DZ",
+            "AS",
+            "AD",
+            "AO",
+            "AI",
+            "AQ",
+            "AG",
+            "AR",
+            "AM",
+            "AW",
+            "AU",
+            "AT",
+            "AZ",
+            "BS",
+            "BH",
+            "BD",
+            "BB",
+            "BY",
+            "BE",
+            "BZ",
+            "BJ",
+            "BM",
+            "BT",
+            "BO",
+            "BQ",
+            "BA",
+            "BW",
+            "BV",
+            "BR",
+            "IO",
+            "BN",
+            "BG",
+            "BF",
+            "BI",
+            "CV",
+            "KH",
+            "CM",
+            "CA",
+            "KY",
+            "CF",
+            "TD",
+            "CL",
+            "CN",
+            "CX",
+            "Keeling Islands ",
+            "CO",
+            "KM",
+            "CG",
+            "CD",
+            "CK",
+            "CR",
+            "CI",
+            "HR",
+            "CU",
+            "CW",
+            "CY",
+            "CZ",
+            "DK",
+            "DJ",
+            "DM",
+            "DO",
+            "EC",
+            "EG",
+            "SV",
+            "GQ",
+            "ER",
+            "EE",
+            "ET",
+            "Malvinas ",
+            "FO",
+            "FJ",
+            "FI",
+            "FR",
+            "GF",
+            "PF",
+            "TF",
+            "GA",
+            "GM",
+            "GE",
+            "DE",
+            "GH",
+            "GI",
+            "GR",
+            "GL",
+            "GD",
+            "GP",
+            "GU",
+            "GT",
+            "GG",
+            "GN",
+            "GW",
+            "GY",
+            "HT",
+            "HM",
+            "Vatican City State ",
+            "HN",
+            "HK",
+            "HU",
+            "IS",
+            "IN",
+            "ID",
+            "IR",
+            "IQ",
+            "IE",
+            "IM",
+            "IL",
+            "IT",
+            "JM",
+            "JP",
+            "JE",
+            "JO",
+            "KZ",
+            "KE",
+            "KI",
+            "the Democratic People's Republic of ",
+            "the Republic of ",
+            "KW",
+            "KG",
+            "LA",
+            "LV",
+            "LB",
+            "LS",
+            "LR",
+            "LY",
+            "LI",
+            "LT",
+            "LU",
+            "MO",
+            "MK",
+            "MG",
+            "MW",
+            "MY",
+            "MV",
+            "ML",
+            "MT",
+            "MH",
+            "MQ",
+            "MR",
+            "MU",
+            "YT",
+            "MX",
+            "FM",
+            "MD",
+            "MC",
+            "MN",
+            "ME",
+            "MS",
+            "MA",
+            "MZ",
+            "MM",
+            "NA",
+            "NR",
+            "NP",
+            "NL",
+            "NC",
+            "NZ",
+            "NI",
+            "NE",
+            "NG",
+            "NU",
+            "NF",
+            "MP",
+            "NO",
+            "OM",
+            "PK",
+            "PW",
+            "PS",
+            "PA",
+            "PG",
+            "PY",
+            "PE",
+            "PH",
+            "PN",
+            "PL",
+            "PT",
+            "PR",
+            "QA",
+            "RE",
+            "RO",
+            "RU",
+            "RW",
+            "BL",
+            "SH",
+            "KN",
+            "LC",
+            "French part ",
+            "PM",
+            "VC",
+            "WS",
+            "SM",
+            "ST",
+            "SA",
+            "SN",
+            "RS",
+            "SC",
+            "SL",
+            "SG",
+            "Dutch part ",
+            "SK",
+            "SI",
+            "SB",
+            "SO",
+            "ZA",
+            "GS",
+            "SS",
+            "ES",
+            "LK",
+            "SD",
+            "SR",
+            "SJ",
+            "SZ",
+            "SE",
+            "CH",
+            "SY",
+            "TW",
+            "TJ",
+            "TZ",
+            "TH",
+            "TL",
+            "TG",
+            "TK",
+            "TO",
+            "TT",
+            "TN",
+            "TR",
+            "TM",
+            "TC",
+            "TV",
+            "UG",
+            "UA",
+            "AE",
+            "GB",
+            "US",
+            "UM",
+            "UY",
+            "UZ",
+            "VU",
+            "VE",
+            "VN",
+            "VG",
+            "VI",
+            "WF",
+            "EH",
+            "YE",
+            "ZM",
+            "ZW"
+          ]
+        },
+        "viewedFrom": {
+          "title": "Country to view Trends from",
+          "type": "string",
+          "description": "Country for residential proxies to ensure correct results",
+          "prefill": "",
+          "editor": "select",
+          "enum": [
+            "",
+            "us",
+            "af",
+            "al",
+            "dz",
+            "as",
+            "ad",
+            "ao",
+            "ai",
+            "aq",
+            "ag",
+            "ar",
+            "am",
+            "aw",
+            "au",
+            "at",
+            "az",
+            "bs",
+            "bh",
+            "bd",
+            "bb",
+            "by",
+            "be",
+            "bz",
+            "bj",
+            "bm",
+            "bt",
+            "bo",
+            "ba",
+            "bw",
+            "bv",
+            "br",
+            "io",
+            "bn",
+            "bg",
+            "bf",
+            "bi",
+            "kh",
+            "cm",
+            "ca",
+            "cv",
+            "ky",
+            "cf",
+            "td",
+            "cl",
+            "cn",
+            "cx",
+            "cc",
+            "co",
+            "km",
+            "cg",
+            "cd",
+            "ck",
+            "cr",
+            "ci",
+            "hr",
+            "cu",
+            "cy",
+            "cz",
+            "dk",
+            "dj",
+            "dm",
+            "do",
+            "ec",
+            "eg",
+            "sv",
+            "gq",
+            "er",
+            "ee",
+            "et",
+            "fk",
+            "fo",
+            "fj",
+            "fi",
+            "fr",
+            "gf",
+            "pf",
+            "tf",
+            "ga",
+            "gm",
+            "ge",
+            "de",
+            "gh",
+            "gi",
+            "gr",
+            "gl",
+            "gd",
+            "gp",
+            "gu",
+            "gt",
+            "gn",
+            "gw",
+            "gy",
+            "ht",
+            "hm",
+            "va",
+            "hn",
+            "hk",
+            "hu",
+            "is",
+            "in",
+            "id",
+            "ir",
+            "iq",
+            "ie",
+            "il",
+            "it",
+            "jm",
+            "jp",
+            "jo",
+            "kz",
+            "ke",
+            "ki",
+            "kp",
+            "kr",
+            "kw",
+            "kg",
+            "la",
+            "lv",
+            "lb",
+            "ls",
+            "lr",
+            "ly",
+            "li",
+            "lt",
+            "lu",
+            "mo",
+            "mk",
+            "mg",
+            "mw",
+            "my",
+            "mv",
+            "ml",
+            "mt",
+            "mh",
+            "mq",
+            "mr",
+            "mu",
+            "yt",
+            "mx",
+            "fm",
+            "md",
+            "mc",
+            "mn",
+            "me",
+            "ms",
+            "ma",
+            "mz",
+            "mm",
+            "na",
+            "nr",
+            "np",
+            "nl",
+            "an",
+            "nc",
+            "nz",
+            "ni",
+            "ne",
+            "ng",
+            "nu",
+            "nf",
+            "mp",
+            "no",
+            "om",
+            "pk",
+            "pw",
+            "ps",
+            "pa",
+            "pg",
+            "py",
+            "pe",
+            "ph",
+            "pn",
+            "pl",
+            "pt",
+            "pr",
+            "qa",
+            "re",
+            "ro",
+            "ru",
+            "rw",
+            "sh",
+            "kn",
+            "lc",
+            "pm",
+            "vc",
+            "ws",
+            "sm",
+            "st",
+            "sa",
+            "sn",
+            "rs",
+            "sc",
+            "sl",
+            "sg",
+            "sk",
+            "si",
+            "sb",
+            "so",
+            "za",
+            "gs",
+            "ss",
+            "es",
+            "lk",
+            "sd",
+            "sr",
+            "sj",
+            "sz",
+            "se",
+            "ch",
+            "sy",
+            "tw",
+            "tj",
+            "tz",
+            "th",
+            "tl",
+            "tg",
+            "tk",
+            "to",
+            "tt",
+            "tn",
+            "tr",
+            "tm",
+            "tc",
+            "tv",
+            "ug",
+            "ua",
+            "ae",
+            "gb",
+            "um",
+            "uy",
+            "uz",
+            "vu",
+            "ve",
+            "vn",
+            "vg",
+            "vi",
+            "wf",
+            "eh",
+            "ye",
+            "zm",
+            "zw"
+          ],
+          "enumTitles": [
+            "",
+            "United States",
+            "Afghanistan",
+            "Albania",
+            "Algeria",
+            "American Samoa",
+            "Andorra",
+            "Angola",
+            "Anguilla",
+            "Antarctica",
+            "Antigua and Barbuda",
+            "Argentina",
+            "Armenia",
+            "Aruba",
+            "Australia",
+            "Austria",
+            "Azerbaijan",
+            "Bahamas",
+            "Bahrain",
+            "Bangladesh",
+            "Barbados",
+            "Belarus",
+            "Belgium",
+            "Belize",
+            "Benin",
+            "Bermuda",
+            "Bhutan",
+            "Bolivia",
+            "Bosnia and Herzegovina",
+            "Botswana",
+            "Bouvet Island",
+            "Brazil",
+            "British Indian Ocean Territory",
+            "Brunei Darussalam",
+            "Bulgaria",
+            "Burkina Faso",
+            "Burundi",
+            "Cambodia",
+            "Cameroon",
+            "Canada",
+            "Cape Verde",
+            "Cayman Islands",
+            "Central African Republic",
+            "Chad",
+            "Chile",
+            "China",
+            "Christmas Island",
+            "Cocos (Keeling) Islands",
+            "Colombia",
+            "Comoros",
+            "Congo-Brazzaville",
+            "Congo, Democratic Republic of the",
+            "Cook Islands",
+            "Costa Rica",
+            "Cote D'ivoire",
+            "Croatia",
+            "Cuba",
+            "Cyprus",
+            "Czech Republic",
+            "Denmark",
+            "Djibouti",
+            "Dominica",
+            "Dominican Republic",
+            "Ecuador",
+            "Egypt",
+            "El Salvador",
+            "Equatorial Guinea",
+            "Eritrea",
+            "Estonia",
+            "Ethiopia",
+            "Falkland Islands",
+            "Faroe Islands",
+            "Fiji",
+            "Finland",
+            "France",
+            "French Guiana",
+            "French Polynesia",
+            "French Southern Territories",
+            "Gabon",
+            "Gambia",
+            "Georgia",
+            "Germany",
+            "Ghana",
+            "Gibraltar",
+            "Greece",
+            "Greenland",
+            "Grenada",
+            "Guadeloupe",
+            "Guam",
+            "Guatemala",
+            "Guinea",
+            "Guinea-Bissau",
+            "Guyana",
+            "Haiti",
+            "Heard Island and Mcdonald Islands",
+            "Vatican City State",
+            "Honduras",
+            "Hong Kong",
+            "Hungary",
+            "Iceland",
+            "India",
+            "Indonesia",
+            "Iran",
+            "Iraq",
+            "Ireland",
+            "Israel",
+            "Italy",
+            "Jamaica",
+            "Japan",
+            "Jordan",
+            "Kazakhstan",
+            "Kenya",
+            "Kiribati",
+            "Korea, Democratic People's Republic of",
+            "Korea",
+            "Kuwait",
+            "Kyrgyzstan",
+            "Laos",
+            "Latvia",
+            "Lebanon",
+            "Lesotho",
+            "Liberia",
+            "Libyan Arab Jamahiriya",
+            "Liechtenstein",
+            "Lithuania",
+            "Luxembourg",
+            "Macao",
+            "Macedonia",
+            "Madagascar",
+            "Malawi",
+            "Malaysia",
+            "Maldives",
+            "Mali",
+            "Malta",
+            "Marshall Islands",
+            "Martinique",
+            "Mauritania",
+            "Mauritius",
+            "Mayotte",
+            "Mexico",
+            "Micronesia",
+            "Moldova",
+            "Monaco",
+            "Mongolia",
+            "Montenegro",
+            "Montserrat",
+            "Morocco",
+            "Mozambique",
+            "Myanmar",
+            "Namibia",
+            "Nauru",
+            "Nepal",
+            "Netherlands",
+            "Netherlands Antilles",
+            "New Caledonia",
+            "New Zealand",
+            "Nicaragua",
+            "Niger",
+            "Nigeria",
+            "Niue",
+            "Norfolk Island",
+            "Northern Mariana Islands",
+            "Norway",
+            "Oman",
+            "Pakistan",
+            "Palau",
+            "Palestine",
+            "Panama",
+            "Papua New Guinea",
+            "Paraguay",
+            "Peru",
+            "Philippines",
+            "Pitcairn",
+            "Poland",
+            "Portugal",
+            "Puerto Rico",
+            "Qatar",
+            "Reunion",
+            "Romania",
+            "Russian Federation",
+            "Rwanda",
+            "Saint Helena",
+            "Saint Kitts and Nevis",
+            "Saint Lucia",
+            "Saint Pierre and Miquelon",
+            "Saint Vincent and the Grenadines",
+            "Samoa",
+            "San Marino",
+            "Sao Tome and Principe",
+            "Saudi Arabia",
+            "Senegal",
+            "Serbia",
+            "Seychelles",
+            "Sierra Leone",
+            "Singapore",
+            "Slovakia",
+            "Slovenia",
+            "Solomon Islands",
+            "Somalia",
+            "South Africa",
+            "South Georgia and the South Sandwich Islands",
+            "South Sudan",
+            "Spain",
+            "Sri Lanka",
+            "Sudan",
+            "Suriname",
+            "Svalbard and Jan Mayen",
+            "Swaziland",
+            "Sweden",
+            "Switzerland",
+            "Syrian Arab Republic",
+            "Taiwan",
+            "Tajikistan",
+            "Tanzania",
+            "Thailand",
+            "Timor-Leste",
+            "Togo",
+            "Tokelau",
+            "Tonga",
+            "Trinidad and Tobago",
+            "Tunisia",
+            "Turkey",
+            "Turkmenistan",
+            "Turks and Caicos Islands",
+            "Tuvalu",
+            "Uganda",
+            "Ukraine",
+            "United Arab Emirates",
+            "United Kingdom",
+            "United States Minor Outlying Islands",
+            "Uruguay",
+            "Uzbekistan",
+            "Vanuatu",
+            "Venezuela",
+            "Viet Nam",
+            "Virgin Islands, British",
+            "Virgin Islands, U.S.",
+            "Wallis and Futuna",
+            "Western Sahara",
+            "Yemen",
+            "Zambia",
+            "Zimbabwe"
+          ]
+        },
+        "startUrls": {
+          "title": "Google Trends URLs",
+          "type": "array",
+          "description": "Copy a Google Trends URL and paste it here.",
+          "editor": "requestListSources",
+          "example": [
+            {
+              "url": "https://trends.google.com/trends/explore?q=web+scraping&geo=US"
+            }
+          ],
+          "sectionCaption": "\ud83d\udd17 Use a Google Trends URL instead of search terms",
+          "sectionDescription": "Useful when default search is not enough, i.e. for custom date range or comparing trends"
+        },
+        "spreadsheetId": {
+          "title": "Google Sheet ID",
+          "type": "string",
+          "description": "(Optional) ID of the Google Sheet from where search terms will be loaded.\n Spreadsheet must have only one column. Row 1 is considered the title of the column so it will not be loaded as a search term. The provided spreadsheet must be publicly available. Check the actor documentation for more info.",
+          "editor": "textfield",
+          "example": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+          "sectionCaption": "Advanced options"
+        },
+        "category": {
+          "title": "Category of trends",
+          "type": "string",
+          "description": "Choose a category to filter the search for (defaults to 'All categories')",
+          "editor": "select",
+          "default": "",
+          "enumTitles": [
+            "All categories",
+            "Arts & Entertainment",
+            "Autos & Vehicles",
+            "Beauty & Fitness",
+            "Books & Literature",
+            "Business & Industrial",
+            "Computers & Electronics",
+            "Finance",
+            "Food & Drink",
+            "Games",
+            "Health",
+            "Hobbies & Leisure",
+            "Home & Garden",
+            "Internet & Telecom",
+            "Jobs & Education",
+            "Law & Government",
+            "News",
+            "Online Communities",
+            "People & Society",
+            "Pets & Animals",
+            "Property",
+            "Reference",
+            "Science",
+            "Shopping",
+            "Sports",
+            "Travel"
+          ],
+          "enum": [
+            "",
+            "3",
+            "47",
+            "44",
+            "22",
+            "12",
+            "5",
+            "7",
+            "71",
+            "8",
+            "45",
+            "65",
+            "11",
+            "13",
+            "958",
+            "19",
+            "16",
+            "299",
+            "14",
+            "66",
+            "29",
+            "533",
+            "174",
+            "18",
+            "20",
+            "67"
+          ]
+        },
+        "maxItems": {
+          "title": "Max items",
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum number of items to scrape. Zero means no limit.",
+          "default": 0
+        },
+        "customTimeRange": {
+          "title": "Custom time range",
+          "type": "string",
+          "description": "Provide custom time range. If present, it takes precedence over regular timeRange. Format is: `YYYY-MM-DD YYYY-MM-DD`. See examples in the documentation.",
+          "example": "2024-01-01 2024-12-31",
+          "editor": "textfield"
+        },
+        "maxConcurrency": {
+          "title": "Max concurrency",
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many pages will be opened in parallel if enough CPU is available.",
+          "default": 10,
+          "unit": "parallel pages"
+        },
+        "maxRequestRetries": {
+          "title": "Max request retries",
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many times will the Actor retry a request if it fails.",
+          "default": 7,
+          "unit": "retries"
+        }
+      }
+    },
+    "pricing": [
+      {
+        "pricingModel": "FLAT_PRICE_PER_MONTH",
+        "pricePerUnitUsd": 20,
+        "trialMinutes": 10080,
+        "startedAt": "2024-01-03T00:00:00.000Z",
+        "createdAt": "2023-12-22T09:35:40.944Z",
+        "apifyMarginPercentage": 0.2,
+        "notifiedAboutFutureChangeAt": "2023-12-22T09:36:04.084Z",
+        "notifiedAboutChangeAt": "2024-01-03T00:06:20.902Z"
+      },
+      {
+        "minimalMaxTotalChargeUsd": null,
+        "isPPEPlatformUsagePaidByUser": true,
+        "pricingModel": "PAY_PER_EVENT",
+        "isPriceChangeNotificationSuppressed": true,
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "apify-actor-start": {
+              "eventTitle": "Actor Start",
+              "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+              "isOneTimeEvent": true,
+              "eventPriceUsd": 5e-05,
+              "isPrimaryEvent": true
+            }
+          }
+        },
+        "createdAt": "2026-03-03T12:12:28.628Z",
+        "startedAt": "2026-03-03T12:12:28.628Z",
+        "apifyMarginPercentage": 0.2
+      },
+      {
+        "minimalMaxTotalChargeUsd": null,
+        "isPPEPlatformUsagePaidByUser": true,
+        "pricingModel": "PAY_PER_EVENT",
+        "isPriceChangeNotificationSuppressed": true,
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "apify-actor-start": {
+              "eventTitle": "Actor Start",
+              "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+              "isOneTimeEvent": true,
+              "eventPriceUsd": 5e-05,
+              "isPrimaryEvent": true
+            }
+          }
+        },
+        "createdAt": "2026-03-03T12:16:06.130Z",
+        "startedAt": "2026-03-03T12:16:06.130Z",
+        "apifyMarginPercentage": 0.2
+      },
+      {
+        "minimalMaxTotalChargeUsd": null,
+        "isPPEPlatformUsagePaidByUser": true,
+        "pricingModel": "PAY_PER_EVENT",
+        "isPriceChangeNotificationSuppressed": true,
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "apify-actor-start": {
+              "eventTitle": "Actor Start",
+              "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+              "isOneTimeEvent": true,
+              "eventPriceUsd": 5e-05
+            },
+            "apify-default-dataset-item": {
+              "eventTitle": "Result",
+              "eventDescription": "Single result in the default dataset.",
+              "isOneTimeEvent": false,
+              "eventTieredPricingUsd": {
+                "FREE": {
+                  "tieredEventPriceUsd": 0.003
+                },
+                "BRONZE": {
+                  "tieredEventPriceUsd": 0.001
+                },
+                "SILVER": {
+                  "tieredEventPriceUsd": 0.0005
+                },
+                "GOLD": {
+                  "tieredEventPriceUsd": 0.0003
+                },
+                "PLATINUM": {
+                  "tieredEventPriceUsd": 0.00015
+                },
+                "DIAMOND": {
+                  "tieredEventPriceUsd": 0.0001
+                }
+              },
+              "isPrimaryEvent": true
+            }
+          }
+        },
+        "createdAt": "2026-03-11T15:47:35.311Z",
+        "startedAt": "2026-03-11T15:47:35.311Z",
+        "apifyMarginPercentage": 0.2
+      },
+      {
+        "minimalMaxTotalChargeUsd": null,
+        "isPPEPlatformUsagePaidByUser": true,
+        "pricingModel": "PAY_PER_EVENT",
+        "isPriceChangeNotificationSuppressed": false,
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "apify-default-dataset-item": {
+              "eventTitle": "Result",
+              "eventDescription": "Single result in the default dataset.",
+              "isOneTimeEvent": false,
+              "eventTieredPricingUsd": {
+                "FREE": {
+                  "tieredEventPriceUsd": 0.003
+                },
+                "BRONZE": {
+                  "tieredEventPriceUsd": 0.001
+                },
+                "SILVER": {
+                  "tieredEventPriceUsd": 0.0005
+                },
+                "GOLD": {
+                  "tieredEventPriceUsd": 0.0003
+                },
+                "PLATINUM": {
+                  "tieredEventPriceUsd": 0.00015
+                },
+                "DIAMOND": {
+                  "tieredEventPriceUsd": 0.0001
+                }
+              },
+              "isPrimaryEvent": true
+            }
+          }
+        },
+        "createdAt": "2026-06-30T12:42:38.684Z",
+        "startedAt": "2026-06-30T12:42:38.684Z",
+        "apifyMarginPercentage": 0.2
+      },
+      {
+        "minimalMaxTotalChargeUsd": null,
+        "pricingModel": "PAY_PER_EVENT",
+        "isPriceChangeNotificationSuppressed": true,
+        "apifyMarginPercentage": 0.2,
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "apify-default-dataset-item": {
+              "eventTitle": "Result",
+              "eventDescription": "Single result in the default dataset.",
+              "isOneTimeEvent": false,
+              "eventTieredPricingUsd": {
+                "FREE": {
+                  "tieredEventPriceUsd": 0.006
+                },
+                "BRONZE": {
+                  "tieredEventPriceUsd": 0.005
+                },
+                "SILVER": {
+                  "tieredEventPriceUsd": 0.004
+                },
+                "GOLD": {
+                  "tieredEventPriceUsd": 0.003
+                },
+                "PLATINUM": {
+                  "tieredEventPriceUsd": 0.002
+                },
+                "DIAMOND": {
+                  "tieredEventPriceUsd": 0.001
+                }
+              },
+              "isPrimaryEvent": true
+            },
+            "apify-actor-start": {
+              "eventTitle": "Actor Start",
+              "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+              "isOneTimeEvent": true,
+              "eventPriceUsd": 5e-05
+            }
+          }
+        },
+        "createdAt": "2026-11-06T09:49:52.200Z",
+        "startedAt": "2026-11-06T09:49:52.200Z"
+      },
+      {
+        "minimalMaxTotalChargeUsd": null,
+        "pricingModel": "PAY_PER_EVENT",
+        "isPriceChangeNotificationSuppressed": true,
+        "apifyMarginPercentage": 0.2,
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "apify-default-dataset-item": {
+              "eventTitle": "Result",
+              "eventDescription": "Single result in the default dataset.",
+              "isOneTimeEvent": false,
+              "eventTieredPricingUsd": {
+                "FREE": {
+                  "tieredEventPriceUsd": 0.006
+                },
+                "BRONZE": {
+                  "tieredEventPriceUsd": 0.005
+                },
+                "SILVER": {
+                  "tieredEventPriceUsd": 0.004
+                },
+                "GOLD": {
+                  "tieredEventPriceUsd": 0.003
+                },
+                "PLATINUM": {
+                  "tieredEventPriceUsd": 0.002
+                },
+                "DIAMOND": {
+                  "tieredEventPriceUsd": 0.0015
+                }
+              },
+              "isPrimaryEvent": true
+            },
+            "apify-actor-start": {
+              "eventTitle": "Actor Start",
+              "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+              "isOneTimeEvent": true,
+              "eventPriceUsd": 5e-05
+            }
+          }
+        },
+        "createdAt": "2026-11-06T09:51:32.568Z",
+        "startedAt": "2026-11-06T09:51:32.568Z"
+      }
+    ]
+  },
+  "inimi/shopify-store-scraper": {
+    "title": "Shopify Store Scraper: Products, Prices & Variants",
+    "input_schema": {
+      "title": "Shopify Store Scraper: Products, Prices & Variants input",
+      "type": "object",
+      "schemaVersion": 1,
+      "properties": {
+        "stores": {
+          "title": "Shopify stores",
+          "type": "array",
+          "description": "Store URLs or domains, one per line: allbirds.com, https://kyliecosmetics.com.",
+          "editor": "stringList",
+          "prefill": [
+            "allbirds.com"
+          ]
+        },
+        "maxProductsPerStore": {
+          "title": "Max products per store",
+          "type": "integer",
+          "description": "0 = the whole catalog.",
+          "default": 1000,
+          "minimum": 0
+        },
+        "collection": {
+          "title": "Collection",
+          "type": "string",
+          "description": "Optional collection handle or URL, e.g. \"sale\" or https://store.com/collections/sale.",
+          "editor": "textfield"
+        },
+        "onlyAvailable": {
+          "title": "Only products in stock",
+          "type": "boolean",
+          "description": "Skip products with no available variant.",
+          "default": false
+        },
+        "includeDescription": {
+          "title": "Include description",
+          "type": "boolean",
+          "description": "Product description as plain text.",
+          "default": true
+        },
+        "maxConcurrency": {
+          "title": "Parallel requests",
+          "type": "integer",
+          "description": "How many items to process at the same time.",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20
+        },
+        "proxyConfiguration": {
+          "title": "Proxy configuration",
+          "type": "object",
+          "description": "Proxies are included in the price. Switch to residential proxies if you see many blocked requests.",
+          "editor": "proxy",
+          "default": {
+            "useApifyProxy": true
+          },
+          "prefill": {
+            "useApifyProxy": true
+          }
+        }
+      },
+      "required": [
+        "stores"
+      ]
+    },
+    "pricing": [
+      {
+        "minimalMaxTotalChargeUsd": null,
+        "pricingModel": "PAY_PER_EVENT",
+        "isPriceChangeNotificationSuppressed": false,
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "apify-actor-start": {
+              "eventTitle": "Actor Start",
+              "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+              "isOneTimeEvent": true,
+              "eventPriceUsd": 5e-05
+            },
+            "product": {
+              "eventTitle": "Product",
+              "eventDescription": "One product saved (all its variants included).",
+              "isOneTimeEvent": false,
+              "eventPriceUsd": 0.0008,
+              "isPrimaryEvent": true
+            }
+          }
+        },
+        "startedAt": "2026-10-30T01:47:28.494Z",
+        "createdAt": "2026-10-30T01:47:28.966Z",
+        "apifyMarginPercentage": 0.2
+      }
+    ]
+  },
+  "offgrid-labs/reddit-scraper": {
+    "title": "Reddit Scraper - Posts, Comments & Replies, Search, Users",
+    "input_schema": {
+      "title": "Reddit Scraper input",
+      "type": "object",
+      "schemaVersion": 1,
+      "properties": {
+        "clientId": {
+          "title": "Reddit client ID (optional)",
+          "type": "string",
+          "editor": "textfield",
+          "isSecret": true,
+          "sectionCaption": "Reddit credentials (optional)",
+          "sectionDescription": "Reddit credentials are optional. Provide a client ID and secret to use Reddit's official OAuth Data API (application-only, read-only). Leave both empty to use Reddit's public JSON endpoints instead \u2014 no credentials required.",
+          "description": "Optional. Client ID of your own Reddit app (the string under the app name at https://www.reddit.com/prefs/apps). Used only for application-only OAuth (client_credentials grant, read-only). Leave empty with the secret to use the public JSON path. Example: p-jcoLKBynTLew"
+        },
+        "clientSecret": {
+          "title": "Reddit client secret (optional)",
+          "type": "string",
+          "editor": "textfield",
+          "isSecret": true,
+          "description": "Optional. Secret of the same Reddit app (field labelled \"secret\" at https://www.reddit.com/prefs/apps). Stored encrypted by Apify; never logged. If the ID/secret is rejected, the actor falls back to the public JSON path."
+        },
+        "appName": {
+          "title": "Your Reddit app name (User-Agent)",
+          "type": "string",
+          "editor": "textfield",
+          "description": "Name of your Reddit app, sent as a descriptive User-Agent when OAuth credentials are provided, e.g. apify:offgrid-labs-reddit-scraper:0.1 (app: my-research-app). Example: my-research-app",
+          "prefill": "my-research-app"
+        },
+        "redditUsername": {
+          "title": "Your Reddit username (optional, User-Agent)",
+          "type": "string",
+          "editor": "textfield",
+          "description": "Optional. The Reddit username that owns the app; appended to the User-Agent as (by /u/<name>) as Reddit recommends. Not used to log in. Example: my_reddit_name"
+        },
+        "subreddits": {
+          "title": "Subreddits",
+          "type": "array",
+          "editor": "stringList",
+          "sectionCaption": "What to scrape",
+          "description": "Subreddit names or URLs, one per line; posts are read from each subreddit's listing chosen in Sort. Formats: webscraping, r/webscraping, https://www.reddit.com/r/webscraping. all = r/all.",
+          "prefill": [
+            "webscraping",
+            "datascience"
+          ]
+        },
+        "sort": {
+          "title": "Subreddit / user sort",
+          "type": "string",
+          "editor": "select",
+          "enum": [
+            "hot",
+            "new",
+            "top",
+            "rising",
+            "controversial"
+          ],
+          "enumTitles": [
+            "Hot",
+            "New",
+            "Top",
+            "Rising",
+            "Controversial"
+          ],
+          "description": "Listing used for subreddits and user profiles. top and controversial use the Time filter. Default hot.",
+          "default": "hot"
+        },
+        "timeFilter": {
+          "title": "Time filter",
+          "type": "string",
+          "editor": "select",
+          "enum": [
+            "hour",
+            "day",
+            "week",
+            "month",
+            "year",
+            "all"
+          ],
+          "enumTitles": [
+            "Past hour",
+            "Past 24 hours",
+            "Past week",
+            "Past month",
+            "Past year",
+            "All time"
+          ],
+          "description": "Time window for top/controversial listings and for search (relevance/top/comments sorts). Default day.",
+          "default": "day"
+        },
+        "searchQueries": {
+          "title": "Search queries",
+          "type": "array",
+          "editor": "stringList",
+          "description": "Optional. Reddit search queries, one per line; each returns matching posts. Reddit search syntax works, e.g. \"exact phrase\", title:pricing, author:name, OR. Example: \"web scraping\" api"
+        },
+        "searchInSubreddits": {
+          "title": "Restrict search to subreddits",
+          "type": "array",
+          "editor": "stringList",
+          "description": "Optional. Limit Search queries to these subreddits (searched together). Empty = all of Reddit. Example: python, learnpython"
+        },
+        "searchSort": {
+          "title": "Search sort",
+          "type": "string",
+          "editor": "select",
+          "enum": [
+            "relevance",
+            "hot",
+            "top",
+            "new",
+            "comments"
+          ],
+          "enumTitles": [
+            "Relevance",
+            "Hot",
+            "Top",
+            "New",
+            "Most comments"
+          ],
+          "description": "Order of search results. Default new.",
+          "default": "new"
+        },
+        "postUrls": {
+          "title": "Post URLs (full comment trees)",
+          "type": "array",
+          "editor": "stringList",
+          "description": "Optional. Reddit post URLs, redd.it links or post IDs; each returns the post plus its comment tree (limited by Max comments per post and Comment depth). Example: https://www.reddit.com/r/AskReddit/comments/abc123/title/"
+        },
+        "users": {
+          "title": "Usernames (public posts / comments)",
+          "type": "array",
+          "editor": "stringList",
+          "description": "Optional. Reddit usernames or profile URLs, one per line; returns their public posts and/or comments (see User content). Example: spez or https://www.reddit.com/user/spez"
+        },
+        "userContent": {
+          "title": "User content",
+          "type": "string",
+          "editor": "select",
+          "enum": [
+            "both",
+            "submitted",
+            "comments"
+          ],
+          "enumTitles": [
+            "Posts and comments",
+            "Posts only",
+            "Comments only"
+          ],
+          "description": "Which public profile listings to read for Usernames. Default both.",
+          "default": "both"
+        },
+        "maxItemsPerSource": {
+          "title": "Max posts per source",
+          "type": "integer",
+          "sectionCaption": "Limits and comments",
+          "description": "Maximum records read from each subreddit, search query or user listing (Reddit's listings stop at about 1,000). One saved record = one charged event. Default 100. Example: 25",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100,
+          "prefill": 5
+        },
+        "includeComments": {
+          "title": "Also fetch comments of listed posts",
+          "type": "boolean",
+          "description": "If true, the comment tree of every post from subreddits and searches is fetched too (one extra API request per post; comments are charged as comment events). Post URLs always include comments. Default false.",
+          "default": false
+        },
+        "maxCommentsPerPost": {
+          "title": "Max comments per post",
+          "type": "integer",
+          "description": "Maximum comments saved per post (Post URLs, and listed posts when Also fetch comments is on). Collapsed \"load more\" branches are expanded until this limit. 0 = posts only. Default 100.",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 100
+        },
+        "commentDepth": {
+          "title": "Comment depth",
+          "type": "integer",
+          "description": "Maximum reply depth: 0 = top-level comments only, 1 = plus direct replies, and so on. Default 10.",
+          "minimum": 0,
+          "maximum": 50,
+          "default": 10
+        },
+        "commentSort": {
+          "title": "Comment sort",
+          "type": "string",
+          "editor": "select",
+          "enum": [
+            "confidence",
+            "top",
+            "new",
+            "controversial",
+            "old",
+            "qa"
+          ],
+          "enumTitles": [
+            "Best",
+            "Top",
+            "New",
+            "Controversial",
+            "Old",
+            "Q&A"
+          ],
+          "description": "Order in which comments are read (matters when Max comments per post cuts the tree). Default confidence (Reddit's \"Best\").",
+          "default": "confidence"
+        },
+        "expandMoreComments": {
+          "title": "Expand \"load more comments\"",
+          "type": "boolean",
+          "description": "If true (default), collapsed comment branches are expanded via the API's morechildren endpoint until Max comments per post is reached.",
+          "default": true
+        },
+        "includeDeleted": {
+          "title": "Include deleted / removed items",
+          "type": "boolean",
+          "description": "If true, deleted and removed posts/comments are saved (body and author null, isDeleted / isRemoved = true) and charged. Default false: they are skipped and not charged.",
+          "default": false
+        },
+        "skipNsfw": {
+          "title": "Skip NSFW (over 18) posts",
+          "type": "boolean",
+          "description": "If true, posts and comments marked over_18 are skipped and not charged. Default false.",
+          "default": false
+        },
+        "demo": {
+          "title": "Demo mode (fixed sample, not charged)",
+          "type": "boolean",
+          "sectionCaption": "Demo mode",
+          "description": "If true, the actor returns a small fixed sample (demo: true) without contacting Reddit, and never charges. Turn it off for live data (public JSON path or your own OAuth credentials).",
+          "default": false,
+          "prefill": true
+        },
+        "publicRequestBudget": {
+          "title": "Public path request budget",
+          "type": "integer",
+          "description": "Maximum HTTP requests the public (no-credential) JSON path may make per run. Reaching it ends the run cleanly with whatever was collected. Ignored when OAuth credentials are used. Default 300.",
+          "minimum": 1,
+          "maximum": 5000,
+          "default": 300
+        },
+        "proxyList": {
+          "title": "Proxy list (optional, secret)",
+          "type": "string",
+          "editor": "textarea",
+          "isSecret": true,
+          "sectionCaption": "Proxy routing (optional)",
+          "sectionDescription": "Optional. Route requests through your own proxies. Precedence: your proxy list > Apify-managed proxy > direct connection. Proxy credentials are used only in memory to make requests and are never logged or stored in results.",
+          "description": "One proxy per line (or comma-separated), as http(s)://user:pass@host:port or host:port (credentials optional). The actor rotates across them and fails over to the next healthy one on 403/429/5xx/timeout. Leave empty to connect directly (or pair with Use Apify proxy)."
+        },
+        "useApifyProxy": {
+          "title": "Use Apify proxy",
+          "type": "boolean",
+          "description": "If true (and no proxy list is supplied), route requests through Apify's managed proxy using the group chosen below. Requires Apify proxy to be enabled for this actor. Default false.",
+          "default": false
+        },
+        "proxyGroups": {
+          "title": "Apify proxy group",
+          "type": "string",
+          "editor": "select",
+          "enum": [
+            "DATACENTERS",
+            "RESIDENTIAL",
+            "UNBLOCKER"
+          ],
+          "enumTitles": [
+            "Residential",
+            "Datacenters"
+          ],
+          "description": "Apify proxy pool: DATACENTERS (fastest), RESIDENTIAL (rotating IPs), or UNBLOCKER (most reliable against blocking).",
+          "default": "RESIDENTIAL"
+        },
+        "proxyRotation": {
+          "title": "Proxy rotation strategy",
+          "type": "string",
+          "editor": "select",
+          "enum": [
+            "round_robin",
+            "random",
+            "sticky_window"
+          ],
+          "enumTitles": [
+            "Round-robin",
+            "Random",
+            "Sticky window"
+          ],
+          "description": "How proxies are chosen. round_robin cycles in order (default); random picks uniformly; sticky_window holds one proxy for the configured window then moves on. Default round_robin.",
+          "default": "round_robin"
+        },
+        "stickyWindow": {
+          "title": "Sticky window size",
+          "type": "integer",
+          "description": "Requests per proxy before rotating, when rotation strategy is sticky_window. Default 15.",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 15
+        },
+        "proxyMaxRetries": {
+          "title": "Proxy failover retries",
+          "type": "integer",
+          "description": "How many additional proxies to try after a request fails (403/429/5xx/timeout) before giving up on that request. Default 2.",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 2
+        },
+        "proxyMaxFailures": {
+          "title": "Max failures before blacklisting a proxy",
+          "type": "integer",
+          "description": "Consecutive failures after which a proxy is blacklisted (skipped) for the rest of the run. A proxy-auth rejection (407/401) blacklists immediately. Default 5.",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 5
+        },
+        "userAgent": {
+          "title": "Custom User-Agent (advanced, optional)",
+          "type": "string",
+          "editor": "textfield",
+          "description": "Optional. Overrides the default User-Agent sent on the public JSON path (ignored on the official Data API path)."
+        }
+      },
+      "required": []
+    },
+    "pricing": [
+      {
+        "pricingModel": "PAY_PER_EVENT",
+        "pricingPerEvent": {
+          "actorChargeEvents": {
+            "post": {
+              "eventTitle": "Post",
+              "eventDescription": "One Reddit post saved to the dataset (demo records are not charged).",
+              "isPrimaryEvent": true,
+              "eventPriceUsd": 0.0005
+            },
+            "comment": {
+              "eventTitle": "Comment",
+              "eventDescription": "One Reddit comment saved to the dataset (demo records are not charged).",
+              "eventPriceUsd": 0.00025
+            },
+            "apify-actor-start": {
+              "eventTitle": "Actor Start",
+              "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+              "eventPriceUsd": 5e-05
+            }
+          }
+        },
+        "createdAt": "2026-11-03T08:00:03.609Z",
+        "startedAt": "2026-11-03T08:00:03.609Z",
+        "apifyMarginPercentage": 0.2
+      }
+    ]
+  }
+}

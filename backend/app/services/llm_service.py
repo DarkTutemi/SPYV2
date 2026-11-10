@@ -127,6 +127,8 @@ class LLMService:
                 BundleMechanism.FREQUENT_USAGE,
                 BundleMechanism.MULTI_PERSON_HOUSEHOLD,
                 BundleMechanism.CONSUMABLE_REPLENISHMENT,
+                BundleMechanism.MULTI_PET,
+                BundleMechanism.COMPLETE_COVERAGE,
             )
             reasoning = (
                 f"Heuristic pattern match: matched terms for {best_mech.value} "

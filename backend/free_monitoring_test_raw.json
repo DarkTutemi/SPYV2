@@ -1,0 +1,50 @@
+[
+  {
+    "ad_id": "1654383812796911",
+    "label": "Reusable dog pee pads",
+    "url": "https://www.facebook.com/ads/library/?id=1654383812796911",
+    "observation_timestamp": "2026-11-10T03:15:37.916252+00:00",
+    "http_status": 403,
+    "error": "HTTP Error 403: Client challenge"
+  },
+  {
+    "ad_id": "1135373669505006",
+    "label": "Men's leakproof boxers",
+    "url": "https://www.facebook.com/ads/library/?id=1135373669505006",
+    "observation_timestamp": "2026-11-10T03:15:38.109198+00:00",
+    "http_status": 403,
+    "error": "HTTP Error 403: Client challenge"
+  },
+  {
+    "ad_id": "1822961982334971",
+    "label": "Spin mop heads",
+    "url": "https://www.facebook.com/ads/library/?id=1822961982334971",
+    "observation_timestamp": "2026-11-10T03:15:38.248932+00:00",
+    "http_status": 403,
+    "error": "HTTP Error 403: Client challenge"
+  },
+  {
+    "ad_id": "1441655818106115",
+    "label": "Chair leg protectors",
+    "url": "https://www.facebook.com/ads/library/?id=1441655818106115",
+    "observation_timestamp": "2026-11-10T03:15:38.388007+00:00",
+    "http_status": 403,
+    "error": "HTTP Error 403: Client challenge"
+  },
+  {
+    "ad_id": "1385909230286911",
+    "label": "Car detailing towels",
+    "url": "https://www.facebook.com/ads/library/?id=1385909230286911",
+    "observation_timestamp": "2026-11-10T03:15:38.525897+00:00",
+    "http_status": 403,
+    "error": "HTTP Error 403: Client challenge"
+  },
+  {
+    "ad_id": "1691452315890995",
+    "label": "Rug grippers (DB: Dog boots)",
+    "url": "https://www.facebook.com/ads/library/?id=1691452315890995",
+    "observation_timestamp": "2026-11-10T03:15:38.651460+00:00",
+    "http_status": 403,
+    "error": "HTTP Error 403: Client challenge"
+  }
+]

@@ -195,6 +195,9 @@ class ProductRead(BaseSchema):
     target_country: str
     us_relevance_confidence: ConfidenceLevel
     is_physical: bool
+    is_synthetic: bool = False
+    opportunity_status: Optional[str] = "DISCOVERED"
+    primary_bundle_qty: Optional[int] = None
     functional_use_case: Optional[str]
     customer_pain: Optional[str]
     source_type: DataSourceType
@@ -211,6 +214,14 @@ class ProductDetail(ProductRead):
     emergence_score: Optional[float] = None
     evidence_confidence: Optional[float] = None
     bundle_potential: Optional[float] = None
+    commercial_model: Optional[str] = "MODEL_A_SINGLE_PRODUCT"
+    core_opportunity_score: Optional[float] = None
+    bundle_upside_score: Optional[float] = None
+    why_it_ranks_high: Optional[str] = None
+    why_it_might_fail: Optional[str] = None
+    what_evidence_supports_it: Optional[str] = None
+    what_remains_unknown: Optional[str] = None
+    next_validation_action: Optional[str] = None
     bundle_offers: list[BundleOfferRead] = []
     data_gaps: list[str] = []
 
@@ -291,11 +302,32 @@ class OpportunityScoreRead(BaseSchema):
     score_date: str
     emergence_score: float
     emergence_components: Optional[dict]
+    discovery_signal_score: Optional[float] = 0.0
+    functional_benefit_score: Optional[float] = 0.0
+    observed_momentum: Optional[float] = None
+    opportunity_status: Optional[str] = "DISCOVERED"
+    status_reason: Optional[str] = None
+    natural_bundle_quantity: Optional[int] = None
+    independent_advertisers_count: Optional[int] = 1
+    observed_single_price_usd: Optional[float] = None
+    observed_bundle_price_usd: Optional[float] = None
+    estimated_bundle_scenario: Optional[str] = None
+    customer_aov_usd: Optional[float] = None
+    natural_quantity_rationale: Optional[str] = None
+    ad_activity_observations: Optional[dict] = None
     evidence_confidence: float
     confidence_components: Optional[dict]
     bundle_potential: float
     bundle_components: Optional[dict]
     composite_score: float
+    commercial_model: Optional[str] = "MODEL_A_SINGLE_PRODUCT"
+    core_opportunity_score: Optional[float] = 0.0
+    bundle_upside_score: Optional[float] = 0.0
+    why_it_ranks_high: Optional[str] = None
+    why_it_might_fail: Optional[str] = None
+    what_evidence_supports_it: Optional[str] = None
+    what_remains_unknown: Optional[str] = None
+    next_validation_action: Optional[str] = None
     requires_verification: bool
     verification_reason: Optional[str]
     weights_version: str
@@ -363,6 +395,25 @@ class ProductIntelligenceReport(BaseModel):
     emergence_score: Optional[float] = None
     evidence_confidence: Optional[float] = None
     bundle_potential: Optional[float] = None
+    discovery_signal_score: Optional[float] = None
+    functional_benefit_score: Optional[float] = None
+    observed_momentum: Optional[float] = None
+    opportunity_status: Optional[str] = "DISCOVERED"
+    status_reason: Optional[str] = None
+    natural_bundle_quantity: Optional[int] = None
+    commercial_model: Optional[str] = "MODEL_A_SINGLE_PRODUCT"
+    core_opportunity_score: Optional[float] = None
+    bundle_upside_score: Optional[float] = None
+    why_it_ranks_high: Optional[str] = None
+    why_it_might_fail: Optional[str] = None
+    what_evidence_supports_it: Optional[str] = None
+    what_remains_unknown: Optional[str] = None
+    next_validation_action: Optional[str] = None
+    observed_single_price_usd: Optional[float] = None
+    observed_bundle_price_usd: Optional[float] = None
+    estimated_bundle_scenario: Optional[str] = None
+    customer_aov_usd: Optional[float] = None
+    natural_quantity_rationale: Optional[str] = None
     score_components: Optional[dict] = None
 
     # Section 20-22: Provenance

@@ -1,0 +1,37 @@
+{
+  "session_start_time": "2026-11-10T18:07:06.148917+00:00",
+  "authorized_ceiling_usd": 2.0,
+  "runs": [
+    {
+      "key": "google_trends_new_categories",
+      "actor_id": "apify/google-trends-scraper",
+      "apify_run_id": "XxUAv1fy5qQ1yp3nR",
+      "dataset_id": "HboKNlH1eWsDPTU9K",
+      "status": "SUCCEEDED",
+      "records_fetched": 10,
+      "actual_cost_usd": 0.0541,
+      "charged_events": {
+        "apify-default-dataset-item": 10,
+        "apify-actor-start": 1
+      },
+      "raw_file": "new_research_raw_trends.json"
+    },
+    {
+      "key": "amazon_us_new_categories",
+      "actor_id": "scrapermagic/amazon-product-scraper",
+      "apify_run_id": "LlPmsdtloU2fWOHj1",
+      "dataset_id": "KwDgxTeg0fH9hhNtd",
+      "status": "SUCCEEDED",
+      "records_fetched": 24,
+      "actual_cost_usd": 0.0241,
+      "charged_events": {
+        "apify-actor-start": 1,
+        "product": 0,
+        "search-result": 24
+      },
+      "raw_file": "new_research_raw_amazon.json"
+    }
+  ],
+  "total_actual_cost_usd": 0.0781,
+  "remaining_budget_usd": 1.9219
+}

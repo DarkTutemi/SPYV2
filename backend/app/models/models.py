@@ -58,9 +58,14 @@ def _utcnow() -> datetime:
 class DataSourceType(str, enum.Enum):
     META_AD_LIBRARY = "meta_ad_library"
     TIKTOK_CREATIVE_CENTER = "tiktok_creative_center"
+    TIKTOK_SHOP = "tiktok_shop"
     REDDIT = "reddit"
     GOOGLE_TRENDS = "google_trends"
     AMAZON = "amazon"
+    SHOPIFY = "shopify"
+    WALMART = "walmart"
+    ALIEXPRESS = "aliexpress"
+    CJ_DROPSHIPPING = "cj_dropshipping"
     APIFY = "apify"
     MANUAL_IMPORT = "manual_import"
     CRAWL4AI = "crawl4ai"
@@ -193,6 +198,7 @@ class SourceRecord(Base):
     geo_confidence: Mapped[ConfidenceLevel] = mapped_column(Enum(ConfidenceLevel), default=ConfidenceLevel.UNKNOWN)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
     duplicate_of_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
@@ -273,6 +279,7 @@ class Advertisement(Base):
     creative_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # image, video, carousel
     target_country: Mapped[str] = mapped_column(String(10), default="US")
     is_active: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
     advertiser_start_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -374,8 +381,11 @@ class Product(Base):
     target_country: Mapped[str] = mapped_column(String(10), default="US")
     us_relevance_confidence: Mapped[ConfidenceLevel] = mapped_column(Enum(ConfidenceLevel), default=ConfidenceLevel.UNKNOWN)
     is_physical: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
+    opportunity_status: Mapped[str] = mapped_column(String(50), default="DISCOVERED")
     functional_use_case: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     customer_pain: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    primary_bundle_qty: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     source_type: Mapped[DataSourceType] = mapped_column(Enum(DataSourceType), nullable=False)
     external_id: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     raw_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
@@ -632,6 +642,23 @@ class OpportunityScore(Base):
     emergence_score: Mapped[float] = mapped_column(Float, default=0.0)
     emergence_components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
+    # 5-Layer Qualification Scoring
+    discovery_signal_score: Mapped[float] = mapped_column(Float, default=0.0)
+    functional_benefit_score: Mapped[float] = mapped_column(Float, default=0.0)
+    observed_momentum: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Only when longitudinal data exists
+    opportunity_status: Mapped[str] = mapped_column(String(50), default="DISCOVERED")
+    status_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    natural_bundle_quantity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    independent_advertisers_count: Mapped[int] = mapped_column(Integer, default=1)
+
+    # Price Observation & Commercial Evidence (Phase 9)
+    observed_single_price_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    observed_bundle_price_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    estimated_bundle_scenario: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    customer_aov_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Unknown unless order data exists
+    natural_quantity_rationale: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ad_activity_observations: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
     # Evidence Confidence (0-100)
     evidence_confidence: Mapped[float] = mapped_column(Float, default=0.0)
     confidence_components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
@@ -644,6 +671,16 @@ class OpportunityScore(Base):
     composite_score: Mapped[float] = mapped_column(Float, default=0.0)
     requires_verification: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Commercial Opportunity Models (Phase 14 / Multi-Model)
+    commercial_model: Mapped[Optional[str]] = mapped_column(String(50), default="MODEL_A_SINGLE_PRODUCT")
+    core_opportunity_score: Mapped[Optional[float]] = mapped_column(Float, default=0.0)
+    bundle_upside_score: Mapped[Optional[float]] = mapped_column(Float, default=0.0)
+    why_it_ranks_high: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    why_it_might_fail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    what_evidence_supports_it: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    what_remains_unknown: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    next_validation_action: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Weights used
     weights_version: Mapped[str] = mapped_column(String(50), default="v1")

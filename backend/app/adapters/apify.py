@@ -368,6 +368,7 @@ class ApifyProviderAdapter:
         advertisers: list[str],
         max_ads: int = 20,
         sort_by: str = "recent",
+        active_status: str = "active",
         use_fallback: bool = False,
     ) -> dict[str, Any]:
         """Build provider-specific payload for advertiser page search conforming to official schemas."""
@@ -377,7 +378,7 @@ class ApifyProviderAdapter:
             adv_str = str(adv).strip()
             if adv_str.isdigit():
                 page_ids.append(adv_str)
-                page_urls.append(f"https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&view_all_page_id={adv_str}")
+                page_urls.append(f"https://www.facebook.com/ads/library/?active_status={active_status}&ad_type=all&country=US&view_all_page_id={adv_str}")
             elif "facebook.com" in adv_str:
                 page_urls.append(adv_str)
                 # Extract page id from URL if present
@@ -391,7 +392,7 @@ class ApifyProviderAdapter:
             return {
                 "pageUrls": page_urls if page_urls else [f"https://www.facebook.com/ads/library/?view_all_page_id={pid}" for pid in page_ids],
                 "country": "US",
-                "activeStatus": "active",
+                "activeStatus": active_status,
                 "sortBy": sort_by,
                 "mediaType": "all",
                 "maxAds": max_ads,

@@ -27,14 +27,35 @@ async def list_products(
     search: Optional[str] = None,
     category: Optional[str] = None,
     country: str = "US",
+    status: Optional[str] = None,
+    bundle_qty: Optional[int] = None,
+    is_physical: Optional[bool] = None,
+    include_synthetic: bool = Query(False, description="Include synthetic test fixtures"),
     sort_by: str = "first_seen_at",
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Product).where(Product.target_country == country)
+    if not include_synthetic:
+        query = query.where(
+            Product.is_synthetic == False,
+            ~Product.name.startswith("DEMO "),
+        )
     if search:
         query = query.where(Product.name.ilike(f"%{search}%"))
     if category:
         query = query.where(Product.category == category)
+    if status and status.upper() != "ALL":
+        s_upper = status.upper()
+        if s_upper in ("QUALIFIED", "QUALIFIED_OPPORTUNITY"):
+            query = query.where(Product.opportunity_status.in_(["QUALIFIED", "QUALIFIED_OPPORTUNITY"]))
+        elif s_upper == "QUALIFIED_AND_PROMISING":
+            query = query.where(Product.opportunity_status.in_(["QUALIFIED", "QUALIFIED_OPPORTUNITY", "PROMISING"]))
+        else:
+            query = query.where(Product.opportunity_status == s_upper)
+    if bundle_qty:
+        query = query.where(Product.primary_bundle_qty == bundle_qty)
+    if is_physical is not None:
+        query = query.where(Product.is_physical == is_physical)
 
     if sort_by == "name":
         query = query.order_by(Product.name)
@@ -52,18 +73,58 @@ async def ranked_products(
     page_size: int = Query(20, ge=1, le=100),
     min_emergence: float = 0,
     min_bundle: float = 0,
+    min_confidence: float = 0,
+    status: Optional[str] = None,
+    bundle_qty: Optional[int] = None,
+    is_physical: Optional[bool] = None,
+    include_synthetic: bool = Query(False, description="Include synthetic test fixtures"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Products ranked by composite opportunity score."""
+    """Products ranked by latest composite opportunity score with qualification filters."""
+    # Subquery to pick only the latest score per product
+    latest_score_sq = (
+        select(
+            OpportunityScore.product_id,
+            func.max(OpportunityScore.score_date).label("max_date"),
+        )
+        .group_by(OpportunityScore.product_id)
+        .subquery()
+    )
+
     query = (
         select(OpportunityScore, Product)
+        .join(
+            latest_score_sq,
+            (OpportunityScore.product_id == latest_score_sq.c.product_id)
+            & (OpportunityScore.score_date == latest_score_sq.c.max_date),
+        )
         .join(Product, OpportunityScore.product_id == Product.id)
         .where(Product.target_country == "US")
     )
+    if not include_synthetic:
+        query = query.where(
+            Product.is_synthetic == False,
+            ~Product.name.startswith("DEMO "),
+            OpportunityScore.opportunity_status != "SYNTHETIC_FIXTURE",
+        )
     if min_emergence > 0:
         query = query.where(OpportunityScore.emergence_score >= min_emergence)
     if min_bundle > 0:
         query = query.where(OpportunityScore.bundle_potential >= min_bundle)
+    if min_confidence > 0:
+        query = query.where(OpportunityScore.evidence_confidence >= min_confidence)
+    if status and status.upper() != "ALL":
+        s_upper = status.upper()
+        if s_upper in ("QUALIFIED", "QUALIFIED_OPPORTUNITY"):
+            query = query.where(OpportunityScore.opportunity_status.in_(["QUALIFIED", "QUALIFIED_OPPORTUNITY"]))
+        elif s_upper == "QUALIFIED_AND_PROMISING":
+            query = query.where(OpportunityScore.opportunity_status.in_(["QUALIFIED", "QUALIFIED_OPPORTUNITY", "PROMISING"]))
+        else:
+            query = query.where(OpportunityScore.opportunity_status == s_upper)
+    if bundle_qty:
+        query = query.where(OpportunityScore.natural_bundle_quantity == bundle_qty)
+    if is_physical is not None:
+        query = query.where(Product.is_physical == is_physical)
 
     query = query.order_by(OpportunityScore.composite_score.desc())
     query = query.offset((page - 1) * page_size).limit(page_size)
@@ -213,6 +274,12 @@ async def product_report(product_id: str, db: AsyncSession = Depends(get_db)):
         emergence_score=score.emergence_score if score else None,
         evidence_confidence=score.evidence_confidence if score else None,
         bundle_potential=score.bundle_potential if score else None,
+        discovery_signal_score=score.discovery_signal_score if score else None,
+        functional_benefit_score=score.functional_benefit_score if score else None,
+        observed_momentum=score.observed_momentum if score else None,
+        opportunity_status=score.opportunity_status if score else "NEW_DISCOVERY",
+        status_reason=score.status_reason if score else None,
+        natural_bundle_quantity=score.natural_bundle_quantity if score else None,
         score_components={
             "emergence": score.emergence_components,
             "confidence": score.confidence_components,

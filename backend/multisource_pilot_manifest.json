@@ -1,0 +1,288 @@
+{
+  "executed_at": "2026-11-10T16:25:52.601569+00:00",
+  "budget_ceiling_usd": 1.8,
+  "runs": [
+    {
+      "key": "tiktok_creative_center",
+      "actor_id": "steadyscrape/tiktok-creative-center-scraper",
+      "apify_run_id": "Yniz1uRfyL8BIaW6Q",
+      "dataset_id": "mqSr5kYQCLO2vWL15",
+      "status": "SUCCEEDED",
+      "actual_cost_usd": 0.0228,
+      "cost_status": "ESTIMATED",
+      "billing": {
+        "actual_cost_usd": 0.0228,
+        "cost_status": "ESTIMATED",
+        "usage_total_usd": 0.0,
+        "event_usage_usd": 0.0,
+        "charged_total_usd": 0.0,
+        "charged_event_counts": {
+          "ad": 0,
+          "ad-with-details": 0
+        },
+        "pricing_info": {
+          "pricingModel": "PAY_PER_EVENT",
+          "createdAt": "2026-10-13T15:36:07.791Z",
+          "startedAt": "2026-10-13T15:36:07.791Z",
+          "apifyMarginPercentage": 0.2,
+          "pricingPerEvent": {
+            "actorChargeEvents": {
+              "ad": {
+                "eventTitle": "Ad",
+                "eventDescription": "One top ad from Creative Center's ranking: ad copy, brand, industry, objective, likes, CTR rank, budget tier, badge, video links and cover. Rows that say why a search gave nothing (no_ads, invalid, blocked), duplicates and ads a monitor already delivered are free.",
+                "eventPriceUsd": 0.001,
+                "isPrimaryEvent": true
+              },
+              "ad-with-details": {
+                "eventTitle": "Ad with details",
+                "eventDescription": "One top ad together with its own page in Creative Center: landing page, comments, shares, every market it ran in, objectives, Creative Center's highlight and AI analysis. Charged instead of Ad, only in runs with details on; an ad whose page does not answer is charged as a plain Ad.",
+                "eventPriceUsd": 0.003
+              }
+            }
+          }
+        }
+      },
+      "records_fetched": 19,
+      "raw_file": "C:\\Users\\Admin\\Downloads\\SPY v2\\backend\\pilot_raw_tiktok_creative_center.json"
+    },
+    {
+      "key": "tiktok_shop_us",
+      "actor_id": "tortuga/tiktok-shop-scraper",
+      "apify_run_id": "U5nF1DlcD8gcsi9l3",
+      "dataset_id": "i99KQUNfi3BAfYBOp",
+      "status": "SUCCEEDED",
+      "actual_cost_usd": 0.0,
+      "cost_status": "UNMETERED",
+      "billing": {
+        "actual_cost_usd": 0.0,
+        "cost_status": "UNMETERED",
+        "usage_total_usd": 0.0,
+        "event_usage_usd": 0.0,
+        "charged_total_usd": 0.0,
+        "charged_event_counts": {
+          "result": 0,
+          "detail": 0
+        },
+        "pricing_info": {
+          "apifyMarginPercentage": 0.2,
+          "createdAt": "2026-10-16T15:10:27.214Z",
+          "startedAt": "2026-10-16T15:10:26.000Z",
+          "pricingModel": "PAY_PER_EVENT",
+          "notifiedAboutChangeAt": "2026-10-16T15:30:26.051Z",
+          "pricingPerEvent": {
+            "actorChargeEvents": {
+              "result": {
+                "eventTitle": "Product scraped",
+                "eventDescription": "One product saved to the dataset from a keyword search, shop page, category page or product URL (title, price, original price, discount, units sold, rating, review count, shop, image, labels, rank).",
+                "eventPriceUsd": 0.003,
+                "isPrimaryEvent": true
+              },
+              "detail": {
+                "eventTitle": "Product details fetched",
+                "eventDescription": "Charged in addition to the result event for each product whose page is opened: with 'Include product details' on, or for product URLs (all variants / SKUs with price and stock, shipping fee and delivery estimate, shop profile, description, specifications, images, category path, rating breakdown, top reviews).",
+                "eventPriceUsd": 0.004,
+                "isPrimaryEvent": false
+              }
+            }
+          }
+        }
+      },
+      "records_fetched": 0,
+      "raw_file": "C:\\Users\\Admin\\Downloads\\SPY v2\\backend\\pilot_raw_tiktok_shop_us.json"
+    },
+    {
+      "key": "amazon_us",
+      "actor_id": "scrapermagic/amazon-product-scraper",
+      "apify_run_id": "OmJYnP6VLTNVSpdJV",
+      "dataset_id": "X40LYeg4RiwKwXXrN",
+      "status": "SUCCEEDED",
+      "actual_cost_usd": 0.0401,
+      "cost_status": "VERIFIED_CHARGED",
+      "billing": {
+        "actual_cost_usd": 0.0401,
+        "cost_status": "VERIFIED_CHARGED",
+        "usage_total_usd": 0.0401,
+        "event_usage_usd": 0.0,
+        "charged_total_usd": 0.0,
+        "charged_event_counts": {
+          "apify-actor-start": 1,
+          "product": 0,
+          "search-result": 40
+        },
+        "pricing_info": {
+          "pricingModel": "PAY_PER_EVENT",
+          "startedAt": "2026-11-02T02:29:20.686Z",
+          "createdAt": "2026-11-02T02:29:20.971Z",
+          "apifyMarginPercentage": 0.2,
+          "pricingPerEvent": {
+            "actorChargeEvents": {
+              "apify-actor-start": {
+                "eventTitle": "Actor Start",
+                "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+                "isOneTimeEvent": true,
+                "eventPriceUsd": 5e-05
+              },
+              "product": {
+                "eventTitle": "Product",
+                "eventDescription": "One Amazon product with full details (brand, rating, bullets, images, specifications, best-sellers rank, variants) and every seller offer.",
+                "eventPriceUsd": 0.003,
+                "isPrimaryEvent": true
+              },
+              "search-result": {
+                "eventTitle": "Search result",
+                "eventDescription": "One product from Amazon keyword search, with price, rating and shipping.",
+                "eventPriceUsd": 0.001
+              }
+            }
+          }
+        }
+      },
+      "records_fetched": 40,
+      "raw_file": "C:\\Users\\Admin\\Downloads\\SPY v2\\backend\\pilot_raw_amazon_us.json"
+    },
+    {
+      "key": "google_trends",
+      "actor_id": "apify/google-trends-scraper",
+      "apify_run_id": "UQUV6VJZLe4f73QFh",
+      "dataset_id": "QmWdAe1me0g33mOwW",
+      "status": "SUCCEEDED",
+      "actual_cost_usd": 0.0541,
+      "cost_status": "VERIFIED_CHARGED",
+      "billing": {
+        "actual_cost_usd": 0.0541,
+        "cost_status": "VERIFIED_CHARGED",
+        "usage_total_usd": 0.0541,
+        "event_usage_usd": 0.0,
+        "charged_total_usd": 0.0,
+        "charged_event_counts": {
+          "apify-default-dataset-item": 10,
+          "apify-actor-start": 1
+        },
+        "pricing_info": {
+          "minimalMaxTotalChargeUsd": null,
+          "pricingModel": "PAY_PER_EVENT",
+          "isPriceChangeNotificationSuppressed": true,
+          "apifyMarginPercentage": 0.2,
+          "createdAt": "2026-11-06T09:51:32.568Z",
+          "startedAt": "2026-11-06T09:51:32.568Z",
+          "pricingPerEvent": {
+            "actorChargeEvents": {
+              "apify-default-dataset-item": {
+                "eventTitle": "Result",
+                "eventDescription": "Single result in the default dataset.",
+                "isOneTimeEvent": false,
+                "isPrimaryEvent": true,
+                "eventPriceUsd": 0.006
+              },
+              "apify-actor-start": {
+                "eventTitle": "Actor Start",
+                "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+                "isOneTimeEvent": true,
+                "eventPriceUsd": 5e-05
+              }
+            }
+          }
+        }
+      },
+      "records_fetched": 10,
+      "raw_file": "C:\\Users\\Admin\\Downloads\\SPY v2\\backend\\pilot_raw_google_trends.json"
+    },
+    {
+      "key": "shopify_catalog",
+      "actor_id": "inimi/shopify-store-scraper",
+      "apify_run_id": "h9HHaXr7WgbMBy1fu",
+      "dataset_id": "SOzvgmssPsGU28br1",
+      "status": "SUCCEEDED",
+      "actual_cost_usd": 0.0193,
+      "cost_status": "VERIFIED_CHARGED",
+      "billing": {
+        "actual_cost_usd": 0.0193,
+        "cost_status": "VERIFIED_CHARGED",
+        "usage_total_usd": 0.0193,
+        "event_usage_usd": 0.0,
+        "charged_total_usd": 0.0,
+        "charged_event_counts": {
+          "apify-actor-start": 1,
+          "product": 24
+        },
+        "pricing_info": {
+          "minimalMaxTotalChargeUsd": null,
+          "pricingModel": "PAY_PER_EVENT",
+          "isPriceChangeNotificationSuppressed": false,
+          "startedAt": "2026-10-30T01:47:28.494Z",
+          "createdAt": "2026-10-30T01:47:28.966Z",
+          "apifyMarginPercentage": 0.2,
+          "pricingPerEvent": {
+            "actorChargeEvents": {
+              "apify-actor-start": {
+                "eventTitle": "Actor Start",
+                "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+                "isOneTimeEvent": true,
+                "eventPriceUsd": 5e-05
+              },
+              "product": {
+                "eventTitle": "Product",
+                "eventDescription": "One product saved (all its variants included).",
+                "isOneTimeEvent": false,
+                "eventPriceUsd": 0.0008,
+                "isPrimaryEvent": true
+              }
+            }
+          }
+        }
+      },
+      "records_fetched": 32,
+      "raw_file": "C:\\Users\\Admin\\Downloads\\SPY v2\\backend\\pilot_raw_shopify_catalog.json"
+    },
+    {
+      "key": "reddit_discussions",
+      "actor_id": "offgrid-labs/reddit-scraper",
+      "apify_run_id": "F7tCqJyYVGIWroB7z",
+      "dataset_id": "wj44aAoXXtcsngYvi",
+      "status": "SUCCEEDED",
+      "actual_cost_usd": 0.0001,
+      "cost_status": "VERIFIED_CHARGED",
+      "billing": {
+        "actual_cost_usd": 0.0001,
+        "cost_status": "VERIFIED_CHARGED",
+        "usage_total_usd": 0.0001,
+        "event_usage_usd": 0.0,
+        "charged_total_usd": 0.0,
+        "charged_event_counts": {
+          "post": 0,
+          "comment": 0,
+          "apify-actor-start": 1
+        },
+        "pricing_info": {
+          "pricingModel": "PAY_PER_EVENT",
+          "createdAt": "2026-11-03T08:00:03.609Z",
+          "startedAt": "2026-11-03T08:00:03.609Z",
+          "apifyMarginPercentage": 0.2,
+          "pricingPerEvent": {
+            "actorChargeEvents": {
+              "post": {
+                "eventTitle": "Post",
+                "eventDescription": "One Reddit post saved to the dataset (demo records are not charged).",
+                "isPrimaryEvent": true,
+                "eventPriceUsd": 0.0005
+              },
+              "comment": {
+                "eventTitle": "Comment",
+                "eventDescription": "One Reddit comment saved to the dataset (demo records are not charged).",
+                "eventPriceUsd": 0.00025
+              },
+              "apify-actor-start": {
+                "eventTitle": "Actor Start",
+                "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+                "eventPriceUsd": 5e-05
+              }
+            }
+          }
+        }
+      },
+      "records_fetched": 0,
+      "raw_file": "C:\\Users\\Admin\\Downloads\\SPY v2\\backend\\pilot_raw_reddit_discussions.json"
+    }
+  ],
+  "total_actual_cost_usd": 0.1364
+}

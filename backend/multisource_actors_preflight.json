@@ -1,0 +1,232 @@
+[
+  {
+    "actor_id": "steadyscrape/tiktok-creative-center-scraper",
+    "title": "TikTok Creative Center Top Ads Scraper",
+    "status": "ACCESSIBLE",
+    "budget_cap": 0.4,
+    "pricing": [
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "ad",
+          "ad-with-details"
+        ]
+      }
+    ],
+    "properties": [
+      "countries",
+      "period",
+      "keywords",
+      "industries",
+      "objectives",
+      "sortBy",
+      "adLanguage",
+      "adFormat",
+      "maxAdsPerSearch",
+      "includeDetails",
+      "onlyNewAds"
+    ],
+    "example_input": "{ \"helloWorld\": 123 }"
+  },
+  {
+    "actor_id": "tortuga/tiktok-shop-scraper",
+    "title": "TikTok Shop Scraper \u2014 Products, Prices & Sales",
+    "status": "ACCESSIBLE",
+    "budget_cap": 0.5,
+    "pricing": [
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "result",
+          "detail"
+        ]
+      },
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "result",
+          "detail"
+        ]
+      }
+    ],
+    "properties": [
+      "searchTerms",
+      "startUrls",
+      "maxItems",
+      "includeDetails",
+      "sortBy",
+      "maxPagesPerSource",
+      "includeSubcategories",
+      "onlyNewOrChanged",
+      "monitoringKey",
+      "proxyConfiguration"
+    ],
+    "example_input": "{ \"helloWorld\": 123 }"
+  },
+  {
+    "actor_id": "scrapermagic/amazon-product-scraper",
+    "title": "Amazon Product Scraper",
+    "status": "ACCESSIBLE",
+    "budget_cap": 0.3,
+    "pricing": [
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "apify-actor-start",
+          "product",
+          "search-result"
+        ]
+      }
+    ],
+    "properties": [
+      "country",
+      "products",
+      "searchQueries",
+      "maxPagesPerQuery",
+      "freeShippingOnly",
+      "maxItems"
+    ],
+    "example_input": "{ \"helloWorld\": 123 }"
+  },
+  {
+    "actor_id": "apify/google-trends-scraper",
+    "title": "Google Trends Scraper",
+    "status": "ACCESSIBLE",
+    "budget_cap": 0.2,
+    "pricing": [
+      {
+        "model": "FLAT_PRICE_PER_MONTH",
+        "events": null
+      },
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "apify-actor-start"
+        ]
+      },
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "apify-actor-start"
+        ]
+      },
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "apify-actor-start",
+          "apify-default-dataset-item"
+        ]
+      },
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "apify-default-dataset-item"
+        ]
+      },
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "apify-default-dataset-item",
+          "apify-actor-start"
+        ]
+      },
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "apify-default-dataset-item",
+          "apify-actor-start"
+        ]
+      }
+    ],
+    "properties": [
+      "searchTerms",
+      "isMultiple",
+      "timeRange",
+      "geo",
+      "viewedFrom",
+      "startUrls",
+      "spreadsheetId",
+      "category",
+      "maxItems",
+      "customTimeRange",
+      "maxConcurrency",
+      "maxRequestRetries"
+    ],
+    "example_input": "{ \"helloWorld\": 123 }"
+  },
+  {
+    "actor_id": "inimi/shopify-store-scraper",
+    "title": "Shopify Store Scraper: Products, Prices & Variants",
+    "status": "ACCESSIBLE",
+    "budget_cap": 0.2,
+    "pricing": [
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "apify-actor-start",
+          "product"
+        ]
+      }
+    ],
+    "properties": [
+      "stores",
+      "maxProductsPerStore",
+      "collection",
+      "onlyAvailable",
+      "includeDescription",
+      "maxConcurrency",
+      "proxyConfiguration"
+    ],
+    "example_input": "{ \"helloWorld\": 123 }"
+  },
+  {
+    "actor_id": "offgrid-labs/reddit-scraper",
+    "title": "Reddit Scraper - Posts, Comments & Replies, Search, Users",
+    "status": "ACCESSIBLE",
+    "budget_cap": 0.2,
+    "pricing": [
+      {
+        "model": "PAY_PER_EVENT",
+        "events": [
+          "post",
+          "comment",
+          "apify-actor-start"
+        ]
+      }
+    ],
+    "properties": [
+      "clientId",
+      "clientSecret",
+      "appName",
+      "redditUsername",
+      "subreddits",
+      "sort",
+      "timeFilter",
+      "searchQueries",
+      "searchInSubreddits",
+      "searchSort",
+      "postUrls",
+      "users",
+      "userContent",
+      "maxItemsPerSource",
+      "includeComments",
+      "maxCommentsPerPost",
+      "commentDepth",
+      "commentSort",
+      "expandMoreComments",
+      "includeDeleted",
+      "skipNsfw",
+      "demo",
+      "publicRequestBudget",
+      "proxyList",
+      "useApifyProxy",
+      "proxyGroups",
+      "proxyRotation",
+      "stickyWindow",
+      "proxyMaxRetries",
+      "proxyMaxFailures",
+      "userAgent"
+    ],
+    "example_input": "{ \"helloWorld\": 123 }"
+  }
+]

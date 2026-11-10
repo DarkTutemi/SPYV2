@@ -1,0 +1,226 @@
+[
+  {
+    "task": "Task 1",
+    "run_id": "iKit22V8CY5Dz9wWY",
+    "query": "pet hair stuck couch",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "ciruvgXfRgTMV1p1x",
+    "started_at": "2026-11-09T18:22:56.983Z",
+    "finished_at": "2026-11-09T18:23:04.006Z"
+  },
+  {
+    "task": "Task 2",
+    "run_id": "qehEjtV11TkOyN8QX",
+    "query": "underwear leak protection",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "fxMRXfe6wEmZntUvX",
+    "started_at": "2026-11-09T18:23:07.755Z",
+    "finished_at": "2026-11-09T18:23:14.082Z"
+  },
+  {
+    "task": "Task 3",
+    "run_id": "Ruma7EqpH8aipja3k",
+    "query": "car seat gap filler",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "bcAd5HKlIACBafKk1",
+    "started_at": "2026-11-09T18:23:17.977Z",
+    "finished_at": "2026-11-09T18:23:22.334Z"
+  },
+  {
+    "task": "Task 4",
+    "run_id": "lYOIuNsGXIzS0lBQM",
+    "query": "muddy dog paws",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "kQbgnIadEhuSxdgTo",
+    "started_at": "2026-11-09T18:23:28.766Z",
+    "finished_at": "2026-11-09T18:23:42.329Z"
+  },
+  {
+    "task": "Task 5",
+    "run_id": "vZVWITQFEpxskC2AD",
+    "query": "cold air under door",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "nd4bkYJKa3RsuvSOf",
+    "started_at": "2026-11-09T18:23:45.842Z",
+    "finished_at": "2026-11-09T18:23:51.764Z"
+  },
+  {
+    "task": "Task 6",
+    "run_id": "HQVaKKuIp58pd0vrd",
+    "query": "stripped screw removal",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "EqhBrSzt3XBdZq3DG",
+    "started_at": "2026-11-09T18:23:56.800Z",
+    "finished_at": "2026-11-09T18:24:02.575Z"
+  },
+  {
+    "task": "Task 7",
+    "run_id": "cN59YoChPokHAmBeK",
+    "query": "washable cleaning pads",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "NGtHqKcpfix6Zja4M",
+    "started_at": "2026-11-09T18:24:07.010Z",
+    "finished_at": "2026-11-09T18:24:12.214Z"
+  },
+  {
+    "task": "Task 8",
+    "run_id": "H6KOMcYxXwfA1Mwip",
+    "query": "period underwear multipack",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.005,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 0
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "YMo5javTKwkURC8R0",
+    "started_at": "2026-11-09T18:24:17.365Z",
+    "finished_at": "2026-11-09T18:24:21.033Z"
+  },
+  {
+    "task": "Task 9",
+    "run_id": "SlcHRWFRtuxKCcGpg",
+    "query": "microfiber car detailing towels",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "kjKVoaf7F55UHoOdb",
+    "started_at": "2026-11-09T18:24:23.506Z",
+    "finished_at": "2026-11-09T18:24:41.259Z"
+  },
+  {
+    "task": "Task 10",
+    "run_id": "Nc9crwWQYDaaq989I",
+    "query": "reusable dog pee pads",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "MhC8FnUYmcrsNc6ei",
+    "started_at": "2026-11-09T18:24:46.978Z",
+    "finished_at": "2026-11-09T18:24:54.005Z"
+  },
+  {
+    "task": "Task 11",
+    "run_id": "XYDCzWuRH0190bngr",
+    "query": "silicone chair leg protectors",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "Xby7QxwUMfbw3Dc7C",
+    "started_at": "2026-11-09T18:24:57.322Z",
+    "finished_at": "2026-11-09T18:25:01.539Z"
+  },
+  {
+    "task": "Task 12",
+    "run_id": "7Ui2nPmmD9mh9CSof",
+    "query": "drill brush attachment set",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "Rcq3YSctxNuyc6Eki",
+    "started_at": "2026-11-09T18:25:03.903Z",
+    "finished_at": "2026-11-09T18:25:25.209Z"
+  },
+  {
+    "task": "Task 13",
+    "run_id": "6dmsJGawCaTgkdbXd",
+    "query": "1427580890438766",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "OqhCnmBNW0GPgX41t",
+    "started_at": "2026-11-09T18:25:31.031Z",
+    "finished_at": "2026-11-09T18:25:34.275Z"
+  },
+  {
+    "task": "Task 14",
+    "run_id": "1NR6k5n7xhhlJOD05",
+    "query": "1238627265989998",
+    "status": "SUCCEEDED",
+    "usage_total_usd": 0.01075,
+    "charged_event_counts": {
+      "start": 1,
+      "ad-scraped": 10
+    },
+    "pricing_model": "PAY_PER_EVENT",
+    "cost_status": "VERIFIED",
+    "dataset_id": "G9Phz1Sg4ZNotHC1J",
+    "started_at": "2026-11-09T18:25:37.953Z",
+    "finished_at": "2026-11-09T18:25:49.897Z"
+  }
+]

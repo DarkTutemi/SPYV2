@@ -1,0 +1,76 @@
+[
+  {
+    "brand": "Diego's Paws",
+    "product": "Reusable dog pee pads",
+    "url": "https://diegospaws.com/products/reusable-waterproof-absorbent-pet-pad",
+    "http_status": 429,
+    "timestamp": "2026-11-10T16:33:47.580934+00:00",
+    "error": "HTTP Error 429: Too Many Requests",
+    "reported_price": "$39.90 bundle (Buy 2 Get 1 Free) / $29.99 single",
+    "ad_id": "1654383812796911"
+  },
+  {
+    "brand": "Menvault",
+    "product": "Men's leakproof boxers",
+    "url": "https://menvault.com/pages/7-reasons-why-menvault-boxers",
+    "http_status": 200,
+    "timestamp": "2026-11-10T16:33:47.999375+00:00",
+    "prices_found": [
+      "3995"
+    ],
+    "reported_price": "$69.00 (3-pack bundle)",
+    "ad_id": "1135373669505006"
+  },
+  {
+    "brand": "Swiftlifty",
+    "product": "Spin mop heads",
+    "url": "https://www.swiftlifty.com/products/last-day-49-off-2026-upgraded-spin-mop-heads-with-scrubbing-pad-2",
+    "http_status": 200,
+    "timestamp": "2026-11-10T16:33:48.952968+00:00",
+    "prices_found": [
+      "15.99",
+      "29.99",
+      "45.99",
+      "15.99",
+      "15.99"
+    ],
+    "reported_price": "$39.99 (5-pack) / $24.99 (3-pack)",
+    "ad_id": "1822961982334971"
+  },
+  {
+    "brand": "AlexCove",
+    "product": "Chair leg protectors",
+    "url": "https://alexcove.com/products/clearguard-chair-leg-protectors",
+    "http_status": 429,
+    "timestamp": "2026-11-10T16:33:50.611552+00:00",
+    "error": "HTTP Error 429: Too Many Requests",
+    "reported_price": "$39.99 (32-pack) / $29.99 (24-pack) / $19.99 (16-pack)",
+    "ad_id": "1441655818106115"
+  },
+  {
+    "brand": "Novtris / Cresomall",
+    "product": "Car detailing towels",
+    "url": "https://www.novtris.com/funnel/news-professional-synthetic-clay-towel-for-advanced-auto-detailing-m",
+    "http_status": 200,
+    "timestamp": "2026-11-10T16:33:50.815531+00:00",
+    "prices_found": [
+      "14.99",
+      "14.99",
+      "14.99",
+      "26.99",
+      "26.99"
+    ],
+    "reported_price": "$39.99 (6-pack detailing set)",
+    "ad_id": "1385909230286911"
+  },
+  {
+    "brand": "Gridsparkl",
+    "product": "Rug grippers",
+    "url": "https://gridsparkl.com/products/rubber-anti-curling-non-slip-skid-pads-8pc-set",
+    "http_status": 429,
+    "timestamp": "2026-11-10T16:33:51.560379+00:00",
+    "error": "HTTP Error 429: Too Many Requests",
+    "reported_price": "$20.79 (8-piece set)",
+    "ad_id": "1102527249449007 (User listed: 1691452315890995)"
+  }
+]
