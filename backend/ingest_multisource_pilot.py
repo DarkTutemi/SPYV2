@@ -34,6 +34,7 @@ from app.models.models import (
     BundleMechanism,
     EvidenceLink,
     EvidenceType,
+    PriceEvidenceType,
     DataSourceType,
     ConfidenceLevel,
     OpportunityScore,
@@ -47,9 +48,10 @@ def clean_text(s: str) -> str:
         return ""
     return re.sub(r"\s+", " ", s).strip()
 
-async def run_ingestion():
+async def run_ingestion(db_url: str = None):
+    url = db_url or settings.database_url
     base_dir = Path(__file__).resolve().parent
-    engine = create_async_engine(settings.database_url, echo=False)
+    engine = create_async_engine(url, echo=False)
     async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
     with open(base_dir / "pilot_raw_shopify_catalog.json", encoding="utf-8") as f:
@@ -60,7 +62,7 @@ async def run_ingestion():
         trends_raw = json.load(f)
 
     async with async_session() as session:
-        print("Starting Multi-Source Pilot Ingestion...")
+        print("Starting Multi-Source Pilot Ingestion (Idempotent Pipeline)...")
 
         # 1. Ensure DataSources, CollectionJobs, and CollectionRuns for Provenance
         # A) Shopify
@@ -239,38 +241,49 @@ async def run_ingestion():
 
         print(f"Inserted {inserted_source_records} Shopify SourceRecords.")
 
-        # Clean up any wrongly matched offers on Spin Mop (cb979fff) from previous test
-        from sqlalchemy import delete
-        await session.execute(
-            delete(ProductOffer).where(
-                ProductOffer.product_id == "cb979fff-f166-4a73-8a1c-2679158d789f",
-                ProductOffer.source_url.like("%pet-pad%"),
-            )
+        # Add legitimate Amazon benchmark offer for Spin Mop Replacement Heads ($26.99 for 12-pack)
+        spin_mop_prod_res = await session.execute(
+            select(Product).where(Product.name.like("%Spin Mop%"))
         )
-        # Add legitimate Amazon benchmark offer for Spin Mop Heads ($26.99 for 12-pack)
-        mop_res = await session.execute(
-            select(ProductOffer).where(
-                ProductOffer.product_id == "cb979fff-f166-4a73-8a1c-2679158d789f",
-                ProductOffer.price_usd == 26.99,
+        spin_mop_prod = spin_mop_prod_res.scalars().first()
+        if spin_mop_prod:
+            mop_res = await session.execute(
+                select(ProductOffer).where(
+                    ProductOffer.product_id == spin_mop_prod.id,
+                    ProductOffer.price_usd == 26.99,
+                    ProductOffer.quantity == 12,
+                )
             )
-        )
-        if not mop_res.scalar_one_or_none():
-            session.add(ProductOffer(
-                product_id="cb979fff-f166-4a73-8a1c-2679158d789f",
-                price_usd=26.99,
-                quantity=12,
-                is_bundle=True,
-                evidence_type=EvidenceType.OBSERVED_FACT,
-                source_url="https://www.amazon.com/dp/B09KPK5RVZ",
-            ))
-            session.add(BundleOffer(
-                product_id="cb979fff-f166-4a73-8a1c-2679158d789f",
-                quantity=12,
-                bundle_price_usd=26.99,
-                unit_price_usd=2.25,
-                bundle_mechanism=BundleMechanism.CONSUMABLE_REPLENISHMENT,
-                discount_claim="12-Pack Amazon US Annual Supply ($26.99)",
-            ))
+            if not mop_res.scalar_one_or_none():
+                session.add(ProductOffer(
+                    product_id=spin_mop_prod.id,
+                    price_usd=26.99,
+                    quantity=12,
+                    is_bundle=True,
+                    evidence_type=EvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                    price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                    source_url="https://www.amazon.com/dp/B09KPK5RVZ",
+                    raw_data={"asin": "B09KPK5RVZ", "title": "Spin Mop Refill Heads 12-Pack on Amazon US"},
+                ))
+            bo_mop_res = await session.execute(
+                select(BundleOffer).where(
+                    BundleOffer.product_id == spin_mop_prod.id,
+                    BundleOffer.quantity == 12,
+                )
+            )
+            if not bo_mop_res.scalar_one_or_none():
+                session.add(BundleOffer(
+                    product_id=spin_mop_prod.id,
+                    quantity=12,
+                    bundle_price_usd=26.99,
+                    unit_price_usd=2.25,
+                    bundle_mechanism=BundleMechanism.CONSUMABLE_REPLENISHMENT,
+                    bundle_status="offered",
+                    evidence_type=EvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                    price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                    discount_claim="12-Pack Amazon US Annual Supply ($26.99)",
+                    source_url="https://www.amazon.com/dp/B09KPK5RVZ",
+                ))
 
         # 4. Canonical matching with existing 77 DB products
         existing_products_res = await session.execute(select(Product))
@@ -426,23 +439,35 @@ async def run_ingestion():
                         currency="USD",
                         quantity=qty,
                         is_bundle=(qty > 1),
-                        evidence_type=EvidenceType.OBSERVED_FACT,
+                        evidence_type=EvidenceType.OBSERVED_CHECKOUT_PRICE,
+                        price_evidence_type=PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
                         raw_data={"variant_title": v_title, "sku": v.get("sku")},
                     )
                     session.add(po)
 
                     if qty > 1:
-                        bo = BundleOffer(
-                            product_id=target_prod.id,
-                            advertiser_id=adv_id,
-                            source_url=url,
-                            quantity=qty,
-                            bundle_price_usd=v_price,
-                            unit_price_usd=round(v_price / qty, 2),
-                            bundle_mechanism=BundleMechanism.COMPLETE_COVERAGE if "chair" in t_lower else BundleMechanism.DAILY_ROTATION,
-                            discount_claim=f"{qty}-Pack Observed Shopify Variant",
+                        # Check bundle offer idempotency
+                        bo_dup_res = await session.execute(
+                            select(BundleOffer).where(
+                                BundleOffer.product_id == target_prod.id,
+                                BundleOffer.quantity == qty,
+                                BundleOffer.bundle_price_usd == v_price,
+                            )
                         )
-                        session.add(bo)
+                        if not bo_dup_res.scalar_one_or_none():
+                            bo = BundleOffer(
+                                product_id=target_prod.id,
+                                advertiser_id=adv_id,
+                                source_url=url,
+                                quantity=qty,
+                                bundle_price_usd=v_price,
+                                unit_price_usd=round(v_price / qty, 2),
+                                bundle_mechanism=BundleMechanism.COMPLETE_COVERAGE if "chair" in t_lower else BundleMechanism.DAILY_ROTATION,
+                                discount_claim=f"{qty}-Pack Observed Shopify Variant",
+                                evidence_type=EvidenceType.OBSERVED_CHECKOUT_PRICE,
+                                price_evidence_type=PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
+                            )
+                            session.add(bo)
 
             # Explicit Model C Bundle Offer for Pet Water Fountain
             if "fountain" in t_lower:
@@ -461,22 +486,28 @@ async def run_ingestion():
                         bundle_price_usd=64.99,
                         unit_price_usd=10.83,
                         bundle_mechanism=BundleMechanism.CONSUMABLE_REPLENISHMENT,
+                        evidence_type=EvidenceType.OBSERVED_CHECKOUT_PRICE,
+                        price_evidence_type=PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
                         discount_claim="Starter Kit with 6 Replacement Filter Refills ($64.99)",
                     )
                     session.add(fountain_starter)
 
         # 5. Ingest Google Trends Discoveries (e.g. Twin Under-Door Draft Stopper)
         draft_stopper_res = await session.execute(
-            select(Product).where(Product.name.like("%Under-Door Draft Stopper%"))
+            select(Product).where(
+                (Product.external_id == "trends_door_draft_stopper")
+                | (Product.name.like("%Under-Door Draft%"))
+            )
         )
-        if not draft_stopper_res.scalar_one_or_none():
+        draft_prod = draft_stopper_res.scalars().first()
+        if not draft_prod:
             draft_prod = Product(
                 name="Twin Seal Under-Door Draft & Soundproofing Stopper",
                 normalized_name="twin seal under-door draft & soundproofing stopper",
                 description="Double-sided insulating under-door draft blocker that moves with the door. Blocks cold winter drafts, outside hallway noise, dust, and insects without damaging flooring.",
                 category="Home Improvement & Utility",
                 source_url="https://trends.google.com/trends/explore?geo=US&q=door+draft+stopper",
-                min_price_usd=24.99,
+                min_price_usd=19.99,
                 max_price_usd=39.99,
                 target_country="US",
                 is_physical=True,
@@ -493,42 +524,84 @@ async def run_ingestion():
             new_products_count += 1
             print(f"Created New Product from Google Trends: '{draft_prod.name}'")
 
+        # Retail listing price from Amazon US benchmark (NOT Google Trends!)
+        po_draft_res = await session.execute(
+            select(ProductOffer).where(
+                ProductOffer.product_id == draft_prod.id,
+                ProductOffer.price_usd == 19.99,
+            )
+        )
+        if not po_draft_res.scalar_one_or_none():
             session.add(ProductOffer(
                 product_id=draft_prod.id,
-                price_usd=24.99,
+                price_usd=19.99,
                 quantity=1,
                 is_bundle=False,
-                evidence_type=EvidenceType.OBSERVED_FACT,
-                source_url="https://trends.google.com/trends/explore?geo=US&q=door+draft+stopper",
+                evidence_type=EvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                source_url="https://www.amazon.com/dp/B082W63J6W",
+                raw_data={"asin": "B082W63J6W", "retailer": "Amazon US", "model": "Holikme Twin Door Draft Stopper"},
             ))
+
+        bo_draft_res = await session.execute(
+            select(BundleOffer).where(
+                BundleOffer.product_id == draft_prod.id,
+                BundleOffer.quantity == 2,
+            )
+        )
+        if not bo_draft_res.scalar_one_or_none():
             session.add(BundleOffer(
                 product_id=draft_prod.id,
                 quantity=2,
                 bundle_price_usd=39.99,
                 unit_price_usd=20.00,
                 bundle_mechanism=BundleMechanism.MULTIPLE_LOCATIONS,
+                bundle_status="modeled_scenario",
+                evidence_type=EvidenceType.SCENARIO_PRICE,
+                price_evidence_type=PriceEvidenceType.SCENARIO_PRICE,
                 discount_claim="2-Door Whole-House Draft Bundle ($39.99)",
             ))
 
-        # 6. Ingest EvidenceLinks for Amazon & Trends Cross-Validation
+        # 6. Ingest EvidenceLinks for Amazon & Trends Cross-Validation (Idempotent)
+        all_products_res = await session.execute(select(Product))
+        all_products = list(all_products_res.scalars().all())
+
         for t_item in trends_raw:
             q = t_item.get("searchTerm") or t_item.get("query") or ""
-            for p in existing_products:
-                if (q == "chair leg protectors" and "chair" in p.name.lower() and "leg" in p.name.lower()) or \
-                   (q == "spin mop" and "mop" in p.name.lower()) or \
-                   (q == "washable dog pee pads" and "pad" in p.name.lower()) or \
-                   (q == "screw extractor" and "screw" in p.name.lower()) or \
-                   (q == "rug grippers" and "rug" in p.name.lower()):
-                    el = EvidenceLink(
-                        entity_type="product",
-                        entity_id=p.id,
-                        evidence_type=EvidenceType.OBSERVED_FACT,
-                        source_type=DataSourceType.GOOGLE_TRENDS,
-                        source_url=f"https://trends.google.com/trends/explore?geo=US&q={q.replace(' ', '+')}",
-                        description=f"Google Trends 90-day search interest data for '{q}'",
-                        data=t_item,
+            q_url = f"https://trends.google.com/trends/explore?geo=US&q={q.replace(' ', '+')}"
+            for p in all_products:
+                p_name_lower = p.name.lower()
+                matches = False
+                if q == "chair leg protectors" and "chair" in p_name_lower and "leg" in p_name_lower:
+                    matches = True
+                elif q == "spin mop" and "spin" in p_name_lower and "mop" in p_name_lower:
+                    matches = True
+                elif q == "washable dog pee pads" and ("pee pad" in p_name_lower or ("dog" in p_name_lower and "pad" in p_name_lower and "heat" not in p_name_lower)):
+                    matches = True
+                elif q == "screw extractor" and "screw" in p_name_lower:
+                    matches = True
+                elif q == "rug grippers" and "rug" in p_name_lower:
+                    matches = True
+
+                if matches:
+                    el_check = await session.execute(
+                        select(EvidenceLink).where(
+                            EvidenceLink.entity_type == "product",
+                            EvidenceLink.entity_id == p.id,
+                            EvidenceLink.source_url == q_url,
+                        )
                     )
-                    session.add(el)
+                    if not el_check.scalar_one_or_none():
+                        el = EvidenceLink(
+                            entity_type="product",
+                            entity_id=p.id,
+                            evidence_type=EvidenceType.DERIVED_METRIC,
+                            source_type=DataSourceType.GOOGLE_TRENDS,
+                            source_url=q_url,
+                            description=f"Google Trends 90-day search interest data for '{q}'",
+                            data=t_item,
+                        )
+                        session.add(el)
 
         await session.commit()
         print(f"\nIngestion Commit Successful!")

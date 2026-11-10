@@ -86,6 +86,23 @@ class EvidenceType(str, enum.Enum):
     DERIVED_METRIC = "derived_metric"
     AI_INFERENCE = "ai_inference"
     UNVERIFIED_HYPOTHESIS = "unverified_hypothesis"
+    # Specific commercial price evidence types
+    OBSERVED_RETAIL_LISTING_PRICE = "observed_retail_listing_price"
+    OBSERVED_CHECKOUT_PRICE = "observed_checkout_price"
+    ADVERTISED_PRICE_ONLY = "advertised_price_only"
+    SUPPLIER_LISTED_PRICE = "supplier_listed_price"
+    SCENARIO_PRICE = "scenario_price"
+    UNKNOWN = "unknown"
+
+
+class PriceEvidenceType(str, enum.Enum):
+    """Specific classification of commercial price evidence."""
+    OBSERVED_RETAIL_LISTING_PRICE = "observed_retail_listing_price"
+    OBSERVED_CHECKOUT_PRICE = "observed_checkout_price"
+    ADVERTISED_PRICE_ONLY = "advertised_price_only"
+    SUPPLIER_LISTED_PRICE = "supplier_listed_price"
+    SCENARIO_PRICE = "scenario_price"
+    UNKNOWN = "unknown"
 
 
 class RelationshipType(str, enum.Enum):
@@ -503,6 +520,7 @@ class ProductOffer(Base):
     is_bundle: Mapped[bool] = mapped_column(Boolean, default=False)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     evidence_type: Mapped[EvidenceType] = mapped_column(Enum(EvidenceType), default=EvidenceType.OBSERVED_FACT)
+    price_evidence_type: Mapped[Optional[PriceEvidenceType]] = mapped_column(Enum(PriceEvidenceType), nullable=True)
     raw_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
@@ -530,6 +548,7 @@ class BundleOffer(Base):
     natural_bundle_reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     evidence_type: Mapped[EvidenceType] = mapped_column(Enum(EvidenceType), default=EvidenceType.OBSERVED_FACT)
+    price_evidence_type: Mapped[Optional[PriceEvidenceType]] = mapped_column(Enum(PriceEvidenceType), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     product = relationship("Product", back_populates="bundle_offers")

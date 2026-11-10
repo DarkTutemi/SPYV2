@@ -1,0 +1,46 @@
+{
+  "report_id": "batch2_ingestion_idempotency_20261110",
+  "batch": "BATCH 2 — Database and Ingestion Idempotency & Commercial Price Evidence Taxonomy",
+  "timestamp_utc": "2026-11-10T19:15:00Z",
+  "timestamp_ict": "2026-11-11T02:15:00+07:00",
+  "status": "COMPLETED",
+  "repository": "https://github.com/DarkTutemi/SPYV2",
+  "branch": "master",
+  "fixes": [
+    {
+      "bug_id": "BUG_2_INGESTION_IDEMPOTENCY",
+      "description": "Multi-source ingestion scripts (ingest_multisource_pilot.py and ingest_new_research.py) deduplicated existing records and enforced check-before-insert semantics across DataSources, CollectionJobs, CollectionRuns, SourceRecords, Products, ProductOffers, BundleOffers, and EvidenceLinks. Fixed duplicate trends_door_draft_stopper in SQLite winhunter.db.",
+      "canonical_products_count": 109,
+      "duplicate_records_detected_on_rerun": 0,
+      "regression_test": "backend/tests/test_ingestion_idempotency.py"
+    },
+    {
+      "bug_id": "BUG_3_COMMERCIAL_PRICE_EVIDENCE_TAXONOMY",
+      "description": "Introduced PriceEvidenceType enum separating OBSERVED_RETAIL_LISTING_PRICE, OBSERVED_CHECKOUT_PRICE, ADVERTISED_PRICE_ONLY, SUPPLIER_LISTED_PRICE, SCENARIO_PRICE, and UNKNOWN. Removed Google Trends search URL as product offer price; linked Holikme Amazon US benchmark listing ($19.99) and modeled 2-unit scenario bundle ($39.99).",
+      "product_offers_verified": 50,
+      "google_trends_price_offers": 0,
+      "models_modified": ["ProductOffer", "BundleOffer", "ProductOfferRead", "BundleOfferRead"]
+    }
+  ],
+  "database_audit": {
+    "canonical_products": 109,
+    "advertisements_meta_baseline": 145,
+    "advertisement_snapshots_total": 290,
+    "distinct_advertisement_snapshots": 145,
+    "source_records": 213,
+    "product_offers": 50,
+    "bundle_offers": 6,
+    "evidence_links": 35
+  },
+  "test_execution": {
+    "total_tests": 145,
+    "passed": 145,
+    "failed": 0,
+    "duration_seconds": 111.4
+  },
+  "spend_safeguards": {
+    "new_paid_apify_runs": 0,
+    "actual_new_spend_usd": 0.00,
+    "t14_frozen_status": "LOCKED until 2026-11-24T01:26:00+07:00"
+  }
+}

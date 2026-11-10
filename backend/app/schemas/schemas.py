@@ -223,6 +223,7 @@ class ProductDetail(ProductRead):
     what_remains_unknown: Optional[str] = None
     next_validation_action: Optional[str] = None
     bundle_offers: list[BundleOfferRead] = []
+    product_offers: list[ProductOfferRead] = []
     data_gaps: list[str] = []
 
 
@@ -244,6 +245,21 @@ class BundleOfferCreate(BaseModel):
     natural_bundle_reasoning: Optional[str] = None
 
 
+class ProductOfferRead(BaseSchema):
+    id: str
+    product_id: str
+    advertiser_id: Optional[str] = None
+    source_url: Optional[str] = None
+    price_usd: Optional[float] = None
+    compare_at_price_usd: Optional[float] = None
+    currency: str = "USD"
+    quantity: int = 1
+    is_bundle: bool = False
+    evidence_type: str = "observed_fact"
+    price_evidence_type: Optional[str] = None
+    observed_at: datetime
+
+
 class BundleOfferRead(BaseSchema):
     id: str
     product_id: str
@@ -258,6 +274,8 @@ class BundleOfferRead(BaseSchema):
     bundle_status: str
     is_natural_bundle: Optional[bool]
     natural_bundle_reasoning: Optional[str]
+    evidence_type: Optional[str] = "observed_fact"
+    price_evidence_type: Optional[str] = None
     observed_at: datetime
 
 
