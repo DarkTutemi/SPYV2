@@ -813,7 +813,9 @@ class AnalystReview(Base):
 
 class ApifyReservationStatus(str, enum.Enum):
     RESERVED = "RESERVED"
+    LAUNCH_ATTEMPTED = "LAUNCH_ATTEMPTED"
     RUNNING = "RUNNING"
+    NEEDS_RECONCILIATION = "NEEDS_RECONCILIATION"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     ABORTED = "ABORTED"
@@ -833,7 +835,18 @@ class ApifySpendReservation(Base):
     input_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     provider_billing_detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     reconciliation_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    launch_attempted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class ApifyBudgetLock(Base):
+    """Database-level serialization lock for atomic check-and-reserve operations."""
+    __tablename__ = "apify_budget_locks"
+
+    lock_id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    locked_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    locked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
 
 

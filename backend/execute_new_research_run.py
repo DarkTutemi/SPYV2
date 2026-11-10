@@ -111,7 +111,7 @@ async def execute_run():
                 raw_file = base_dir / spec["raw_output_file"]
                 run_input = spec["input"]
 
-                # 0. Check durable budget availability
+                # 1. RESERVE: Check durable budget availability
                 can_run, reason, metrics = await bm.check_budget_availability(
                     requested_reservation_usd=budget_cap,
                     session_id="new_research_autonomous",
@@ -120,7 +120,7 @@ async def execute_run():
                     logger.warning(f"Skipping {key}: durable budget gate rejected: {reason}")
                     break
 
-                # Create durable spend reservation
+                # Create durable spend reservation (RESERVED)
                 reservation = await bm.create_reservation(
                     actor_id=actor_id,
                     reserved_amount_usd=budget_cap,
@@ -133,17 +133,34 @@ async def execute_run():
                 logger.info(f"STARTING RUN: {key} ({actor_id}) [Reservation: {reservation.id}]")
                 logger.info(f"Target Budget Cap: ${budget_cap:.4f} USD")
 
+                # 2. MARK LAUNCH ATTEMPTED (A3 crash-after-start protection)
+                await bm.mark_launch_attempted(reservation.id)
+                await db_session.commit()
+
                 actor_slug = actor_id.replace("/", "~")
-                # 1. Start run with maxTotalChargeUsd parameter
                 start_url = f"{APIFY_BASE_URL}/acts/{actor_slug}/runs?maxTotalChargeUsd={budget_cap}"
-                start_resp = await client.post(start_url, json=run_input, headers=headers)
+
+                try:
+                    start_resp = await client.post(start_url, json=run_input, headers=headers)
+                except Exception as e:
+                    logger.error(f"Network exception starting {actor_id}: {e}")
+                    # Could not reach network at all, but launch was attempted -> mark NEEDS_RECONCILIATION
+                    await bm.reconcile_run(
+                        reservation_id=reservation.id,
+                        final_status="NEEDS_RECONCILIATION",
+                        actual_cost_usd=budget_cap,
+                        notes=f"Network exception during dispatch: {e}. Preserved reservation.",
+                    )
+                    await db_session.commit()
+                    break
+
                 if start_resp.status_code not in (200, 201):
                     logger.error(f"Failed to start actor run {actor_id}: HTTP {start_resp.status_code} - {start_resp.text}")
                     await bm.reconcile_run(
                         reservation_id=reservation.id,
                         final_status="FAILED",
                         actual_cost_usd=0.0,
-                        notes=f"HTTP {start_resp.status_code} on start",
+                        notes=f"HTTP {start_resp.status_code} rejected by Apify on start",
                     )
                     await db_session.commit()
                     continue
@@ -153,66 +170,98 @@ async def execute_run():
                 dataset_id = run_data.get("defaultDatasetId")
                 logger.info(f"Apify Run ID: {apify_run_id} | Default Dataset: {dataset_id}")
 
+                # 3. SAVE REMOTE RUN ID & TRANSITION TO RUNNING
                 await bm.mark_run_started(reservation.id, apify_run_id=apify_run_id)
                 await db_session.commit()
 
-            # 2. Wait for completion (max 180s)
-            run_status = "RUNNING"
-            poll_count = 0
-            final_run_data = {}
-            while run_status in ("RUNNING", "READY") and poll_count < 60:
-                await asyncio.sleep(3.0)
-                poll_count += 1
-                poll_resp = await client.get(f"{APIFY_BASE_URL}/actor-runs/{apify_run_id}", headers=headers)
-                if poll_resp.status_code == 200:
-                    final_run_data = poll_resp.json().get("data", {})
-                    run_status = final_run_data.get("status")
-                    if poll_count % 5 == 0:
-                        logger.info(f"Polling {key} (Run {apify_run_id}): status={run_status} ({poll_count*3}s)")
+                # 4. POLL & WAIT FOR TERMINAL STATE
+                run_status = "RUNNING"
+                poll_count = 0
+                final_run_data = {}
+                max_polls = 60  # 180 seconds total
+                while run_status in ("RUNNING", "READY") and poll_count < max_polls:
+                    await asyncio.sleep(3.0)
+                    poll_count += 1
+                    try:
+                        poll_resp = await client.get(f"{APIFY_BASE_URL}/actor-runs/{apify_run_id}", headers=headers)
+                        if poll_resp.status_code == 200:
+                            final_run_data = poll_resp.json().get("data", {})
+                            run_status = final_run_data.get("status")
+                            if poll_count % 5 == 0:
+                                logger.info(f"Polling {key} (Run {apify_run_id}): status={run_status} ({poll_count*3}s)")
+                    except Exception as poll_err:
+                        logger.warning(f"Transient polling error for {apify_run_id}: {poll_err}")
 
-            logger.info(f"Run {apify_run_id} finished with status: {run_status}")
+                logger.info(f"Run {apify_run_id} finished polling with status: {run_status}")
 
-            # 3. Fetch Dataset Records
-            items = []
-            if dataset_id:
-                ds_resp = await client.get(f"{APIFY_BASE_URL}/datasets/{dataset_id}/items?limit=100", headers=headers)
-                if ds_resp.status_code == 200:
-                    items = ds_resp.json()
-            logger.info(f"Fetched {len(items)} items from dataset {dataset_id}")
+                # 5. HANDLE POLLING TIMEOUT (A4)
+                if run_status in ("RUNNING", "READY"):
+                    logger.warning(
+                        f"Run {apify_run_id} did not terminate within {max_polls*3}s. "
+                        "Marking NEEDS_RECONCILIATION and halting further runs."
+                    )
+                    await bm.mark_polling_timeout(
+                        reservation_id=reservation.id,
+                        apify_run_id=apify_run_id,
+                        notes=f"Local polling window expired after {max_polls*3}s while Actor was still {run_status}",
+                    )
+                    await db_session.commit()
+                    # Halting: do NOT start next provider while previous is unresolved
+                    break
 
-            # Save raw dataset
-            with open(raw_file, "w", encoding="utf-8") as f:
-                json.dump(items, f, indent=2, ensure_ascii=False)
-            logger.info(f"Saved raw payload to {raw_file}")
+                # 6. READ DATASET (only if SUCCEEDED)
+                items = []
+                if run_status == "SUCCEEDED" and dataset_id:
+                    try:
+                        ds_resp = await client.get(f"{APIFY_BASE_URL}/datasets/{dataset_id}/items?limit=100", headers=headers)
+                        if ds_resp.status_code == 200:
+                            items = ds_resp.json()
+                    except Exception as ds_err:
+                        logger.error(f"Error fetching dataset {dataset_id}: {ds_err}")
 
-            # 4. Extract verified billing
-            usage_usd = float(final_run_data.get("usageTotalUsd", 0.0))
-            charged_events = final_run_data.get("chargedEventCounts", {})
-            logger.info(f"Verified Apify Run Cost: ${usage_usd:.4f} USD | Charged Events: {charged_events}")
+                logger.info(f"Fetched {len(items)} items from dataset {dataset_id}")
 
-            cumulative_spend += usage_usd
+                if items:
+                    with open(raw_file, "w", encoding="utf-8") as f:
+                        json.dump(items, f, indent=2, ensure_ascii=False)
+                    logger.info(f"Saved raw payload to {raw_file}")
 
-            # Reconcile durable reservation
-            await bm.reconcile_run(
-                reservation_id=reservation.id,
-                final_status="SUCCEEDED" if run_status == "SUCCEEDED" else "FAILED",
-                actual_cost_usd=usage_usd,
-                billing_detail=final_run_data,
-            )
-            await db_session.commit()
+                # 7. VERIFY BILLING & RECONCILE
+                usage_usd = float(final_run_data.get("usageTotalUsd", 0.0))
+                charged_events = final_run_data.get("chargedEventCounts", {})
+                logger.info(f"Verified Apify Run Cost: ${usage_usd:.4f} USD | Charged Events: {charged_events}")
 
-            run_entry = {
-                "key": key,
-                "actor_id": actor_id,
-                "apify_run_id": apify_run_id,
-                "dataset_id": dataset_id,
-                "status": run_status,
-                "records_fetched": len(items),
-                "actual_cost_usd": round(usage_usd, 4),
-                "charged_events": charged_events,
-                "raw_file": str(raw_file.name),
-            }
-            manifest["runs"].append(run_entry)
+                terminal_status = "SUCCEEDED" if run_status == "SUCCEEDED" else "FAILED"
+                await bm.reconcile_run(
+                    reservation_id=reservation.id,
+                    final_status=terminal_status,
+                    actual_cost_usd=usage_usd,
+                    billing_detail=final_run_data,
+                )
+                await db_session.commit()
+
+                # 8. UPDATE MANIFEST & ACCUMULATOR
+                reconciled_res = await db_session.get(ApifySpendReservation, reservation.id)
+                actual_spent = reconciled_res.actual_amount_usd if reconciled_res.actual_amount_usd is not None else usage_usd
+                cumulative_spend += actual_spent
+
+                run_entry = {
+                    "key": key,
+                    "actor_id": actor_id,
+                    "apify_run_id": apify_run_id,
+                    "dataset_id": dataset_id,
+                    "status": run_status,
+                    "records_fetched": len(items),
+                    "actual_cost_usd": round(actual_spent, 4),
+                    "charged_events": charged_events,
+                    "raw_file": str(raw_file.name),
+                }
+                manifest["runs"].append(run_entry)
+
+                # 9. CHECK TERMINAL STATUS: Only proceed to next provider if previous was cleanly resolved!
+                if terminal_status != "SUCCEEDED":
+                    logger.warning(f"Run {apify_run_id} finished with non-success status ({terminal_status}). Halting sequence.")
+                    break
 
     manifest["total_actual_cost_usd"] = round(cumulative_spend, 4)
     manifest["remaining_budget_usd"] = round(MAX_TOTAL_SESSION_CAP - cumulative_spend, 4)

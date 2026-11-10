@@ -1,16 +1,18 @@
 """
 US WIN HUNTER — Durable Apify Budget & Spend Manager
 Provides durable budget enforcement, in-flight reservation tracking,
-crash recovery, and verified provider billing reconciliation.
+atomic serialization locking, crash recovery, and verified provider billing reconciliation.
 
 Enforces:
 1. Strict session ceiling ($2.00 max).
 2. Strict daily ceiling ($2.00 max).
 3. Strict monthly ceiling ($10.00 max).
-4. Durable check-before-launch reservation in SQLite.
+4. Atomic database-level check-and-reserve serialization lock in SQLite.
 5. In-flight lock preventing duplicate concurrent or un-reconciled runs.
 6. Honest billing reconciliation: never assumes missing billing is $0.00.
-7. Startup/crash recovery querying Apify remote status before allowing new runs.
+7. Ambiguous launch crash detection: preserves reservation if crash occurred post-dispatch attempt.
+8. Safe recovery: never aborts unresolved remote runs (HTTP 500, RUNNING, unknown status -> NEEDS_RECONCILIATION).
+9. Polling timeout protection: holds reservation and blocks future paid runs until read-only reconciliation.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
 import httpx
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -30,6 +32,7 @@ from app.models.models import (
     CollectionJobStatus,
     ApifySpendReservation,
     ApifyReservationStatus,
+    ApifyBudgetLock,
     _uuid,
     _utcnow,
 )
@@ -37,6 +40,20 @@ from app.models.models import (
 logger = logging.getLogger(__name__)
 
 APIFY_BASE_URL = "https://api.apify.com/v2"
+
+# Statuses that represent active or unresolved financial commitment
+UNRESOLVED_STATUSES = (
+    ApifyReservationStatus.RESERVED.value,
+    ApifyReservationStatus.LAUNCH_ATTEMPTED.value,
+    ApifyReservationStatus.RUNNING.value,
+    ApifyReservationStatus.NEEDS_RECONCILIATION.value,
+)
+
+TERMINAL_STATUSES = (
+    ApifyReservationStatus.SUCCEEDED.value,
+    ApifyReservationStatus.FAILED.value,
+    ApifyReservationStatus.ABORTED.value,
+)
 
 
 class BudgetExceededError(RuntimeError):
@@ -83,6 +100,25 @@ class ApifyBudgetManager:
             else settings.apify_monthly_budget_usd
         )
 
+    async def _acquire_db_lock(self, session_id: str = "default_session") -> None:
+        """
+        Acquires SQLite write serialization lock via exclusive UPDATE on the lock table.
+        Prevents race conditions between concurrent worker processes attempting budget check-and-reserve.
+        """
+        try:
+            # Upsert/Update lock row 1 to force immediate write lock acquisition
+            await self.db.execute(
+                text(
+                    "INSERT INTO apify_budget_locks (lock_id, locked_by, locked_at) "
+                    "VALUES (1, :who, :now) "
+                    "ON CONFLICT(lock_id) DO UPDATE SET locked_by = :who, locked_at = :now"
+                ),
+                {"who": session_id, "now": _utcnow()},
+            )
+            await self.db.flush()
+        except Exception as e:
+            logger.warning("Could not execute lock table update (proceeding with session transaction): %s", e)
+
     async def get_spend_metrics(self, session_id: str = "default_session") -> dict[str, Any]:
         """
         Calculates authoritative spend across durable reservations and historical collection runs.
@@ -108,7 +144,7 @@ class ApifyBudgetManager:
                 seen_apify_ids.add(r.apify_run_id)
 
             # Determine cost for this reservation
-            if r.status in (ApifyReservationStatus.RUNNING.value, ApifyReservationStatus.RESERVED.value):
+            if r.status in UNRESOLVED_STATUSES:
                 cost = r.reserved_amount_usd
                 pending_runs.append({
                     "id": r.id,
@@ -196,10 +232,10 @@ class ApifyBudgetManager:
 
         # Block if un-reconciled in-flight runs exist
         if len(metrics["pending_in_flight_runs"]) > 0:
-            active_ids = [r["id"] for r in metrics["pending_in_flight_runs"]]
+            active_ids = [f"{r['id']}:{r['status']}" for r in metrics["pending_in_flight_runs"]]
             return (
                 False,
-                f"Blocked: {len(active_ids)} in-flight run(s) {active_ids} are pending reconciliation.",
+                f"Blocked: {len(active_ids)} in-flight or unresolved run(s) {active_ids} are pending reconciliation.",
                 metrics,
             )
 
@@ -246,9 +282,14 @@ class ApifyBudgetManager:
         session_id: str = "default_session",
     ) -> ApifySpendReservation:
         """
-        Durable check-and-reserve transaction.
+        Durable atomic check-and-reserve transaction.
+        Acquires DB lock before evaluation to prevent concurrency races.
         Raises BudgetExceededError if spending limits would be violated.
         """
+        # 1. Acquire DB serialization lock
+        await self._acquire_db_lock(session_id=session_id)
+
+        # 2. Check budget availability inside lock
         is_allowed, reason, metrics = await self.check_budget_availability(
             requested_reservation_usd=reserved_amount_usd,
             session_id=session_id,
@@ -277,13 +318,30 @@ class ApifyBudgetManager:
         )
         return reservation
 
+    async def mark_launch_attempted(
+        self,
+        reservation_id: str,
+    ) -> ApifySpendReservation:
+        """
+        Durable pre-dispatch state: marks that HTTP invocation is about to be sent.
+        Protects against crash-after-start ambiguity (A3).
+        """
+        res = await self.db.get(ApifySpendReservation, reservation_id)
+        if not res:
+            raise ValueError(f"Reservation {reservation_id} not found")
+
+        res.status = ApifyReservationStatus.LAUNCH_ATTEMPTED.value
+        res.launch_attempted_at = _utcnow()
+        res.updated_at = _utcnow()
+        await self.db.flush()
+        return res
+
     async def mark_run_started(
         self,
         reservation_id: str,
         apify_run_id: str,
     ) -> ApifySpendReservation:
         """Transitions reservation to RUNNING with the external Apify Run ID."""
-        # Double check no duplicate run_id
         dup_check = await self.db.execute(
             select(ApifySpendReservation).where(
                 ApifySpendReservation.apify_run_id == apify_run_id,
@@ -303,6 +361,37 @@ class ApifyBudgetManager:
         await self.db.flush()
         return res
 
+    async def mark_polling_timeout(
+        self,
+        reservation_id: str,
+        apify_run_id: Optional[str] = None,
+        notes: Optional[str] = None,
+    ) -> ApifySpendReservation:
+        """
+        Handles local polling window expiration safely (A4).
+        Does NOT convert to FAILED, does NOT release budget.
+        Transitions to NEEDS_RECONCILIATION, holding full reservation amount.
+        """
+        res = await self.db.get(ApifySpendReservation, reservation_id)
+        if not res:
+            raise ValueError(f"Reservation {reservation_id} not found")
+
+        if apify_run_id:
+            res.apify_run_id = apify_run_id
+        res.status = ApifyReservationStatus.NEEDS_RECONCILIATION.value
+        res.reconciliation_notes = (
+            (notes or "Polling window expired while remote Actor still running")
+            + " [Held full reservation amount; requires subsequent read-only reconciliation]"
+        )
+        res.updated_at = _utcnow()
+        await self.db.flush()
+        logger.warning(
+            "Reservation %s timed out polling. Set to NEEDS_RECONCILIATION holding $%0.4f",
+            res.id,
+            res.reserved_amount_usd,
+        )
+        return res
+
     async def reconcile_run(
         self,
         reservation_id: str,
@@ -313,33 +402,56 @@ class ApifyBudgetManager:
     ) -> ApifySpendReservation:
         """
         Finalizes an Apify run with verified billing.
-        Safeguard: Never assumes missing billing is $0.00.
+        Safeguards:
+        - Never assumes missing billing is $0.00.
+        - Accepts $0.00 ONLY if explicit confirmed zero charge / free tier is present.
+        - Non-terminal statuses (e.g. NEEDS_RECONCILIATION) preserve full reservation amount.
         """
         res = await self.db.get(ApifySpendReservation, reservation_id)
         if not res:
             raise ValueError(f"Reservation {reservation_id} not found")
 
         reconciled_notes = notes or ""
+        detail = billing_detail or {}
 
-        # Honest billing fallback: if remote provider reported no charge or 0.0 unexpectedly
-        if actual_cost_usd is None or actual_cost_usd == 0.0:
-            if final_status in (ApifyReservationStatus.SUCCEEDED.value, ApifyReservationStatus.FAILED.value):
-                actual_cost_usd = res.reserved_amount_usd
-                reconciled_notes += " [Held reservation amount: provider returned missing or zero billing]"
+        # Check for authoritative explicit zero charge confirmation (A6.9)
+        explicit_zero_confirmed = (
+            detail.get("explicit_zero_charge_confirmed") is True
+            or detail.get("is_free_tier") is True
+            or (detail.get("pricingInfo", {}).get("pricingModel") == "FREE")
+        )
+
+        if final_status in TERMINAL_STATUSES:
+            if actual_cost_usd is not None and actual_cost_usd > 0:
+                cost = actual_cost_usd
+            elif actual_cost_usd == 0.0 and explicit_zero_confirmed:
+                cost = 0.0
+                reconciled_notes += " [Explicit verified zero-charge confirmed by provider]"
+            elif final_status == ApifyReservationStatus.FAILED.value and not res.apify_run_id and not res.launch_attempted_at:
+                # Pre-launch failure (e.g. invalid local payload, zero remote call made)
+                cost = 0.0
+                reconciled_notes += " [Pre-launch validation failure: no remote call made]"
             else:
-                actual_cost_usd = 0.0
+                # Conservative fallback: hold reservation amount so zero dollars leak
+                cost = res.reserved_amount_usd
+                reconciled_notes += " [Held reservation amount: provider returned missing or unconfirmed zero billing]"
+        else:
+            # Non-terminal or ambiguous state (e.g. NEEDS_RECONCILIATION)
+            cost = res.reserved_amount_usd
+            reconciled_notes += " [Held full reservation: run is non-terminal / requires reconciliation]"
 
         res.status = final_status
-        res.actual_amount_usd = round(actual_cost_usd, 4)
-        res.provider_billing_detail = billing_detail
+        res.actual_amount_usd = round(cost, 4)
+        res.provider_billing_detail = detail
         res.reconciliation_notes = reconciled_notes.strip() or None
         res.updated_at = _utcnow()
         await self.db.flush()
         logger.info(
-            "Reconciled Apify reservation %s: status=%s, actual_cost=$%0.4f",
+            "Reconciled Apify reservation %s: status=%s, cost=$%0.4f (%s)",
             res.id,
             final_status,
             res.actual_amount_usd,
+            res.reconciliation_notes,
         )
         return res
 
@@ -348,14 +460,14 @@ class ApifyBudgetManager:
         http_client: Optional[httpx.AsyncClient] = None,
     ) -> list[dict[str, Any]]:
         """
-        Scans for in-flight or crashed runs in RUNNING or RESERVED state.
-        Queries Apify remote API for true terminal status and billed usage.
+        Scans for in-flight or crashed runs in unresolved state (A2, A3).
+        Safeguards:
+        - If crash happened after launch attempt without run ID -> NEEDS_RECONCILIATION (held budget).
+        - If remote status is RUNNING, READY, unknown, HTTP 500, or error -> NEEDS_RECONCILIATION (held budget).
+        - Only authoritatively terminal Apify runs (SUCCEEDED, FAILED, ABORTED, TIMED-OUT) are finalized.
         """
         stmt = select(ApifySpendReservation).where(
-            ApifySpendReservation.status.in_([
-                ApifyReservationStatus.RESERVED.value,
-                ApifyReservationStatus.RUNNING.value,
-            ])
+            ApifySpendReservation.status.in_(UNRESOLVED_STATUSES)
         )
         orphaned = (await self.db.execute(stmt)).scalars().all()
         recovered = []
@@ -364,63 +476,140 @@ class ApifyBudgetManager:
 
         for res in orphaned:
             if not res.apify_run_id:
-                # Died before external Apify invocation: abort safely with $0 charge
-                res.status = ApifyReservationStatus.ABORTED.value
-                res.actual_amount_usd = 0.0
-                res.reconciliation_notes = "Aborted on startup: process died prior to external Apify launch."
-                res.updated_at = _utcnow()
-                await self.db.flush()
-                recovered.append({"id": res.id, "action": "ABORTED_LOCAL_ONLY", "cost": 0.0})
-                continue
+                if res.status == ApifyReservationStatus.LAUNCH_ATTEMPTED.value:
+                    # Ambiguous crash post-dispatch (A3):
+                    # Request may have reached Apify before local crash. DO NOT abort or zero out!
+                    res.status = ApifyReservationStatus.NEEDS_RECONCILIATION.value
+                    res.reconciliation_notes = (
+                        "Ambiguous crash post-dispatch: launch was attempted but apify_run_id was not persisted. "
+                        "Held full reservation amount pending manual or actor run reconciliation."
+                    )
+                    res.updated_at = _utcnow()
+                    await self.db.flush()
+                    recovered.append({
+                        "id": res.id,
+                        "action": "HELD_AMBIGUOUS_START",
+                        "status": res.status,
+                        "reserved_cost": res.reserved_amount_usd,
+                    })
+                    continue
+                else:
+                    # Clean pre-launch failure: reservation was created but launch was never attempted
+                    res.status = ApifyReservationStatus.ABORTED.value
+                    res.actual_amount_usd = 0.0
+                    res.reconciliation_notes = "Aborted on startup: reservation was never dispatched."
+                    res.updated_at = _utcnow()
+                    await self.db.flush()
+                    recovered.append({
+                        "id": res.id,
+                        "action": "ABORTED_PRE_DISPATCH",
+                        "status": res.status,
+                        "cost": 0.0,
+                    })
+                    continue
 
-            # Query remote Apify API if token and client available
+            # Reservation has apify_run_id: query remote Apify API
             remote_status = None
             usage_usd = None
             remote_data = None
+            http_error = False
 
             if token:
+                close_client = False
+                client = http_client
+                if client is None:
+                    client = httpx.AsyncClient(timeout=15.0)
+                    close_client = True
+
                 try:
-                    close_client = False
-                    client = http_client
-                    if client is None:
-                        client = httpx.AsyncClient(timeout=15.0)
-                        close_client = True
-
-                    try:
-                        resp = await client.get(
-                            f"{APIFY_BASE_URL}/actor-runs/{res.apify_run_id}",
-                            headers={"Authorization": f"Bearer {token}"},
+                    resp = await client.get(
+                        f"{APIFY_BASE_URL}/actor-runs/{res.apify_run_id}",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json().get("data", {})
+                        remote_status = data.get("status")
+                        usage_usd = data.get("usageTotalUsd")
+                        remote_data = data
+                    else:
+                        http_error = True
+                        logger.warning(
+                            "Apify API returned HTTP %s while recovering run %s",
+                            resp.status_code,
+                            res.apify_run_id,
                         )
-                        if resp.status_code == 200:
-                            data = resp.json().get("data", {})
-                            remote_status = data.get("status")
-                            usage_usd = data.get("usageTotalUsd")
-                            remote_data = data
-                    finally:
-                        if close_client:
-                            await client.aclose()
                 except Exception as e:
+                    http_error = True
                     logger.warning("Could not reach Apify API to reconcile %s: %s", res.apify_run_id, e)
+                finally:
+                    if close_client:
+                        await client.aclose()
 
-            # Map remote status to terminal state
+            # Handle recovery outcome strictly (A2):
+            if http_error or remote_status is None:
+                # HTTP error / network timeout: DO NOT abort or zero out! Keep reservation active!
+                res.status = ApifyReservationStatus.NEEDS_RECONCILIATION.value
+                res.reconciliation_notes = f"Recovery attempt failed (HTTP error/network timeout). Preserved full reservation ${res.reserved_amount_usd:.4f}."
+                res.updated_at = _utcnow()
+                await self.db.flush()
+                recovered.append({
+                    "id": res.id,
+                    "apify_run_id": res.apify_run_id,
+                    "action": "HELD_API_ERROR",
+                    "status": res.status,
+                    "cost": res.reserved_amount_usd,
+                })
+                continue
+
+            if remote_status in ("RUNNING", "READY"):
+                # Remote run is still active: DO NOT abort or zero out!
+                res.status = ApifyReservationStatus.RUNNING.value
+                res.reconciliation_notes = f"Remote Actor is still active on Apify (status={remote_status}). Preserved full reservation ${res.reserved_amount_usd:.4f}."
+                res.updated_at = _utcnow()
+                await self.db.flush()
+                recovered.append({
+                    "id": res.id,
+                    "apify_run_id": res.apify_run_id,
+                    "action": "STILL_ACTIVE",
+                    "status": res.status,
+                    "cost": res.reserved_amount_usd,
+                })
+                continue
+
+            # Terminal states:
             if remote_status == "SUCCEEDED":
                 final_status = ApifyReservationStatus.SUCCEEDED.value
             elif remote_status in ("FAILED", "TIMED-OUT"):
                 final_status = ApifyReservationStatus.FAILED.value
-            else:
+            elif remote_status == "ABORTED":
                 final_status = ApifyReservationStatus.ABORTED.value
+            else:
+                # Unknown remote status string: do not assume terminal, keep in NEEDS_RECONCILIATION
+                res.status = ApifyReservationStatus.NEEDS_RECONCILIATION.value
+                res.reconciliation_notes = f"Unknown remote Apify status '{remote_status}'. Preserved reservation ${res.reserved_amount_usd:.4f}."
+                res.updated_at = _utcnow()
+                await self.db.flush()
+                recovered.append({
+                    "id": res.id,
+                    "apify_run_id": res.apify_run_id,
+                    "action": "HELD_UNKNOWN_STATUS",
+                    "status": res.status,
+                    "cost": res.reserved_amount_usd,
+                })
+                continue
 
-            # Reconcile using honest billing
+            # Authoritatively terminal: reconcile with honest billing
             await self.reconcile_run(
                 reservation_id=res.id,
                 final_status=final_status,
                 actual_cost_usd=usage_usd,
                 billing_detail=remote_data,
-                notes=f"Auto-recovered from remote Apify status '{remote_status}'",
+                notes=f"Auto-recovered from authoritative remote Apify status '{remote_status}'",
             )
             recovered.append({
                 "id": res.id,
                 "apify_run_id": res.apify_run_id,
+                "action": "FINALIZED_TERMINAL",
                 "final_status": final_status,
                 "actual_cost_usd": res.actual_amount_usd,
             })
