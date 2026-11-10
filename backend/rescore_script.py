@@ -16,16 +16,21 @@ async def main():
         print(f"Total products in DB: {len(products)}")
         
         bundle_engine = BundleIntelligenceEngine(db)
-        scoring_engine = ScoringEngine(db)
+        scoring_engine = ScoringEngine(db, mode="balanced")
         
         results = []
         for p in products:
             try:
-                # Remove existing bundles for this product to allow clean re-analysis
-                await db.execute(delete(BundleOffer).where(BundleOffer.product_id == p.id))
+                # Remove only synthetic modeled scenarios, preserving genuine observed bundle offers
+                await db.execute(
+                    delete(BundleOffer).where(
+                        BundleOffer.product_id == p.id,
+                        BundleOffer.bundle_status == "modeled_scenario",
+                    )
+                )
                 await db.commit()
                 await bundle_engine.analyze_product_bundles(p.id)
-                score = await scoring_engine.score_product(p.id)
+                score = await scoring_engine.score_product(p.id, mode="balanced")
                 results.append((p, score))
             except Exception as e:
                 print(f"Error scoring product {p.id}: {e}")

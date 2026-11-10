@@ -470,3 +470,104 @@ async def test_unsupported_medical_claim_penalized(db):
     assert "compliance" in score.why_it_might_fail.lower()
 
 
+# ── 7. Overwrite Protection & Authoritative Balanced Defaults Regression ─────
+
+@pytest.mark.asyncio
+async def test_scoring_engine_defaults_to_balanced(db):
+    """ScoringEngine() must default to balanced multi-model commercial scoring."""
+    prod = Product(
+        name="Universal Damaged Screw Extractor Kit",
+        description="Extract stripped screws and bolts instantly. Dual-head reverse drill bit.",
+        target_country="US",
+        is_physical=True,
+        source_type=DataSourceType.META_AD_LIBRARY,
+        min_price_usd=34.99,
+        max_price_usd=34.99,
+    )
+    db.add(prod)
+    await db.commit()
+
+    # Plain ScoringEngine without any mode argument
+    engine = ScoringEngine(db)
+    assert engine.mode == "balanced"
+
+    score = await engine.score_product(prod.id)
+    assert score.weights_version == "v4_balanced_multimodel"
+    assert score.commercial_model == "MODEL_A_SINGLE_PRODUCT"
+    assert score.core_opportunity_score > 0.0
+
+
+@pytest.mark.asyncio
+async def test_legacy_mode_cannot_overwrite_balanced_score(db):
+    """
+    CRITICAL REGRESSION TEST:
+    Legacy bundle-first scoring must be blocked from overwriting an existing
+    production balanced score.
+    """
+    prod = Product(
+        name="Automatic Electric Jar Opener",
+        description="One-touch hands-free vacuum jar lid opener for seniors with arthritis.",
+        target_country="US",
+        is_physical=True,
+        source_type=DataSourceType.AMAZON,
+        min_price_usd=34.99,
+        max_price_usd=34.99,
+    )
+    db.add(prod)
+    await db.commit()
+
+    # 1. Initial score in balanced mode
+    engine = ScoringEngine(db, mode="balanced")
+    initial_score = await engine.score_product(prod.id)
+    assert initial_score.weights_version == "v4_balanced_multimodel"
+    initial_composite = initial_score.composite_score
+    await db.commit()
+
+    # 2. Attempt legacy overwrite without allow_legacy_overwrite -> must raise RuntimeError
+    legacy_engine = ScoringEngine(db, mode="phase9_bundle_first")
+    with pytest.raises(RuntimeError) as exc_info:
+        await legacy_engine.score_product(prod.id)
+    assert "cannot overwrite production balanced score" in str(exc_info.value)
+
+    # 3. Verify in DB that the score remains untouched
+    db_score = await db.get(OpportunityScore, initial_score.id)
+    assert db_score.weights_version == "v4_balanced_multimodel"
+    assert db_score.composite_score == initial_composite
+
+
+@pytest.mark.asyncio
+async def test_double_recalculation_idempotency(db):
+    """
+    Run complete score recalculation twice and compare database values before and after.
+    Values must match deterministically.
+    """
+    prod = Product(
+        name="Washable Reusable Dog Pee Pads",
+        description="4-layer leakproof absorbent puppy training pad. Machine washable.",
+        target_country="US",
+        is_physical=True,
+        source_type=DataSourceType.SHOPIFY,
+        min_price_usd=29.99,
+        max_price_usd=49.99,
+    )
+    db.add(prod)
+    await db.commit()
+
+    engine = ScoringEngine(db, mode="balanced")
+    score_1 = await engine.score_product(prod.id)
+    s1_comp = score_1.composite_score
+    s1_core = score_1.core_opportunity_score
+    s1_bundle = score_1.bundle_upside_score
+    s1_model = score_1.commercial_model
+    await db.commit()
+
+    # Second recalculation
+    score_2 = await engine.score_product(prod.id)
+    assert score_2.composite_score == s1_comp
+    assert score_2.core_opportunity_score == s1_core
+    assert score_2.bundle_upside_score == s1_bundle
+    assert score_2.commercial_model == s1_model
+    assert score_2.weights_version == "v4_balanced_multimodel"
+
+
+

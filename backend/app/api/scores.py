@@ -31,9 +31,19 @@ async def list_scores(
 
 
 @router.post("/compute", response_model=dict)
-async def compute_scores(db: AsyncSession = Depends(get_db)):
-    """Recompute deterministic scores for all US products (today's date, UTC)."""
+async def compute_scores(
+    mode: Optional[str] = Query("balanced", description="Scoring mode (balanced authoritative default)"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recompute deterministic scores for all US products (today's date, UTC). Always defaults to balanced scoring."""
     from app.engines.scoring import ScoringEngine
-    scores = await ScoringEngine(db).score_all_products()
-    return {"scored": len(scores)}
+    scoring_mode = mode or "balanced"
+    engine = ScoringEngine(db, mode=scoring_mode)
+    scores = await engine.score_all_products(mode=scoring_mode)
+    await db.commit()
+    return {
+        "scored": len(scores),
+        "mode": scoring_mode,
+        "weights_version": "v4_balanced_multimodel" if scoring_mode == "balanced" else "v3_phase9",
+    }
 

@@ -106,7 +106,7 @@ async def test_single_unit_tool_penalized(db):
     await db.commit()
 
     bundle_engine = BundleIntelligenceEngine(db)
-    scoring_engine = ScoringEngine(db)
+    scoring_engine = ScoringEngine(db, mode="phase9_bundle_first")
 
     await bundle_engine.analyze_product_bundles(mop.id)
     score = await scoring_engine.score_product(mop.id)
@@ -158,7 +158,7 @@ async def test_daily_rotation_consumable_high_bundle_score(db):
     await db.commit()
 
     bundle_engine = BundleIntelligenceEngine(db)
-    scoring_engine = ScoringEngine(db)
+    scoring_engine = ScoringEngine(db, mode="phase9_bundle_first")
 
     await bundle_engine.analyze_product_bundles(pads.id)
     score = await scoring_engine.score_product(pads.id)
@@ -284,7 +284,7 @@ async def test_longitudinal_momentum_guard(db):
     await db.commit()
 
     bundle_engine = BundleIntelligenceEngine(db)
-    scoring_engine = ScoringEngine(db)
+    scoring_engine = ScoringEngine(db, mode="phase9_bundle_first")
     await bundle_engine.analyze_product_bundles(prod.id)
     score = await scoring_engine.score_product(prod.id)
 

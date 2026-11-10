@@ -60,9 +60,15 @@ logger = logging.getLogger(__name__)
 class ScoringEngine:
     """Deterministic opportunity scoring & qualification for products."""
 
-    def __init__(self, db: AsyncSession, mode: str = "phase9_bundle_first"):
+    def __init__(
+        self,
+        db: AsyncSession,
+        mode: str = "balanced",
+        allow_legacy_overwrite: bool = False,
+    ):
         self.db = db
         self.mode = mode
+        self.allow_legacy_overwrite = allow_legacy_overwrite
         self.settings = get_settings()
 
     async def score_product(
@@ -75,6 +81,21 @@ class ScoringEngine:
         effective_mode = mode or self.mode
         if score_date is None:
             score_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Safeguard: Prevent legacy bundle-first scoring from silently overwriting production balanced scores
+        if effective_mode != "balanced" and not self.allow_legacy_overwrite:
+            existing_check = await self.db.execute(
+                select(OpportunityScore).where(
+                    OpportunityScore.product_id == product_id,
+                    OpportunityScore.score_date == score_date,
+                )
+            )
+            existing_score_rec = existing_check.scalar_one_or_none()
+            if existing_score_rec is not None and existing_score_rec.weights_version == "v4_balanced_multimodel":
+                raise RuntimeError(
+                    f"Legacy scoring mode '{effective_mode}' cannot overwrite production balanced score "
+                    f"(v4_balanced_multimodel) for product {product_id}. Set allow_legacy_overwrite=True if intentional."
+                )
 
         product = await self.db.get(Product, product_id)
         if not product:

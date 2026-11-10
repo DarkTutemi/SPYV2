@@ -274,10 +274,11 @@ class SchedulerService:
 
                 # Step 4: Score all products
                 try:
-                    scoring = ScoringEngine(db)
-                    scores = await scoring.score_all_products(today)
+                    scoring = ScoringEngine(db, mode="balanced")
+                    scores = await scoring.score_all_products(today, mode="balanced")
+                    await db.commit()
                     steps["scoring"] = {"products_scored": len(scores)}
-                    logger.info("Step 4/6 — Scoring: %d products", len(scores))
+                    logger.info("Step 4/6 — Scoring: %d products (balanced authoritative)", len(scores))
                 except Exception as e:
                     errors["scoring"] = str(e)
                     logger.error("Step 4 FAILED: %s", e)

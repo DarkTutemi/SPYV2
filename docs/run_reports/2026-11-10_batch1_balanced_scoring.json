@@ -1,0 +1,56 @@
+{
+  "batch": "BATCH_1",
+  "title": "Fix Balanced Commercial Scoring Default & Overwrite Prevention",
+  "execution_timestamp_utc": "2026-11-10T18:52:00Z",
+  "database_schema_version": "v1.4_multisource_commercial_models",
+  "database_metrics": {
+    "canonical_product_count": 110,
+    "advertisement_count": 145,
+    "t0_snapshot_count": 145,
+    "source_record_count": 213,
+    "product_offer_count": 51,
+    "bundle_offer_count": 7,
+    "commercial_model_counts": {
+      "MODEL_A_SINGLE_PRODUCT": 83,
+      "MODEL_B_NATURAL_MULTI_UNIT": 26,
+      "MODEL_C_HIGH_AOV_OFFER": 1
+    }
+  },
+  "tests": {
+    "executed": 144,
+    "passed": 144,
+    "failed": 0,
+    "regression_tests_added": [
+      "test_scoring_engine_defaults_to_balanced",
+      "test_legacy_mode_cannot_overwrite_balanced_score",
+      "test_double_recalculation_idempotency"
+    ]
+  },
+  "api_verification": {
+    "endpoint": "POST /api/v1/scores/compute",
+    "status": 200,
+    "response": {
+      "scored": 110,
+      "mode": "balanced",
+      "weights_version": "v4_balanced_multimodel"
+    }
+  },
+  "apify_spend": {
+    "new_runs_executed": 0,
+    "actual_new_spend_usd": 0.0,
+    "session_total_spend_usd": 0.0781,
+    "session_remaining_budget_usd": 1.9219
+  },
+  "t14_monitoring_integrity": {
+    "historical_baseline_ads": 145,
+    "historical_t0_snapshots": 145,
+    "frozen_target_pages": 6,
+    "status": "FROZEN_LOCKED",
+    "scheduled_execution_after": "2026-11-24T01:26:00+07:00"
+  },
+  "unresolved_issues": [
+    "Batch 2: Ingestion idempotency and commercial price evidence verification",
+    "Batch 3: Durable Apify spending safeguards and interruption recovery",
+    "Batch 4: Frontend commercial classification display"
+  ]
+}
