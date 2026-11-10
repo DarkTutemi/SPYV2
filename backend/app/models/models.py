@@ -87,22 +87,41 @@ class EvidenceType(str, enum.Enum):
     AI_INFERENCE = "ai_inference"
     UNVERIFIED_HYPOTHESIS = "unverified_hypothesis"
     # Specific commercial price evidence types
-    OBSERVED_RETAIL_LISTING_PRICE = "observed_retail_listing_price"
-    OBSERVED_CHECKOUT_PRICE = "observed_checkout_price"
-    ADVERTISED_PRICE_ONLY = "advertised_price_only"
-    SUPPLIER_LISTED_PRICE = "supplier_listed_price"
-    SCENARIO_PRICE = "scenario_price"
-    UNKNOWN = "unknown"
+    OBSERVED_RETAIL_LISTING_PRICE = "OBSERVED_RETAIL_LISTING_PRICE"
+    OBSERVED_CHECKOUT_PRICE = "OBSERVED_CHECKOUT_PRICE"
+    ADVERTISED_PRICE_ONLY = "ADVERTISED_PRICE_ONLY"
+    SUPPLIER_LISTED_PRICE = "SUPPLIER_LISTED_PRICE"
+    SCENARIO_PRICE = "SCENARIO_PRICE"
+    UNKNOWN = "UNKNOWN"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            upper_val = value.strip().upper()
+            lower_val = value.strip().lower()
+            for member in cls:
+                if member.value == upper_val or member.name == upper_val or member.value == lower_val:
+                    return member
+        return None
 
 
 class PriceEvidenceType(str, enum.Enum):
     """Specific classification of commercial price evidence."""
-    OBSERVED_RETAIL_LISTING_PRICE = "observed_retail_listing_price"
-    OBSERVED_CHECKOUT_PRICE = "observed_checkout_price"
-    ADVERTISED_PRICE_ONLY = "advertised_price_only"
-    SUPPLIER_LISTED_PRICE = "supplier_listed_price"
-    SCENARIO_PRICE = "scenario_price"
-    UNKNOWN = "unknown"
+    OBSERVED_RETAIL_LISTING_PRICE = "OBSERVED_RETAIL_LISTING_PRICE"
+    OBSERVED_CHECKOUT_PRICE = "OBSERVED_CHECKOUT_PRICE"
+    ADVERTISED_PRICE_ONLY = "ADVERTISED_PRICE_ONLY"
+    SUPPLIER_LISTED_PRICE = "SUPPLIER_LISTED_PRICE"
+    SCENARIO_PRICE = "SCENARIO_PRICE"
+    UNKNOWN = "UNKNOWN"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            upper_val = value.strip().upper()
+            for member in cls:
+                if member.value == upper_val or member.name == upper_val:
+                    return member
+        return None
 
 
 class RelationshipType(str, enum.Enum):
@@ -520,7 +539,10 @@ class ProductOffer(Base):
     is_bundle: Mapped[bool] = mapped_column(Boolean, default=False)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     evidence_type: Mapped[EvidenceType] = mapped_column(Enum(EvidenceType), default=EvidenceType.OBSERVED_FACT)
-    price_evidence_type: Mapped[Optional[PriceEvidenceType]] = mapped_column(Enum(PriceEvidenceType), nullable=True)
+    price_evidence_type: Mapped[Optional[PriceEvidenceType]] = mapped_column(
+        Enum(PriceEvidenceType, native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=True,
+    )
     raw_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
@@ -548,7 +570,10 @@ class BundleOffer(Base):
     natural_bundle_reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     evidence_type: Mapped[EvidenceType] = mapped_column(Enum(EvidenceType), default=EvidenceType.OBSERVED_FACT)
-    price_evidence_type: Mapped[Optional[PriceEvidenceType]] = mapped_column(Enum(PriceEvidenceType), nullable=True)
+    price_evidence_type: Mapped[Optional[PriceEvidenceType]] = mapped_column(
+        Enum(PriceEvidenceType, native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     product = relationship("Product", back_populates="bundle_offers")

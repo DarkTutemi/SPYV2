@@ -439,8 +439,8 @@ async def run_ingestion(db_url: str = None):
                         currency="USD",
                         quantity=qty,
                         is_bundle=(qty > 1),
-                        evidence_type=EvidenceType.OBSERVED_CHECKOUT_PRICE,
-                        price_evidence_type=PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
+                        evidence_type=EvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                        price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
                         raw_data={"variant_title": v_title, "sku": v.get("sku")},
                     )
                     session.add(po)
@@ -464,8 +464,8 @@ async def run_ingestion(db_url: str = None):
                                 unit_price_usd=round(v_price / qty, 2),
                                 bundle_mechanism=BundleMechanism.COMPLETE_COVERAGE if "chair" in t_lower else BundleMechanism.DAILY_ROTATION,
                                 discount_claim=f"{qty}-Pack Observed Shopify Variant",
-                                evidence_type=EvidenceType.OBSERVED_CHECKOUT_PRICE,
-                                price_evidence_type=PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
+                                evidence_type=EvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                                price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
                             )
                             session.add(bo)
 
@@ -486,8 +486,8 @@ async def run_ingestion(db_url: str = None):
                         bundle_price_usd=64.99,
                         unit_price_usd=10.83,
                         bundle_mechanism=BundleMechanism.CONSUMABLE_REPLENISHMENT,
-                        evidence_type=EvidenceType.OBSERVED_CHECKOUT_PRICE,
-                        price_evidence_type=PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
+                        evidence_type=EvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                        price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
                         discount_claim="Starter Kit with 6 Replacement Filter Refills ($64.99)",
                     )
                     session.add(fountain_starter)

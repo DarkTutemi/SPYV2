@@ -91,46 +91,72 @@ def run_migration(db_path: str = None):
     deleted_bo = c.rowcount
     print(f"Deduplicated {deleted_bo} redundant bundle offers.")
 
-    # 4. Standardize price_evidence_type for Shopify offers
-    c.execute("""
-        UPDATE product_offers 
-        SET evidence_type = 'OBSERVED_CHECKOUT_PRICE',
-            price_evidence_type = 'observed_checkout_price'
-        WHERE source_url LIKE '%diegospaws.com%' OR source_url LIKE '%alexcove.com%'
-    """)
-
-    # 5. Standardize price_evidence_type for Amazon offers
+    # 4. Standardize price_evidence_type for Shopify storefront variant offers
+    # CRITICAL AUDIT FIX C: Storefront variant listings represent retail listing benchmarks,
+    # NOT proof of inspected checkout sessions. OBSERVED_CHECKOUT_PRICE is reserved strictly
+    # for verified cart/checkout flows.
     c.execute("""
         UPDATE product_offers 
         SET evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE',
-            price_evidence_type = 'observed_retail_listing_price'
+            price_evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE'
+        WHERE source_url LIKE '%diegospaws.com%' OR source_url LIKE '%alexcove.com%'
+    """)
+
+    # 5. Standardize price_evidence_type for Amazon marketplace offers
+    c.execute("""
+        UPDATE product_offers 
+        SET evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE',
+            price_evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE'
         WHERE source_url LIKE '%amazon.com%'
     """)
 
     # 6. Standardize BundleOffers
+    # Reclassify Shopify catalog/variant bundles to OBSERVED_RETAIL_LISTING_PRICE
     c.execute("""
         UPDATE bundle_offers 
-        SET evidence_type = 'OBSERVED_CHECKOUT_PRICE',
-            price_evidence_type = 'observed_checkout_price'
+        SET evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE',
+            price_evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE'
         WHERE (source_url LIKE '%diegospaws.com%' OR source_url LIKE '%alexcove.com%')
           AND bundle_status != 'modeled_scenario'
     """)
 
+    # Amazon marketplace bundle listings
     c.execute("""
         UPDATE bundle_offers 
         SET evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE',
-            price_evidence_type = 'observed_retail_listing_price'
+            price_evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE'
         WHERE source_url LIKE '%amazon.com%'
           AND bundle_status != 'modeled_scenario'
     """)
 
+    # Modeled commercial scenarios
     c.execute("""
         UPDATE bundle_offers 
         SET evidence_type = 'SCENARIO_PRICE',
-            price_evidence_type = 'scenario_price',
+            price_evidence_type = 'SCENARIO_PRICE',
             source_url = NULL
         WHERE bundle_status = 'modeled_scenario'
     """)
+
+    # Populate any remaining bundle offers with NULL price_evidence_type
+    c.execute("""
+        UPDATE bundle_offers 
+        SET evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE',
+            price_evidence_type = 'OBSERVED_RETAIL_LISTING_PRICE'
+        WHERE price_evidence_type IS NULL AND source_url IS NOT NULL
+    """)
+    c.execute("""
+        UPDATE bundle_offers 
+        SET evidence_type = 'SCENARIO_PRICE',
+            price_evidence_type = 'SCENARIO_PRICE'
+        WHERE price_evidence_type IS NULL AND source_url IS NULL
+    """)
+
+    # Ensure strictly UPPERCASE representation across all offers (Fix B)
+    c.execute("UPDATE product_offers SET price_evidence_type = UPPER(price_evidence_type) WHERE price_evidence_type IS NOT NULL")
+    c.execute("UPDATE bundle_offers SET price_evidence_type = UPPER(price_evidence_type) WHERE price_evidence_type IS NOT NULL")
+    c.execute("UPDATE product_offers SET evidence_type = UPPER(evidence_type) WHERE evidence_type IS NOT NULL")
+    c.execute("UPDATE bundle_offers SET evidence_type = UPPER(evidence_type) WHERE evidence_type IS NOT NULL")
 
     # 7. Check for any remaining Google Trends URLs in product_offers or bundle_offers
     c.execute("SELECT COUNT(*) FROM product_offers WHERE source_url LIKE '%trends.google%'")

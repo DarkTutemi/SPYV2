@@ -36,14 +36,25 @@ async def compute_scores(
     db: AsyncSession = Depends(get_db),
 ):
     """Recompute deterministic scores for all US products (today's date, UTC). Always defaults to balanced scoring."""
+    from fastapi import HTTPException
     from app.engines.scoring import ScoringEngine
-    scoring_mode = mode or "balanced"
+
+    scoring_mode = (mode or "balanced").strip().lower()
+    if scoring_mode != "balanced":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid scoring mode '{mode}'. Production opportunity scores strictly require mode='balanced' "
+                "(v4_balanced_multimodel). Legacy unverified modes cannot mutate production rankings."
+            ),
+        )
+
     engine = ScoringEngine(db, mode=scoring_mode)
     scores = await engine.score_all_products(mode=scoring_mode)
     await db.commit()
     return {
         "scored": len(scores),
         "mode": scoring_mode,
-        "weights_version": "v4_balanced_multimodel" if scoring_mode == "balanced" else "v3_phase9",
+        "weights_version": "v4_balanced_multimodel",
     }
 

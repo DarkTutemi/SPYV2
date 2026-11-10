@@ -229,7 +229,7 @@ export default function Ranking() {
         return (
           <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
             <span>${price.toFixed(2)}</span>
-            <span className="text-[10px] text-emerald-600 font-normal">[Observed Checkout Price]</span>
+            <span className="text-[10px] text-emerald-600 font-normal">[Storefront Variant Listing]</span>
           </span>
         );
       } else if (src === "amazon") {

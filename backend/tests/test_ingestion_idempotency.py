@@ -163,7 +163,7 @@ async def test_full_pipeline_idempotency_and_evidence_taxonomy():
                 )
             )).scalars().all()
             assert len(fountain_bundles) == 1
-            assert fountain_bundles[0].price_evidence_type == PriceEvidenceType.OBSERVED_CHECKOUT_PRICE
+            assert fountain_bundles[0].price_evidence_type == PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE
 
         # RUN 2: Re-run both ingestion pipelines against the SAME database
         await run_ingestion(db_url=db_url)

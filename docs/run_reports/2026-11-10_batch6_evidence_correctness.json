@@ -1,0 +1,60 @@
+{
+  "batch": 6,
+  "batch_name": "Evidence and Snapshot Correctness",
+  "timestamp_utc": "2026-11-10T20:07:00Z",
+  "commit_title": "fix(evidence): correct price enums and longitudinal provenance",
+  "critical_fixes": {
+    "fix_b_price_enum_deserialization": {
+      "status": "RESOLVED",
+      "root_cause": "SQLAlchemy Enum(PriceEvidenceType) defaults to matching Enum member NAMES ('OBSERVED_CHECKOUT_PRICE'), while manual SQL migrations previously inserted lowercase values ('observed_checkout_price'). When queried via ORM, SQLAlchemy threw LookupError.",
+      "solution": "Standardized PriceEvidenceType on uppercase values, added _missing_ classmethod for backwards compatibility, explicit values_callable=lambda obj: [e.value for e in obj], and executed idempotent migration updating all existing rows to uppercase.",
+      "verified_by": "backend/tests/test_price_enum_storage.py (ORM insert, raw SQL verify uppercase, ORM round-trip without LookupError)"
+    },
+    "fix_c_price_evidence_taxonomy": {
+      "status": "RESOLVED",
+      "root_cause": "Shopify storefront variant lists were previously misclassified as OBSERVED_CHECKOUT_PRICE. Storefront variants only prove catalog listing prices, not completed checkout/cart inspection.",
+      "solution": "Reclassified all 44 Shopify storefront variant offers to OBSERVED_RETAIL_LISTING_PRICE. Reserved OBSERVED_CHECKOUT_PRICE strictly for verified cart/checkout flows. Classified Amazon listings as OBSERVED_RETAIL_LISTING_PRICE and modeled bundles as SCENARIO_PRICE.",
+      "database_counts": {
+        "product_offers_total": 50,
+        "product_offers_observed_retail_listing": 50,
+        "product_offers_observed_checkout": 0,
+        "bundle_offers_total": 6,
+        "bundle_offers_observed_retail_listing": 1,
+        "bundle_offers_scenario_price": 5
+      }
+    },
+    "fix_d_t0_snapshot_reconciliation": {
+      "status": "RESOLVED",
+      "root_cause": "The repository contains 145 distinct Meta ads, but 290 snapshot rows across two collection dates.",
+      "provenance": {
+        "unique_advertisements": 145,
+        "total_snapshots": 290,
+        "batch_t0": "145 snapshots on 2026-11-09 18:23:44 UTC (initial baseline)",
+        "batch_t1": "145 snapshots on 2026-11-10 18:09:05 UTC (daily re-observation across 14 runs)",
+        "longitudinal_interpretation": "Represents 2 consecutive observation dates (T0 and T+1). Does NOT represent a 14-day longitudinal proof. 100% of historical data preserved without deletion or timestamp alteration."
+      },
+      "t14_freeze_status": "T+14 monitoring remains strictly frozen until Nov 24, 2026 after 01:26 ICT"
+    },
+    "fix_e_balanced_scoring_endpoint_guard": {
+      "status": "RESOLVED",
+      "root_cause": "POST /api/v1/scores/compute previously accepted arbitrary mode parameters, creating risk of accidental score overwrite if non-balanced mode was supplied.",
+      "solution": "Enforced strict route validation: any mode != 'balanced' raises HTTP 400 Bad Request with explicit explanation that production rankings require v4_balanced_multimodel.",
+      "verified_by": "backend/tests/test_price_enum_storage.py::test_compute_scores_endpoint_rejects_unbalanced_modes"
+    }
+  },
+  "metrics": {
+    "canonical_products": 109,
+    "advertisements": 145,
+    "distinct_ad_snapshots": 145,
+    "total_snapshots": 290,
+    "product_offers": 50,
+    "bundle_offers": 6,
+    "backend_tests_total": 159,
+    "backend_tests_passed": 159,
+    "backend_tests_failed": 0,
+    "frontend_routes_compiled": 16,
+    "frontend_build_status": "SUCCESS",
+    "paid_apify_runs_executed": 0,
+    "total_new_spend_usd": 0.0
+  }
+}
