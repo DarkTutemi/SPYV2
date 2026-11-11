@@ -1,8 +1,11 @@
 """
 US WIN HUNTER — Commercial Evidence Verification Service
-Enforces rigorous evidence provenance:
+Enforces rigorous database-backed evidence provenance:
 - Early rejection of placeholder strings and synthetic URL patterns.
-- Rejection of valid-looking ASINs/IDs that lack authentic source provider extraction receipts.
+- Rejection of valid-looking ASINs/IDs that lack authentic database-stored provider acquisition records.
+- Verification against actual stored SourceRecord and CollectionRun in database.
+- Checks agreement between offer URL, product identity, observed price, timestamp, and source IDs.
+- Rejects self-generated or script-generated retrieval_status flags.
 - Distinguishes VERIFIED, PARTIAL, UNKNOWN, and REJECTED commercial observations.
 - Prevents plausible but unverified URLs from becoming OBSERVED_RETAIL_LISTING_PRICE.
 """
@@ -11,8 +14,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import enum
 from typing import Optional, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from app.models.models import PriceEvidenceType, EvidenceType
+from app.models.models import (
+    PriceEvidenceType,
+    EvidenceType,
+    SourceRecord,
+    CollectionRun,
+    CollectionJobStatus,
+    DataSourceType,
+)
 
 
 class EvidenceVerificationOutcome(str, enum.Enum):
@@ -58,6 +70,353 @@ KNOWN_PLACEHOLDER_SUBSTRINGS = [
     "example.com",
 ]
 
+KNOWN_MANUAL_RUN_SUBSTRINGS = [
+    "manual",
+    "quarantined",
+    "hypothesis",
+    "unverified",
+    "self_generated",
+]
+
+
+async def verify_commercial_evidence_db(
+    db: AsyncSession,
+    url: str,
+    price_evidence_type: str,
+    source_record_id: Optional[str] = None,
+    expected_asin: Optional[str] = None,
+    observed_price: Optional[float] = None,
+    currency: str = "USD",
+    retailer_name: Optional[str] = None,
+    product_identity: Optional[str] = None,
+    observed_at: Optional[str] = None,
+) -> EvidenceVerificationResult:
+    """
+    Asynchronously audits commercial listing evidence against actual stored database records.
+    Verifies:
+    1. URL does not contain placeholder patterns (early rejection).
+    2. SourceRecord exists in the database (rejection if nonexistent).
+    3. SourceRecord is not synthetic and not a manual import.
+    4. CollectionRun exists, is COMPLETED, and is an authentic external provider run (not manual/quarantined).
+    5. Agreement between offer price and persisted source observation price (rejection on price mismatch).
+    6. Agreement between offer product identity/ASIN and persisted source record identity.
+    7. Authentic external observation timestamp (rejection of generated-on-the-fly timestamps).
+    8. Preserved authentic raw response data.
+    """
+    url_lower = url.lower() if url else ""
+
+    # 1. Early rejection filter: Known placeholder patterns
+    if any(pat in url_lower for pat in KNOWN_PLACEHOLDER_SUBSTRINGS):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider="unknown",
+            record_identity=None,
+            listing_url=url,
+            retailer_name=retailer_name or "unknown",
+            product_identity=product_identity or "unknown",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=None,
+            verification_notes=f"REJECTED: URL '{url}' contains unverified placeholder pattern.",
+        )
+
+    # 2. Check source_record_id existence
+    if not source_record_id:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.UNKNOWN,
+            source_provider="unverified_web",
+            record_identity=None,
+            listing_url=url,
+            retailer_name=retailer_name or "unverified",
+            product_identity=product_identity or "unverified",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=None,
+            verification_notes="UNKNOWN: Plausible URL lacks authentic provider extraction receipt or traceable SourceRecord.",
+        )
+
+    if source_record_id.startswith("manual_"):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider="manual_import",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "manual",
+            product_identity=product_identity or "manual",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=None,
+            verification_notes="REJECTED: SourceRecord is explicitly marked manual_import.",
+        )
+
+    # 3. Query SourceRecord from database
+    srec = await db.get(SourceRecord, source_record_id)
+    if not srec:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.UNKNOWN,
+            source_provider="unknown",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "unknown",
+            product_identity=product_identity or "unknown",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=None,
+            verification_notes=f"UNKNOWN: SourceRecord ID '{source_record_id}' does not exist in the database.",
+        )
+
+    # 4. Check SourceRecord synthetic / manual status
+    if srec.is_synthetic:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=srec.source_type.value if hasattr(srec.source_type, "value") else str(srec.source_type),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "synthetic",
+            product_identity=product_identity or "synthetic",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=srec.raw_data,
+            verification_notes="REJECTED: SourceRecord is synthetic or generated rather than authentic external observation.",
+        )
+
+    if srec.source_type == DataSourceType.MANUAL_IMPORT:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider="manual_import",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "manual",
+            product_identity=product_identity or "manual",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=srec.raw_data,
+            verification_notes="REJECTED: SourceRecord is marked MANUAL_IMPORT.",
+        )
+
+    # 5. Query linked CollectionRun
+    c_run = await db.get(CollectionRun, srec.collection_run_id) if srec.collection_run_id else None
+    if not c_run:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.UNKNOWN,
+            source_provider="unknown",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "unknown",
+            product_identity=product_identity or "unknown",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=srec.raw_data,
+            verification_notes=f"UNKNOWN: Linked CollectionRun '{srec.collection_run_id}' does not exist.",
+        )
+
+    if c_run.status != CollectionJobStatus.COMPLETED:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.UNKNOWN,
+            source_provider="incomplete_run",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "incomplete",
+            product_identity=product_identity or "incomplete",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=srec.raw_data,
+            verification_notes=f"UNKNOWN: Linked CollectionRun '{c_run.id}' is not COMPLETED (status={c_run.status}).",
+        )
+
+    # Check if CollectionRun was a manual import masquerading as a provider fetch
+    c_notes = (c_run.coverage_notes or "").lower()
+    c_id = c_run.id.lower()
+    if (
+        any(pat in c_notes for pat in KNOWN_MANUAL_RUN_SUBSTRINGS)
+        or any(pat in c_id for pat in KNOWN_MANUAL_RUN_SUBSTRINGS)
+        or c_id.startswith("run_us_discovery_")
+        or c_id.startswith("run_us_verified_")
+    ):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider="quarantined_collection_run",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "quarantined",
+            product_identity=product_identity or "quarantined",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=srec.raw_data,
+            verification_notes=f"REJECTED: Linked CollectionRun '{c_run.id}' is a manual research import, not an authentic provider collection.",
+        )
+
+    # 6. Verify SourceRecord raw_data payload
+    raw = srec.raw_data or {}
+    if not isinstance(raw, dict) or len(raw) == 0:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.UNKNOWN,
+            source_provider="empty_raw_data",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "unknown",
+            product_identity=product_identity or "unknown",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes="UNKNOWN: Persisted SourceRecord contains empty or invalid raw data.",
+        )
+
+    if raw.get("provenance") in ("unverified_manual_import", "unverified_manual_hypothesis"):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider="manual_hypothesis",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "manual",
+            product_identity=product_identity or "manual",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes="REJECTED: SourceRecord raw data explicitly indicates manual hypothesis provenance.",
+        )
+
+    if raw.get("verification_status") in ("QUARANTINED_UNVERIFIED", "QUARANTINED_SELF_GENERATED_RECEIPT"):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider="quarantined_record",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "quarantined",
+            product_identity=product_identity or "quarantined",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes=f"REJECTED: SourceRecord verification status is {raw.get('verification_status')}.",
+        )
+
+    # 7. Check Product Identity / ASIN agreement
+    expected_id = expected_asin or product_identity
+    if expected_id:
+        source_item_id = srec.external_id or raw.get("asin") or raw.get("product_id") or raw.get("external_id")
+        if source_item_id and source_item_id.strip().upper() != expected_id.strip().upper():
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "external_provider"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+                product_identity=str(source_item_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: Product identity mismatch. Offer expected '{expected_id}' but source recorded '{source_item_id}'.",
+            )
+
+    # 8. Check Price Agreement
+    source_price = raw.get("observed_price") if "observed_price" in raw else raw.get("price")
+    if source_price is not None and observed_price is not None:
+        try:
+            s_price_f = float(source_price)
+            o_price_f = float(observed_price)
+            if abs(s_price_f - o_price_f) > 0.05:
+                return EvidenceVerificationResult(
+                    outcome=EvidenceVerificationOutcome.REJECTED,
+                    source_provider=raw.get("provider", "external_provider"),
+                    record_identity=source_record_id,
+                    listing_url=url,
+                    retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+                    product_identity=product_identity or str(srec.external_id),
+                    variant_and_pack_size=raw.get("pack_size"),
+                    observed_price=observed_price,
+                    currency=currency,
+                    observed_at=observed_at,
+                    raw_extraction=raw,
+                    verification_notes=f"REJECTED: Price mismatch. Offer claims ${o_price_f:.2f} but persisted source recorded ${s_price_f:.2f}.",
+                )
+        except (ValueError, TypeError):
+            pass
+
+    # 9. Check Observation Timestamp: must be an authentic external source timestamp
+    src_ts = raw.get("source_timestamp") or raw.get("observed_at") or raw.get("retrieval_timestamp")
+    if not src_ts or str(src_ts).startswith("synthetic_") or str(src_ts).startswith("import_time_"):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=raw.get("provider", "external_provider"),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+            product_identity=product_identity or str(srec.external_id),
+            variant_and_pack_size=raw.get("pack_size"),
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes="REJECTED: Observation timestamp is missing or generated during import rather than obtained from source.",
+        )
+
+    # 10. Check that raw data has authentic provider acquisition signature (not self-generated)
+    # Self-generated receipts only have "verified_source": true and "HTTP_200_EXTRACTED" without genuine capture payload
+    has_genuine_signature = (
+        raw.get("capture_signature") is not None
+        or raw.get("external_run_id") is not None
+        or raw.get("apify_dataset_item_id") is not None
+        or raw.get("source_capture_ref") is not None
+        or (raw.get("provider") in ("apify_amazon_scraper", "apify_meta_ad_library", "authentic_public_marketplace_capture") and raw.get("raw_http_status") == 200)
+    )
+
+    if not has_genuine_signature and raw.get("verified_source") is True:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=raw.get("provider", "self_generated"),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "self_generated",
+            product_identity=product_identity or str(srec.external_id),
+            variant_and_pack_size=raw.get("pack_size"),
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes="REJECTED: SourceRecord contains self-generated verification flags without authentic provider capture proof.",
+        )
+
+    return EvidenceVerificationResult(
+        outcome=EvidenceVerificationOutcome.VERIFIED,
+        source_provider=raw.get("provider", "external_provider"),
+        record_identity=source_record_id,
+        listing_url=url,
+        retailer_name=retailer_name or raw.get("retailer", "verified_retailer"),
+        product_identity=product_identity or str(srec.external_id),
+        variant_and_pack_size=raw.get("pack_size"),
+        observed_price=observed_price if observed_price is not None else source_price,
+        currency=currency,
+        observed_at=str(src_ts),
+        raw_extraction=raw,
+        verification_notes="VERIFIED: Documented external provider acquisition record with matching price, identity, and timestamp.",
+    )
+
 
 def verify_commercial_listing_evidence(
     url: str,
@@ -71,12 +430,10 @@ def verify_commercial_listing_evidence(
     currency: str = "USD",
 ) -> EvidenceVerificationResult:
     """
-    Audits a candidate retail listing offer against strict data integrity criteria.
-    Validates that:
-    1. URL does not match synthetic placeholder patterns (early rejection).
-    2. URL shape alone (e.g. valid-looking ASIN B07FZ8S74R) is NOT accepted as proof.
-    3. Authentic external provider extraction receipt (raw_extraction) is present and verified.
-    4. Observation timestamp is an authentic provider timestamp, not synthetic now().
+    Synchronous / In-memory gate.
+    Validates placeholder patterns and basic invariants.
+    Note: For database-backed validation against stored CollectionRun and SourceRecord,
+    use verify_commercial_evidence_db() / validate_commercial_evidence_strict_db().
     """
     url_lower = url.lower() if url else ""
 
@@ -97,6 +454,26 @@ def verify_commercial_listing_evidence(
             verification_notes=f"REJECTED: URL '{url}' contains unverified placeholder pattern.",
         )
 
+    # Check for synthetic / manual hypothesis provenance in raw extraction
+    if raw_extraction and (
+        raw_extraction.get("is_synthetic")
+        or raw_extraction.get("provenance") in ("unverified_manual_import", "unverified_manual_hypothesis")
+    ):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider="manual_import",
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "manual",
+            product_identity=product_identity or "manual",
+            variant_and_pack_size=None,
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw_extraction,
+            verification_notes="REJECTED: Raw extraction explicitly indicates synthetic or manual hypothesis provenance.",
+        )
+
     # 2. Check for authentic provider extraction receipt
     has_valid_raw_receipt = (
         raw_extraction is not None
@@ -106,8 +483,6 @@ def verify_commercial_listing_evidence(
     )
 
     has_traceable_source_record = bool(source_record_id and not source_record_id.startswith("manual_"))
-
-    has_authentic_timestamp = bool(observed_at and not observed_at.startswith("synthetic_"))
 
     # 3. Plausible URL alone without provider receipt cannot be VERIFIED
     if not has_valid_raw_receipt or not has_traceable_source_record:
@@ -184,6 +559,51 @@ def validate_commercial_evidence_strict(
             raise ValueError(
                 f"REJECTED: Offer at '{url}' cannot be labeled '{price_evidence_type}'. "
                 f"Reason: {audit.verification_notes}. Must use SCENARIO_PRICE or UNKNOWN."
+            )
+
+    return price_evidence_type
+
+
+async def validate_commercial_evidence_strict_db(
+    db: AsyncSession,
+    url: str,
+    price_evidence_type: str,
+    source_record_id: Optional[str] = None,
+    expected_asin: Optional[str] = None,
+    observed_price: Optional[float] = None,
+    retailer_name: Optional[str] = None,
+    product_identity: Optional[str] = None,
+    observed_at: Optional[str] = None,
+) -> str:
+    """
+    Database-backed Acceptance Gate: Audits against persisted SourceRecord and CollectionRun.
+    Rejects any offer claiming OBSERVED_RETAIL_LISTING_PRICE if it fails DB-backed integrity checks.
+    """
+    audit = await verify_commercial_evidence_db(
+        db=db,
+        url=url,
+        price_evidence_type=price_evidence_type,
+        source_record_id=source_record_id,
+        expected_asin=expected_asin,
+        observed_price=observed_price,
+        retailer_name=retailer_name,
+        product_identity=product_identity,
+        observed_at=observed_at,
+    )
+
+    if price_evidence_type in (
+        PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+        PriceEvidenceType.OBSERVED_CHECKOUT_PRICE.value,
+        "OBSERVED_RETAIL_LISTING_PRICE",
+        "OBSERVED_CHECKOUT_PRICE",
+    ):
+        if not audit.is_valid_observed_price:
+            if audit.outcome == EvidenceVerificationOutcome.REJECTED:
+                raise ValueError(
+                    f"REJECTED: Offer at '{url}' failed integrity check. Reason: {audit.verification_notes}"
+                )
+            raise ValueError(
+                f"REJECTED: Offer at '{url}' cannot be labeled '{price_evidence_type}'. Reason: {audit.verification_notes}"
             )
 
     return price_evidence_type

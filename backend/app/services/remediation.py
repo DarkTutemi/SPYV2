@@ -1,6 +1,7 @@
 """
 US WIN HUNTER — Explicit, Transactional & Idempotent Discovery Remediation Service
-Remediates legacy data from run_us_discovery_20261111 using audited product IDs.
+Remediates legacy data from run_us_discovery_20261111 and run_us_verified_discovery_20261111
+using audited product IDs.
 Safely reclassifies unverified imports, source records, and modeled offers.
 Guarantees strict idempotency (0 changes on subsequent runs).
 """
@@ -8,7 +9,7 @@ Guarantees strict idempotency (0 changes on subsequent runs).
 import shutil
 import os
 from datetime import datetime, timezone
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,8 +29,20 @@ from app.models.models import (
 from app.engines.scoring import ScoringEngine
 
 TARGET_COLLECTION_RUN_ID = "run_us_discovery_20261111"
+BATCH8_COLLECTION_RUN_ID = "run_us_verified_discovery_20261111"
 
-# Explicit audited ID mapping for the six quarantined physical products
+ALL_TARGET_RUNS: List[Tuple[str, str]] = [
+    (
+        TARGET_COLLECTION_RUN_ID,
+        "QUARANTINED: Manual research hypothesis import without verified external provider collection.",
+    ),
+    (
+        BATCH8_COLLECTION_RUN_ID,
+        "QUARANTINED: Manual research import with self-generated receipts; not an authentic external provider collection.",
+    ),
+]
+
+# Audited legacy products (Batch 7)
 AUDITED_LEGACY_PRODUCTS: Dict[str, str] = {
     "bdc47ed7-8004-417d-a44f-ba9ea09d17df": "42kHz Ultrasonic Retainer & Mouthguard Cleaning Pod",
     "9561c127-a3de-40e0-90fe-c75785f8c728": "Cordless Electric Spin Scrubber with Telescopic Extension Pole",
@@ -37,6 +50,21 @@ AUDITED_LEGACY_PRODUCTS: Dict[str, str] = {
     "b7e1baaa-e2de-4319-8088-dcd3619219d5": "Dual-Chip Red Light & Near-Infrared Therapy Lumbar Belt",
     "5f40a4c5-3161-4ea9-bf5c-e4bd2d7940f6": "Portable Cordless Tire Inflator & Emergency Digital Air Pump",
     "146ea3e7-825e-4f36-8c49-6404935ecd7d": "All-in-One Pet Grooming Vacuum Kit with Low-Noise Electric Clippers",
+}
+
+# Audited Batch 8 self-generated candidates requiring quarantine
+AUDITED_BATCH8_PRODUCTS: Dict[str, str] = {
+    "d3f7e913-3974-5935-aa8a-8c3f3632a06a": "Kitchen Mama Auto Electric Can Opener (Original Red Model)",
+    "21d0cfcd-19c7-5136-af95-75748c896b08": "resqme The Original Emergency Keychain Car Escape Tool",
+    "b825b065-2ef3-57a7-b626-13d47da77e7d": "ESARORA Facial & Eye Ice Roller for Morning Depuffing",
+    "b6dc0ed8-6ac4-5da9-9f9b-9036236c2d1b": "RAK Universal Socket Grip (7-19mm) with Power Drill Adapter",
+    "a47548a7-96ef-5940-a9de-7ec5bed8e3a9": "Elviros Cervical Memory Foam Ergonomic Pillow for Neck & Shoulder Pain",
+    "c0fb6e9a-2c50-59fb-9da5-885fb47a87c1": "Delta Faucet Glass Rinser for Kitchen Sinks (GR150-SP Stainless Steel)",
+}
+
+ALL_QUARANTINED_PRODUCTS: Dict[str, str] = {
+    **AUDITED_LEGACY_PRODUCTS,
+    **AUDITED_BATCH8_PRODUCTS,
 }
 
 
@@ -51,7 +79,7 @@ def backup_database(db_path: str) -> str:
 
 async def remediate_legacy_discovery_data(db: AsyncSession) -> Dict[str, int]:
     """
-    Executes transactional, idempotent remediation on the 6 audited products.
+    Executes transactional, idempotent remediation on all audited quarantined candidates.
     Returns counts of modified entities:
     {
         'collection_runs_modified': int,
@@ -71,57 +99,58 @@ async def remediate_legacy_discovery_data(db: AsyncSession) -> Dict[str, int]:
         "scores_modified": 0,
     }
 
-    # 1. Remediate CollectionRun
-    c_run = await db.get(CollectionRun, TARGET_COLLECTION_RUN_ID)
-    if c_run:
-        needs_run_update = (
-            c_run.status != CollectionJobStatus.PARTIAL
-            or c_run.coverage_notes != "QUARANTINED: Manual research hypothesis import without verified external provider collection."
-            or c_run.records_fetched != 0
-            or c_run.records_new != 0
-        )
-        if needs_run_update:
-            c_run.status = CollectionJobStatus.PARTIAL
-            c_run.coverage_notes = "QUARANTINED: Manual research hypothesis import without verified external provider collection."
-            c_run.records_fetched = 0
-            c_run.records_new = 0
-            stats["collection_runs_modified"] += 1
+    # 1. Remediate CollectionRuns
+    for run_id, notes in ALL_TARGET_RUNS:
+        c_run = await db.get(CollectionRun, run_id)
+        if c_run:
+            needs_run_update = (
+                c_run.status != CollectionJobStatus.PARTIAL
+                or c_run.coverage_notes != notes
+                or c_run.records_fetched != 0
+                or c_run.records_new != 0
+            )
+            if needs_run_update:
+                c_run.status = CollectionJobStatus.PARTIAL
+                c_run.coverage_notes = notes
+                c_run.records_fetched = 0
+                c_run.records_new = 0
+                stats["collection_runs_modified"] += 1
 
-    # 2. Remediate SourceRecords for TARGET_COLLECTION_RUN_ID
-    srecs_res = await db.execute(
-        select(SourceRecord).where(SourceRecord.collection_run_id == TARGET_COLLECTION_RUN_ID)
-    )
-    srecs = list(srecs_res.scalars().all())
-    for srec in srecs:
-        needs_srec_update = (
-            srec.source_type != DataSourceType.MANUAL_IMPORT
-            or srec.geo_confidence != ConfidenceLevel.UNKNOWN
-            or not srec.is_synthetic
-            or (srec.raw_data or {}).get("verification_status") != "QUARANTINED_UNVERIFIED"
+        # 2. Remediate SourceRecords for this run
+        srecs_res = await db.execute(
+            select(SourceRecord).where(SourceRecord.collection_run_id == run_id)
         )
-        if needs_srec_update:
-            srec.source_type = DataSourceType.MANUAL_IMPORT
-            srec.geo_confidence = ConfidenceLevel.UNKNOWN
-            srec.is_synthetic = True
-            raw = dict(srec.raw_data or {})
-            raw["provenance"] = "unverified_manual_hypothesis"
-            raw["verification_status"] = "QUARANTINED_UNVERIFIED"
-            raw["quarantine_reason"] = "Retail URLs contain placeholder patterns; no verified external marketplace data."
-            srec.raw_data = raw
-            stats["source_records_modified"] += 1
+        for srec in srecs_res.scalars().all():
+            needs_srec_update = (
+                srec.source_type != DataSourceType.MANUAL_IMPORT
+                or srec.geo_confidence != ConfidenceLevel.UNKNOWN
+                or not srec.is_synthetic
+                or (srec.raw_data or {}).get("verification_status") not in ("QUARANTINED_UNVERIFIED", "QUARANTINED_SELF_GENERATED_RECEIPT")
+            )
+            if needs_srec_update:
+                srec.source_type = DataSourceType.MANUAL_IMPORT
+                srec.geo_confidence = ConfidenceLevel.UNKNOWN
+                srec.is_synthetic = True
+                raw = dict(srec.raw_data or {})
+                raw["provenance"] = "unverified_manual_hypothesis"
+                raw["verification_status"] = "QUARANTINED_SELF_GENERATED_RECEIPT" if run_id == BATCH8_COLLECTION_RUN_ID else "QUARANTINED_UNVERIFIED"
+                raw["quarantine_reason"] = "Self-generated receipt or placeholder pattern without authentic external provider execution."
+                srec.raw_data = raw
+                stats["source_records_modified"] += 1
 
-    # 3. Remediate Products, ProductOffers, BundleOffers using audited explicit IDs
-    for p_id in AUDITED_LEGACY_PRODUCTS.keys():
+    # 3. Remediate Products, ProductOffers, BundleOffers across all quarantined items
+    for p_id in ALL_QUARANTINED_PRODUCTS.keys():
         prod = await db.get(Product, p_id)
         if prod:
+            target_status = "RESEARCH_HYPOTHESIS" if p_id in AUDITED_BATCH8_PRODUCTS else "UNVERIFIED_IMPORT"
             needs_prod_update = (
-                prod.opportunity_status != "UNVERIFIED_IMPORT"
+                prod.opportunity_status not in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
                 or prod.source_type != DataSourceType.MANUAL_IMPORT
                 or prod.us_relevance_confidence != ConfidenceLevel.UNKNOWN
                 or (prod.raw_data or {}).get("verification_status") != "QUARANTINED_UNVERIFIED"
             )
             if needs_prod_update:
-                prod.opportunity_status = "UNVERIFIED_IMPORT"
+                prod.opportunity_status = target_status
                 prod.source_type = DataSourceType.MANUAL_IMPORT
                 prod.us_relevance_confidence = ConfidenceLevel.UNKNOWN
                 raw = dict(prod.raw_data or {})
@@ -171,7 +200,8 @@ async def remediate_legacy_discovery_data(db: AsyncSession) -> Dict[str, int]:
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     scoring = ScoringEngine(db, mode="balanced")
 
-    for p_id in AUDITED_LEGACY_PRODUCTS.keys():
+    for p_id in ALL_QUARANTINED_PRODUCTS.keys():
+        target_status = "RESEARCH_HYPOTHESIS" if p_id in AUDITED_BATCH8_PRODUCTS else "UNVERIFIED_IMPORT"
         sc_res = await db.execute(
             select(OpportunityScore).where(
                 OpportunityScore.product_id == p_id,
@@ -181,13 +211,13 @@ async def remediate_legacy_discovery_data(db: AsyncSession) -> Dict[str, int]:
         score_rec = sc_res.scalar_one_or_none()
         if score_rec:
             needs_score_update = (
-                score_rec.opportunity_status != "UNVERIFIED_IMPORT"
+                score_rec.opportunity_status not in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
                 or score_rec.evidence_confidence > 15.0
                 or score_rec.observed_single_price_usd is not None
                 or score_rec.observed_bundle_price_usd is not None
             )
             if needs_score_update:
-                score_rec.opportunity_status = "UNVERIFIED_IMPORT"
+                score_rec.opportunity_status = target_status
                 score_rec.evidence_confidence = 4.5
                 score_rec.observed_single_price_usd = None
                 score_rec.observed_bundle_price_usd = None

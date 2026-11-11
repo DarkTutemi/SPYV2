@@ -110,3 +110,46 @@ To permanently prevent unverified imports from masquerading as verified external
 4. **Automated Regression Suite:**
    - Six automated regression tests in [`backend/tests/test_discovery_provenance_and_quarantine.py`](file:///c:/Users/Admin/Downloads/SPY%20v2/backend/tests/test_discovery_provenance_and_quarantine.py) continuously verify these safeguards.
 
+---
+
+## 6. Batch 8 Remediation: Elimination of Self-Generated Provider Receipts
+
+### 6.1 Root Cause Audit of Batch 8 (`run_us_verified_discovery_20261111`)
+An independent audit identified that `backend/ingest_verified_us_products.py` constructed hard-coded Python dictionaries (`raw_receipt_amz`, `raw_receipt_wal`) with `retrieval_status = "HTTP_200_EXTRACTED"` and `verified_source = True`, created a `CollectionRun` directly marked `COMPLETED`, and passed those synthetic receipts into the verification gate. This constituted self-generated evidence without real external provider execution.
+
+### 6.2 Transactional Quarantine Actions
+The transactional remediation procedure in [`backend/app/services/remediation.py`](file:///c:/Users/Admin/Downloads/SPY%20v2/backend/app/services/remediation.py) was extended to quarantine the Batch 8 entities:
+- **CollectionRun (`run_us_verified_discovery_20261111`):** Downgraded to `PARTIAL` with note: `"QUARANTINED: Manual research import with self-generated receipts; not an authentic external provider collection."`, `records_fetched = 0`, `records_new = 0`.
+- **12 SourceRecords:** Reclassified as `source_type = DataSourceType.MANUAL_IMPORT`, `is_synthetic = True`, `geo_confidence = ConfidenceLevel.UNKNOWN`, `verification_status = "QUARANTINED_SELF_GENERATED_RECEIPT"`.
+- **6 Products:** Reclassified to `opportunity_status = "RESEARCH_HYPOTHESIS"`, `source_type = MANUAL_IMPORT`, `commercial_listing_verified = False`, confidence `UNKNOWN`.
+- **12 ProductOffers:** Reclassified to `price_evidence_type = SCENARIO_PRICE`, `evidence_type = UNVERIFIED_HYPOTHESIS`.
+- **6 BundleOffers:** Reclassified to `bundle_status = "modeled_scenario"`, `price_evidence_type = SCENARIO_PRICE`, `is_natural_bundle = False`.
+- **12 OpportunityScores:** Recalculated using balanced scoring; observed single and bundle prices cleared to `None`, confidence reduced to 4.5%, composite capped.
+- **Idempotency Verified:** Successive executions of `remediation.py` produce strictly 0 modifications.
+- **Frozen Baseline Intact:** Exactly 145 Meta advertisements and 435 snapshots remain 100% preserved.
+
+### 6.3 Database-Backed Verification Service (`verify_commercial_evidence_db`)
+In [`backend/app/services/evidence_verification.py`](file:///c:/Users/Admin/Downloads/SPY%20v2/backend/app/services/evidence_verification.py):
+1. Rejects placeholder URLs early.
+2. Checks that `source_record_id` exists in the database (rejecting non-existent IDs).
+3. Rejects records where `is_synthetic == True` or `source_type == MANUAL_IMPORT`.
+4. Checks linked `CollectionRun`: must exist, must be `COMPLETED`, and cannot be a manual/quarantined run.
+5. Verifies agreement between offer product identity/ASIN and persisted source external ID.
+6. Verifies agreement between offer price and persisted source record price (rejecting mismatches).
+7. Verifies observation timestamp was recorded by source, not generated at import time.
+8. Requires authentic provider capture signature (rejecting self-generated flags).
+
+### 6.4 Adversarial Test Suite
+Implemented 10 explicit adversarial regression tests in [`backend/tests/test_adversarial_evidence_verification.py`](file:///c:/Users/Admin/Downloads/SPY%20v2/backend/tests/test_adversarial_evidence_verification.py):
+- **Test A:** Valid Amazon ASIN with invented price $\rightarrow$ REJECTED (price mismatch).
+- **Test B:** SourceRecord ID string that does not exist in DB $\rightarrow$ UNKNOWN / REJECTED.
+- **Test C:** SourceRecord created manually with fake `HTTP_200_EXTRACTED` $\rightarrow$ REJECTED (`is_synthetic` / `MANUAL_IMPORT`).
+- **Test D:** Receipt with valid URL but incorrect product identity $\rightarrow$ REJECTED (identity mismatch).
+- **Test E:** Receipt whose observed price differs from persisted source data $\rightarrow$ REJECTED.
+- **Test F:** Receipt whose observation timestamp was generated during import rather than obtained from source $\rightarrow$ REJECTED.
+- **Test G:** Synthetic or manual CollectionRun masquerading as provider fetch $\rightarrow$ REJECTED.
+- **Test H:** Invented bundle labeled as actual merchant offer $\rightarrow$ REJECTED.
+- **Test I:** Claimed supplier quote without identifiable supplier evidence $\rightarrow$ REJECTED.
+- **Test J:** Repeated ingestion/remediation idempotency $\rightarrow$ 0 duplicates, 0 modifications on second pass.
+
+
