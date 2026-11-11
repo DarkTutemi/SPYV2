@@ -21,6 +21,7 @@ out/
 *.db-shm
 *.db-wal
 *.sqlite3
+*.bak
 
 # Environment
 .env

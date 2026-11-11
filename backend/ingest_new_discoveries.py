@@ -36,27 +36,29 @@ from app.models.models import (
     _utcnow,
 )
 from app.engines.scoring import ScoringEngine
+from app.services.evidence_verification import (
+    validate_commercial_evidence_strict,
+    verify_commercial_listing_evidence,
+    EvidenceVerificationOutcome,
+)
 
 
-def validate_commercial_evidence(url: str, price_evidence_type: str) -> str:
+def validate_commercial_evidence(
+    url: str,
+    price_evidence_type: str,
+    raw_extraction: dict = None,
+    source_record_id: str = None,
+) -> str:
     """
-    Acceptance Gate: Reject unverified, placeholder or synthetic URLs
+    Acceptance Gate: Rejects placeholder URLs AND plausible-looking unverified URLs
     from being labeled as OBSERVED_RETAIL_LISTING_PRICE or OBSERVED_CHECKOUT_PRICE.
     """
-    placeholder_patterns = ["XYZ", "123456", "987654321", "placeholder", "demo"]
-    is_placeholder = any(pat.lower() in url.lower() for pat in placeholder_patterns)
-
-    if is_placeholder and price_evidence_type in (
-        PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
-        PriceEvidenceType.OBSERVED_CHECKOUT_PRICE.value,
-        "OBSERVED_RETAIL_LISTING_PRICE",
-        "OBSERVED_CHECKOUT_PRICE",
-    ):
-        raise ValueError(
-            f"REJECTED: URL '{url}' contains unverified placeholder pattern and cannot be labeled "
-            f"as '{price_evidence_type}'. Must use SCENARIO_PRICE or UNKNOWN."
-        )
-    return price_evidence_type
+    return validate_commercial_evidence_strict(
+        url=url,
+        price_evidence_type=price_evidence_type,
+        raw_extraction=raw_extraction,
+        source_record_id=source_record_id,
+    )
 
 
 # Initial research queue of 6 physical product concepts.

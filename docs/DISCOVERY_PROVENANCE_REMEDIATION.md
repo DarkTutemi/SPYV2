@@ -109,3 +109,4 @@ To permanently prevent unverified imports from masquerading as verified external
    - Confidence score is capped at <= 15.0% for unverified imports.
 4. **Automated Regression Suite:**
    - Six automated regression tests in [`backend/tests/test_discovery_provenance_and_quarantine.py`](file:///c:/Users/Admin/Downloads/SPY%20v2/backend/tests/test_discovery_provenance_and_quarantine.py) continuously verify these safeguards.
+

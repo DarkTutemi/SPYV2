@@ -154,7 +154,9 @@ class ScoringEngine:
                 ):
                     obs_single = o.price_usd
                     break
-            if not obs_single and (product.min_price_usd or product.max_price_usd):
+            # Fallback to Product.min_price_usd ONLY if supported by authentic ad evidence
+            # and product is verified (never for unverified imports or manual hypotheses).
+            if not obs_single and len(ads) > 0 and (product.min_price_usd or product.max_price_usd):
                 obs_single = product.min_price_usd or product.max_price_usd
 
         obs_bundle = None

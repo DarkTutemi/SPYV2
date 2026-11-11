@@ -10,6 +10,7 @@ type P = {
   min_price_usd: number | null;
   us_relevance_confidence: string;
   opportunity_status?: string;
+  source_type?: string | null;
   primary_bundle_qty?: number | null;
   first_seen_at: string;
   source_url: string | null;
@@ -33,9 +34,19 @@ export default function Products() {
 
   const getStatusBadge = (status?: string) => {
     switch (status) {
+      case "QUALIFIED":
       case "QUALIFIED_OPPORTUNITY":
         return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">QUALIFIED</span>;
+      case "SOURCE_VERIFIED":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-900 border border-emerald-400">SOURCE VERIFIED</span>;
+      case "UNVERIFIED_IMPORT":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-400">UNVERIFIED IMPORT</span>;
+      case "RESEARCH_HYPOTHESIS":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-violet-100 text-violet-900 border border-violet-400">RESEARCH HYPOTHESIS</span>;
+      case "PARTIALLY_VALIDATED":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-teal-100 text-teal-900 border border-teal-400">PARTIALLY VALIDATED</span>;
       case "NEEDS_VERIFICATION":
+      case "NEEDS_SAFETY_VERIFICATION":
         return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">VERIFICATION</span>;
       case "MONITORING":
         return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-300">MONITORING</span>;
@@ -67,6 +78,8 @@ export default function Products() {
           >
             <option value="ALL">All Statuses</option>
             <option value="QUALIFIED_OPPORTUNITY">Qualified Opportunities</option>
+            <option value="SOURCE_VERIFIED">Source Verified</option>
+            <option value="UNVERIFIED_IMPORT">Unverified Import</option>
             <option value="NEEDS_VERIFICATION">Needs Verification</option>
             <option value="MONITORING">Monitoring</option>
             <option value="REJECTED">Rejected</option>
@@ -96,7 +109,18 @@ export default function Products() {
                   <td className="p-2.5">{getStatusBadge(p.opportunity_status)}</td>
                   <td className="p-2.5 font-semibold text-slate-600">{p.primary_bundle_qty ? `${p.primary_bundle_qty}-Pack` : "—"}</td>
                   <td className="p-2.5">{fmt(p.category)}</td>
-                  <td className="p-2.5">{p.min_price_usd != null ? `$${p.min_price_usd}` : "Unknown"}</td>
+                  <td className="p-2.5">
+                    {p.opportunity_status === "UNVERIFIED_IMPORT" || p.source_type === "manual_import" ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-300" title="Modeled scenario price, unverified external offer">
+                        <span className="text-[10px] text-amber-700 font-bold">[Scenario]</span>
+                        <span>{p.min_price_usd != null ? `$${p.min_price_usd}` : "Unknown"}</span>
+                      </span>
+                    ) : p.min_price_usd != null ? (
+                      `$${p.min_price_usd}`
+                    ) : (
+                      <span className="text-slate-400 italic">Unknown</span>
+                    )}
+                  </td>
                   <td className="p-2.5">{p.us_relevance_confidence}</td>
                   <td className="p-2.5 text-xs text-slate-600">{new Date(p.first_seen_at).toISOString().slice(0, 10)}</td>
                   <td className="p-2.5">

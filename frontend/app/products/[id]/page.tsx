@@ -4,7 +4,7 @@ import { api, fmt } from "@/lib/api";
 
 type Comp = Record<string, { raw: number; weight: number; description: string }>;
 type Report = {
-  product: { name: string; description: string | null; image_url: string | null; source_url: string | null; functional_use_case: string | null; us_relevance_confidence: string; source_type?: string | null };
+  product: { name: string; description: string | null; image_url: string | null; source_url: string | null; functional_use_case: string | null; us_relevance_confidence: string; source_type?: string | null; opportunity_status?: string | null };
   customer_pain: string | null; us_market_verified: boolean; first_observed: string | null;
   observed_advertiser_count: number; observed_active_ad_count: number; new_ads_7d: number; new_ads_14d: number; new_ads_30d: number;
   ad_persistence_days: number | null; competitor_domains: string[];
@@ -62,8 +62,19 @@ export default function ProductReport({ params }: { params: Promise<{ id: string
   if (!r) return <p>Loading…</p>;
   const stat = (label: string, v: unknown) => <div className="bg-white rounded shadow p-3"><div className="text-xs text-slate-500">{label}</div><div className="text-lg font-semibold">{fmt(v)}</div></div>;
 
+  const isUnverified = r.product.opportunity_status === "UNVERIFIED_IMPORT" || r.product.source_type === "manual_import";
+
   return (
     <div className="space-y-5 max-w-6xl">
+      {isUnverified && (
+        <div className="p-3 bg-amber-50 border border-amber-300 rounded-md text-amber-900 text-sm font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>UNVERIFIED IMPORT — Research hypothesis without verified external marketplace observation. Pricing represents modeled scenario.</span>
+          </div>
+          <span className="text-xs bg-amber-200 px-2 py-0.5 rounded text-amber-950 font-bold uppercase">Hypothesis Only</span>
+        </div>
+      )}
       <div className="flex gap-4">
         {r.product.image_url && <img src={r.product.image_url} alt="" className="w-32 h-32 object-cover rounded bg-slate-200" />}
         <div>
@@ -232,7 +243,15 @@ export default function ProductReport({ params }: { params: Promise<{ id: string
                 <li key={b.id} className="py-1.5 flex items-center justify-between">
                   <span className="font-medium text-slate-800">{b.quantity} Units Pack</span>
                   <span className="text-slate-600">
-                    {b.bundle_price_usd != null ? `$${b.bundle_price_usd.toFixed(2)}` : "Price unrecorded"}
+                    {b.price_evidence_type === "SCENARIO_PRICE" || b.bundle_status === "modeled_scenario" ? (
+                      <span className="text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-300 font-medium text-xs">
+                        [Scenario Price] {b.bundle_price_usd != null ? `$${b.bundle_price_usd.toFixed(2)}` : "Unknown"}
+                      </span>
+                    ) : b.bundle_price_usd != null ? (
+                      `$${b.bundle_price_usd.toFixed(2)}`
+                    ) : (
+                      "Price unrecorded"
+                    )}
                   </span>
                   <span className="text-slate-500 font-mono text-[11px]">{b.bundle_mechanism}</span>
                   <span className="text-slate-400 uppercase text-[10px]">{b.bundle_status}</span>
