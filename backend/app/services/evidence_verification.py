@@ -14,9 +14,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import enum
 import hashlib
+import json
 from pathlib import Path
+import re
 import tempfile
 from typing import Optional, Dict, Any, Tuple, Union
+from urllib.parse import urlparse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -123,6 +126,155 @@ def is_safe_artifact_path(
         return False, None, f"Invalid artifact path '{artifact_path}': {str(e)}"
 
 
+def extract_structured_product_evidence(html_text: str) -> Dict[str, Any]:
+    """
+    Parses structured product metadata, canonical URLs, and observed prices from an HTML response body.
+    Excludes any assistant-generated acquisition preambles or HTML comments.
+    """
+    # 1. Exclude assistant-generated artifact preamble / headers if present
+    preamble_match = re.match(r'^\s*<!--[\s\S]*?-->\s*', html_text)
+    if preamble_match and any(marker in preamble_match.group(0) for marker in (
+        "US WIN HUNTER COMMERCIAL EVIDENCE",
+        "SANITIZED PUBLIC RECORD",
+        "ACQUISITION METADATA",
+        "ASSISTANT EVIDENCE PREAMBLE",
+    )):
+        effective_html = html_text[preamble_match.end():]
+    else:
+        effective_html = html_text
+
+    # Strip all HTML comments from effective_html for price / identity searching
+    # so comments cannot smuggle fake prices or fake identities
+    cleaned_html = re.sub(r'<!--[\s\S]*?-->', '', effective_html)
+
+    identities = set()
+    prices = []  # list of dict: {"price": float, "currency": str, "source": str, "availability": str}
+    canonical_urls = []
+
+    # 2. Extract Canonical URL and og:url
+    for m in re.finditer(r'<link[^>]*rel=["\']canonical["\'][^>]*href=["\']([^"\']+)["\']', cleaned_html, re.IGNORECASE):
+        canonical_urls.append(m.group(1).strip())
+    for m in re.finditer(r'<meta[^>]*property=["\']og:url["\'][^>]*content=["\']([^"\']+)["\']', cleaned_html, re.IGNORECASE):
+        canonical_urls.append(m.group(1).strip())
+
+    # 3. Parse JSON-LD scripts
+    json_ld_matches = re.finditer(r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', effective_html, re.IGNORECASE | re.DOTALL)
+    for jm in json_ld_matches:
+        try:
+            data = json.loads(jm.group(1).strip())
+            items = data if isinstance(data, list) else data.get("@graph", [data]) if isinstance(data, dict) else []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                itype = item.get("@type", "")
+                if itype == "Product" or "Product" in itype:
+                    for field in ("sku", "mpn", "gtin", "gtin13", "gtin8", "model"):
+                        val = item.get(field)
+                        if val and isinstance(val, str):
+                            identities.add(val.strip().lower())
+                    name = item.get("name")
+                    if name and isinstance(name, str):
+                        identities.add(name.strip().lower())
+                    if item.get("url"):
+                        canonical_urls.append(str(item.get("url")).strip())
+
+                    offers = item.get("offers", [])
+                    if isinstance(offers, dict):
+                        offers = [offers]
+                    elif not isinstance(offers, list):
+                        offers = []
+                    for off in offers:
+                        if not isinstance(off, dict):
+                            continue
+                        p_raw = off.get("price")
+                        curr = off.get("priceCurrency", "USD")
+                        avail = off.get("availability")
+                        avail_clean = "UNKNOWN"
+                        if avail:
+                            if "InStock" in avail:
+                                avail_clean = "InStock"
+                            elif "OutOfStock" in avail:
+                                avail_clean = "OutOfStock"
+                        if p_raw is not None:
+                            try:
+                                p_float = float(str(p_raw).replace("$", "").replace(",", "").strip())
+                                if p_float > 0:
+                                    prices.append({
+                                        "price": p_float,
+                                        "currency": curr.upper(),
+                                        "source": "json_ld_offer",
+                                        "availability": avail_clean
+                                    })
+                            except (ValueError, TypeError):
+                                pass
+        except Exception:
+            pass
+
+    # 4. OpenGraph and product meta tags
+    og_title_m = re.search(r'<meta[^>]*property=["\']og:title["\'][^>]*content=["\']([^"\']+)["\']', cleaned_html, re.IGNORECASE)
+    if og_title_m:
+        identities.add(og_title_m.group(1).strip().lower())
+
+    og_price_m = re.search(r'<meta[^>]*property=["\'](?:og:price:amount|product:price:amount)["\'][^>]*content=["\']([^"\']+)["\']', cleaned_html, re.IGNORECASE)
+    og_curr_m = re.search(r'<meta[^>]*property=["\'](?:og:price:currency|product:price:currency)["\'][^>]*content=["\']([^"\']+)["\']', cleaned_html, re.IGNORECASE)
+    if og_price_m:
+        try:
+            p_val = float(og_price_m.group(1).strip())
+            c_val = og_curr_m.group(1).strip().upper() if og_curr_m else "USD"
+            prices.append({"price": p_val, "currency": c_val, "source": "og_price_meta", "availability": "UNKNOWN"})
+        except (ValueError, TypeError):
+            pass
+
+    # 5. Microdata itemprop="price"
+    micro_prices = re.finditer(r'<[^>]*itemprop=["\']price["\'][^>]*content=["\']([^"\']+)["\']', cleaned_html, re.IGNORECASE)
+    for mp in micro_prices:
+        try:
+            p_val = float(mp.group(1).replace("$", "").replace(",", "").strip())
+            prices.append({"price": p_val, "currency": "USD", "source": "microdata_itemprop", "availability": "UNKNOWN"})
+        except Exception:
+            pass
+
+    # 6. Structured Pricing DOM Containers (e.g. SalPrice, wt-product__price__final, goPriceBox, product__price)
+    dom_patterns = [
+        r'<(p|div|span|b)[^>]*class=["\'][^"\']*(?:SalPrice|goPriceBox|wt-product__price__final|product__price__final|product-single__price)[^"\']*["\'][^>]*>([\s\S]{1,500}?)<\/\1>',
+        r'data-price=["\'](\d+\.?\d*)["\']',
+    ]
+    for pattern in dom_patterns:
+        for m in re.finditer(pattern, cleaned_html, re.IGNORECASE):
+            content = m.group(2) if m.lastindex >= 2 else m.group(1)
+            num_match = re.search(r'\$?\s*(\d+\.\d{2})', content)
+            if num_match:
+                try:
+                    p_val = float(num_match.group(1))
+                    prices.append({"price": p_val, "currency": "USD", "source": "structured_dom_price", "availability": "UNKNOWN"})
+                except Exception:
+                    pass
+
+    # 7. Collect identity tokens from product links or titles inside the page
+    for m in re.finditer(r'href=["\'](?:/products/|https?://[^"\']+/products/)([a-zA-Z0-9_-]+)["\']', cleaned_html, re.IGNORECASE):
+        identities.add(m.group(1).strip().lower())
+    title_m = re.search(r'<title>(.*?)</title>', cleaned_html, re.IGNORECASE)
+    if title_m:
+        identities.add(title_m.group(1).strip().lower())
+
+    # Fallback price regex on text (excluding comments and script/style tags)
+    text_content = re.sub(r'<(?:script|style)[^>]*>[\s\S]*?<\/(?:script|style)>', ' ', cleaned_html)
+    for m in re.finditer(r'\$\s*(\d+\.\d{2})', text_content):
+        try:
+            p_val = float(m.group(1))
+            prices.append({"price": p_val, "currency": "USD", "source": "text_regex", "availability": "UNKNOWN"})
+        except Exception:
+            pass
+
+    return {
+        "identities": list(identities),
+        "prices": prices,
+        "canonical_urls": canonical_urls,
+        "cleaned_html": cleaned_html,
+        "effective_html": effective_html,
+    }
+
+
 def inspect_artifact_content(
     artifact_path: Path,
     expected_digest: Optional[str] = None,
@@ -136,9 +288,11 @@ def inspect_artifact_content(
     1. Verifies file existence and non-zero size.
     2. Computes file SHA-256 digest and verifies against recorded digest if present.
     3. Detects and rejects bot challenge / CAPTCHA / WAF interstitial pages.
-    4. Checks presence of expected product identity / SKU / ASIN in content.
-    5. Checks presence of expected observed price and currency in content.
-    6. Returns (is_valid, rejection_reason, metadata).
+    4. Parses structured product evidence excluding assistant-generated acquisition preambles.
+    5. Checks presence of expected product identity / SKU / ASIN in content.
+    6. Checks presence of expected observed price and currency in content.
+    7. Validates source URL against canonical URL / host if present.
+    8. Returns (is_valid, rejection_reason, metadata).
     """
     if not artifact_path.exists() or not artifact_path.is_file():
         return False, f"Artifact file '{artifact_path}' does not exist on disk. An inspectable acquisition artifact on disk is required.", {}
@@ -174,34 +328,70 @@ def inspect_artifact_content(
                 f"Commercial observation cannot be verified from a gated response."
             ), {"actual_sha256": actual_digest, "bot_pattern": pattern}
 
+    # Extract structured evidence (excluding assistant preambles and HTML comments)
+    evidence = extract_structured_product_evidence(content_text)
+
     # Product identity check
     if expected_identity:
         clean_id = str(expected_identity).strip().lower()
-        if len(clean_id) >= 3 and clean_id not in content_lower:
-            return False, (
-                f"Artifact content does not contain the expected product identity '{expected_identity}'."
-            ), {"actual_sha256": actual_digest}
+        if len(clean_id) >= 3:
+            id_in_identities = any(clean_id in ident for ident in evidence["identities"])
+            id_in_body = clean_id in evidence["cleaned_html"].lower()
+            if not (id_in_identities or id_in_body):
+                return False, (
+                    f"Artifact content does not contain the expected product identity '{expected_identity}'."
+                ), {"actual_sha256": actual_digest}
 
     # Price and currency check
     if expected_price is not None:
         try:
             p_val = float(expected_price)
-            p_str_2dec = f"{p_val:.2f}"
-            p_str_general = f"{p_val:g}"
-            has_price = (
-                p_str_2dec in content_text
-                or f"${p_str_2dec}" in content_text
-                or p_str_general in content_text
-                or f"${p_str_general}" in content_text
-            )
-            if not has_price:
+            matched_prices = [
+                p for p in evidence["prices"]
+                if abs(p["price"] - p_val) < 0.05
+            ]
+            if not matched_prices:
                 return False, (
                     f"Artifact content does not contain the claimed observed price '${p_val:.2f}'."
                 ), {"actual_sha256": actual_digest}
+
+            # Check currency agreement
+            if expected_currency:
+                exp_curr = expected_currency.strip().upper()
+                curr_matched = any(p.get("currency", "USD").upper() == exp_curr for p in matched_prices)
+                if not curr_matched:
+                    return False, (
+                        f"Artifact currency mismatch: expected '{exp_curr}', but observed offers had {[p.get('currency') for p in matched_prices]}."
+                    ), {"actual_sha256": actual_digest}
         except (ValueError, TypeError):
             pass
 
-    return True, None, {"actual_sha256": actual_digest, "size_bytes": size}
+    # Source URL / Canonical Host verification
+    if source_url and evidence["canonical_urls"]:
+        try:
+            src_parsed = urlparse(source_url)
+            src_netloc = src_parsed.netloc.lower().replace("www.", "")
+            if src_netloc:
+                valid_canon = False
+                for c_url in evidence["canonical_urls"]:
+                    c_parsed = urlparse(c_url)
+                    c_netloc = c_parsed.netloc.lower().replace("www.", "")
+                    if not c_netloc or c_netloc == src_netloc or src_netloc in c_netloc or c_netloc in src_netloc:
+                        valid_canon = True
+                        break
+                if not valid_canon:
+                    return False, (
+                        f"Artifact canonical URL mismatch: source URL host '{src_netloc}' does not match canonical URLs {evidence['canonical_urls']}."
+                    ), {"actual_sha256": actual_digest}
+        except Exception:
+            pass
+
+    return True, None, {
+        "actual_sha256": actual_digest,
+        "size_bytes": size,
+        "extracted_prices": evidence["prices"],
+        "extracted_identities": evidence["identities"],
+    }
 
 
 class EvidenceVerificationOutcome(str, enum.Enum):

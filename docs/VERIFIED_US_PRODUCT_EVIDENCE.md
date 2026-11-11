@@ -250,9 +250,11 @@ In addition to public marketplace probes (Amazon US, Walmart US), direct-to-cons
 ## 6. Summary Evidence Metrics
 
 - **Total Canonical Products:** 124 (109 baseline + 6 quarantined hypotheses + 9 documented candidates in database)
-- **Source-Verified Products:** **0** (Honest reporting: zero unblocked marketplace listing prices extracted via unproxied direct scripts under $0.00 spend constraint)
+- **DTC Source-Verified Product Offers in DB:** **3** (Delta Faucet GR150-SP OEM list price $174.70 USD; AstroAI 1000813 DTC manufacturer price $9.99 USD; ChomChom Roller DTC price $24.99 USD — all verified through strict DB gate with cryptographic capture signatures and inspectable artifacts)
+- **Authentic Merchant Bundles in DB:** **1** (ChomChom Roller + Detailer 2-unit merchant bundle at `chomchomforpets.com`; status: `unobserved_price`, price & stock UNKNOWN due to direct product page rate limiting HTTP 429)
+- **Stock Status Integrity:** **100% UNKNOWN** across all 3 DTC observations and merchant bundle (never inferring "In Stock" from price presence)
 - **Partially Validated Candidates:** **9** (Real ASINs, live body inspection probes, artifacts saved on disk, all 9 reconciled in SQLite)
 - **Quarantined Hypotheses:** **6** (Legacy placeholder records quarantined)
 - **Baseline Meta Advertisements:** 145 / 145 (100% preserved)
 - **Baseline Temporal Snapshots:** 435 / 435 (100% preserved)
-- **Paid Apify Spend:** **$0.00 USD**
+- **Paid Apify Spend:** **$0.00 USD** (0 paid runs, budget guard frozen at $0.00 / $1.00 hard cap)

@@ -9,6 +9,18 @@ type Report = {
   observed_advertiser_count: number; observed_active_ad_count: number; new_ads_7d: number; new_ads_14d: number; new_ads_30d: number;
   ad_persistence_days: number | null; competitor_domains: string[];
   bundle_offers: { id: string; quantity: number; bundle_price_usd: number | null; bundle_mechanism: string; bundle_status: string; source_url: string | null; price_evidence_type?: string | null }[];
+  product_offers?: {
+    id: string;
+    product_id: string;
+    source_url: string | null;
+    price_usd: number | null;
+    currency: string;
+    quantity: number;
+    evidence_type: string;
+    price_evidence_type: string;
+    observed_at: string | null;
+    raw_data?: Record<string, any> | null;
+  }[];
   emergence_score: number | null; evidence_confidence: number | null; bundle_potential: number | null;
   commercial_model?: string | null;
   core_opportunity_score?: number | null;
@@ -226,6 +238,60 @@ export default function ProductReport({ params }: { params: Promise<{ id: string
             </div>
           </div>
         )}
+
+        {/* Observed Product Offers (DTC & Marketplace) */}
+        <div className="space-y-1.5 pt-2 border-b border-slate-100 pb-3">
+          <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+            Observed Product Offers & Manufacturer Listings
+          </h3>
+          <p className="text-[11px] text-slate-500">
+            External catalog observations from authentic manufacturer DTC or marketplace sources. In stock is never inferred from price.
+          </p>
+          {!r.product_offers || r.product_offers.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No direct product offers observed yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 text-xs">
+              {r.product_offers.map((o) => (
+                <li key={o.id} className="py-2 flex flex-col md:flex-row md:items-center justify-between gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-slate-800">
+                      {o.price_usd != null ? `$${o.price_usd.toFixed(2)} ${o.currency}` : "Price Unknown"}
+                    </span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                        o.price_evidence_type === "DTC_MANUFACTURER_OBSERVED_PRICE"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : o.price_evidence_type === "OEM_LIST_PRICE"
+                          ? "bg-blue-100 text-blue-800 border border-blue-300"
+                          : o.price_evidence_type === "MARKETPLACE_OBSERVED_PRICE"
+                          ? "bg-purple-100 text-purple-800 border border-purple-300"
+                          : "bg-amber-100 text-amber-800 border border-amber-300"
+                      }`}
+                    >
+                      {o.price_evidence_type}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">
+                      Stock: {o.raw_data?.availability ?? "UNKNOWN"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-500 text-[11px]">
+                    {o.observed_at && <span>Observed: {o.observed_at.slice(0, 10)}</span>}
+                    {o.source_url && (
+                      <a
+                        href={o.source_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline truncate max-w-xs"
+                      >
+                        Source Link ↗
+                      </a>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {/* Observed competitor bundle offers */}
         <div className="space-y-1.5 pt-2">

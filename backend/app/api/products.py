@@ -10,11 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.models import (
     Advertisement, Advertiser, BundleOffer, OpportunityScore,
-    Product, ProductCluster, ProductClusterMember, ProductDailyMetric,
+    Product, ProductCluster, ProductClusterMember, ProductDailyMetric, ProductOffer,
 )
 from app.schemas.schemas import (
     BundleOfferRead, OpportunityScoreRead, ProductCreate,
-    ProductDetail, ProductIntelligenceReport, ProductRead,
+    ProductDetail, ProductIntelligenceReport, ProductOfferRead, ProductRead,
 )
 
 router = APIRouter()
@@ -198,6 +198,12 @@ async def product_report(product_id: str, db: AsyncSession = Depends(get_db)):
     )
     bundles = [BundleOfferRead.model_validate(b) for b in bundle_result.scalars().all()]
 
+    # Product offers
+    offer_result = await db.execute(
+        select(ProductOffer).where(ProductOffer.product_id == product_id)
+    )
+    product_offers = [ProductOfferRead.model_validate(o) for o in offer_result.scalars().all()]
+
     # Latest score
     score_result = await db.execute(
         select(OpportunityScore)
@@ -270,6 +276,7 @@ async def product_report(product_id: str, db: AsyncSession = Depends(get_db)):
         momentum_data=momentum_data,
         competitor_domains=competitor_domains,
         bundle_offers=bundles,
+        product_offers=product_offers,
         bundle_types=list({b.bundle_mechanism.value for b in bundles if b.bundle_mechanism}),
         emergence_score=score.emergence_score if score else None,
         evidence_confidence=score.evidence_confidence if score else None,

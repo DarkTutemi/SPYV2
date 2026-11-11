@@ -403,9 +403,10 @@ class ProductIntelligenceReport(BaseModel):
     competitor_domains: list[str] = []
     advertiser_evidence: list[dict] = []
 
-    # Section 14-16: Bundle
+    # Section 14-16: Bundle & Offers
     bundle_types: list[str] = []
     bundle_offers: list[BundleOfferRead] = []
+    product_offers: list[ProductOfferRead] = []
     multi_unit_evidence: Optional[str] = None
     bundle_order_value_scenarios: list[dict] = []
 

@@ -416,8 +416,8 @@ def sanitize_html_content(raw_html: str) -> str:
     for pat, repl in pii_patterns:
         text = re.sub(pat, repl, text)
 
-    # 4. Limit sanitized snippet to relevant excerpt (first 64KB of clean, secret-free HTML)
-    return text[:65536]
+    # 4. Limit sanitized snippet to relevant product content (up to 512KB of clean, secret-free HTML)
+    return text[:524288]
 
 
 def save_sanitized_capture_artifact(
