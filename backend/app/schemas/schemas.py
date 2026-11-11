@@ -258,6 +258,7 @@ class ProductOfferRead(BaseSchema):
     evidence_type: str = "observed_fact"
     price_evidence_type: Optional[str] = None
     observed_at: datetime
+    raw_data: Optional[dict] = None
 
 
 class BundleOfferRead(BaseSchema):

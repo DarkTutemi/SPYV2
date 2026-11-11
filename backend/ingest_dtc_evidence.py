@@ -69,7 +69,7 @@ DTC_CAPTURES = [
         "provider": "authorized_http_collector",
         "retailer": "Delta Faucet (OEM Direct)",
         "artifact_rel_path": "docs/run_reports/artifacts/capture_GR150-SP_delta_faucet.html",
-        "source_timestamp": "2026-11-11T16:15:00Z",
+        "source_timestamp": "2026-11-11T16:40:18Z",
         "notes": "Authentic OEM list price extracted from Delta Faucet JSON-LD product markup. Stock status is UNKNOWN (not declared in schema.org offers).",
     },
     {
@@ -88,7 +88,7 @@ DTC_CAPTURES = [
         "provider": "authorized_http_collector",
         "retailer": "AstroAI (DTC Direct)",
         "artifact_rel_path": "docs/run_reports/artifacts/capture_1000813_astroai.html",
-        "source_timestamp": "2026-11-11T16:20:00Z",
+        "source_timestamp": "2026-11-11T17:50:36Z",
         "notes": "Authentic DTC manufacturer price observed in official AstroAI DOM product markup for model 1000813. Note: Manufacturer model 1000813 product scope is not identical to every Amazon ASIN variant. Stock status is UNKNOWN.",
     },
     {
@@ -107,7 +107,7 @@ DTC_CAPTURES = [
         "provider": "public_dtc_shopify_collector",
         "retailer": "ChomChom Pets (DTC Storefront)",
         "artifact_rel_path": "docs/run_reports/artifacts/capture_ChomChom_chomchom_pets.html",
-        "source_timestamp": "2026-11-11T17:10:00Z",
+        "source_timestamp": "2026-11-11T17:25:10Z",
         "notes": "Authentic DTC price extracted from official ChomChom storefront product cards on homepage. Variant: chomchom-roller-pet-hair-remover-and-reusable-lint-roller. Stock status is UNKNOWN.",
     },
 ]
@@ -153,14 +153,16 @@ async def ingest_dtc_evidence():
                 id=c_run_id,
                 job_id="job_dtc_public_catalog_collector",
                 status=CollectionJobStatus.COMPLETED,
-                started_at=datetime(2026, 11, 11, 16, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2026, 11, 11, 17, 20, 0, tzinfo=timezone.utc),
+                started_at=datetime(2026, 11, 11, 16, 40, 0, tzinfo=timezone.utc),
+                completed_at=datetime(2026, 11, 11, 17, 51, 0, tzinfo=timezone.utc),
                 coverage_notes="Authentic public manufacturer DTC catalog acquisition with inspectable disk artifacts.",
             )
             session.add(c_run)
             await session.flush()
             print(f"[RUN] Created CollectionRun: {c_run_id}")
         else:
+            c_run.started_at = datetime(2026, 11, 11, 16, 40, 0, tzinfo=timezone.utc)
+            c_run.completed_at = datetime(2026, 11, 11, 17, 51, 0, tzinfo=timezone.utc)
             print(f"[RUN] Using existing CollectionRun: {c_run_id}")
 
         # 2. Ingest verified DTC product captures
