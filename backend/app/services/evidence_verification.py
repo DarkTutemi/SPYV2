@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import enum
 import hashlib
-from typing import Optional, Dict, Any, Tuple
+from pathlib import Path
+import tempfile
+from typing import Optional, Dict, Any, Tuple, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -59,6 +61,147 @@ def _normalize_listing_url(u: Optional[str]) -> str:
         return ""
     clean = u.strip().lower().rstrip("/")
     return clean.split("?")[0]
+
+
+BOT_CHALLENGE_PATTERNS: Tuple[str, ...] = (
+    "robot check",
+    "<title>robot check</title>",
+    "to discuss automated access to amazon data",
+    "type the characters you see in this image",
+    "challenge-platform",
+    "cf-browser-verification",
+    "attention required! | cloudflare",
+    "perimeterx",
+    "<title>access denied</title>",
+    "<title>security challenge</title>",
+    "human verification",
+    "distil captcha",
+    "sorry, we just need to make sure you're not a robot",
+)
+
+
+def is_safe_artifact_path(
+    artifact_path: Union[str, Path],
+    repo_root: Optional[Path] = None,
+) -> Tuple[bool, Optional[Path], Optional[str]]:
+    """
+    Validates artifact path location against directory traversal.
+    Artifacts must reside within authorized repo subdirectories:
+    - docs/run_reports/artifacts
+    - docs/run_reports
+    - backend/tests or tests
+    - Temporary test directory (for isolated unit testing)
+    """
+    if repo_root is None:
+        repo_root = Path(__file__).resolve().parents[3]
+
+    try:
+        raw_p = Path(artifact_path)
+        if not raw_p.is_absolute():
+            candidate = (repo_root / raw_p).resolve()
+        else:
+            candidate = raw_p.resolve()
+
+        repo_resolved = repo_root.resolve()
+
+        # Check for path traversal escaping allowed areas
+        temp_dir = Path(tempfile.gettempdir()).resolve()
+
+        allowed_roots = (
+            (repo_resolved / "docs" / "run_reports").resolve(),
+            (repo_resolved / "backend" / "tests").resolve(),
+            (repo_resolved / "tests").resolve(),
+            temp_dir,
+        )
+
+        is_allowed = any(candidate == r or r in candidate.parents for r in allowed_roots)
+        if not is_allowed:
+            return False, candidate, f"Artifact path '{artifact_path}' is outside authorized artifact directories."
+
+        return True, candidate, None
+    except Exception as e:
+        return False, None, f"Invalid artifact path '{artifact_path}': {str(e)}"
+
+
+def inspect_artifact_content(
+    artifact_path: Path,
+    expected_digest: Optional[str] = None,
+    expected_identity: Optional[str] = None,
+    expected_price: Optional[float] = None,
+    expected_currency: str = "USD",
+    source_url: Optional[str] = None,
+) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+    """
+    Performs content-based inspection of a captured artifact file:
+    1. Verifies file existence and non-zero size.
+    2. Computes file SHA-256 digest and verifies against recorded digest if present.
+    3. Detects and rejects bot challenge / CAPTCHA / WAF interstitial pages.
+    4. Checks presence of expected product identity / SKU / ASIN in content.
+    5. Checks presence of expected observed price and currency in content.
+    6. Returns (is_valid, rejection_reason, metadata).
+    """
+    if not artifact_path.exists() or not artifact_path.is_file():
+        return False, f"Artifact file '{artifact_path}' does not exist on disk. An inspectable acquisition artifact on disk is required.", {}
+
+    size = artifact_path.stat().st_size
+    if size == 0:
+        return False, f"Artifact file '{artifact_path}' is empty (0 bytes).", {}
+
+    try:
+        content_bytes = artifact_path.read_bytes()
+    except Exception as e:
+        return False, f"Failed to read artifact file: {str(e)}", {}
+
+    actual_digest = hashlib.sha256(content_bytes).hexdigest()
+    if expected_digest:
+        clean_exp = str(expected_digest).strip().lower()
+        if clean_exp.startswith("sha256:"):
+            clean_exp = clean_exp[7:]
+        if actual_digest.lower() != clean_exp:
+            return False, (
+                f"Artifact SHA-256 integrity check failed. "
+                f"File digest is '{actual_digest}', recorded digest was '{clean_exp}'."
+            ), {"actual_sha256": actual_digest}
+
+    content_text = content_bytes.decode("utf-8", errors="replace")
+    content_lower = content_text.lower()
+
+    # Bot challenge / CAPTCHA detection
+    for pattern in BOT_CHALLENGE_PATTERNS:
+        if pattern in content_lower:
+            return False, (
+                f"Artifact content contains bot challenge / automated access restriction: '{pattern}'. "
+                f"Commercial observation cannot be verified from a gated response."
+            ), {"actual_sha256": actual_digest, "bot_pattern": pattern}
+
+    # Product identity check
+    if expected_identity:
+        clean_id = str(expected_identity).strip().lower()
+        if len(clean_id) >= 3 and clean_id not in content_lower:
+            return False, (
+                f"Artifact content does not contain the expected product identity '{expected_identity}'."
+            ), {"actual_sha256": actual_digest}
+
+    # Price and currency check
+    if expected_price is not None:
+        try:
+            p_val = float(expected_price)
+            p_str_2dec = f"{p_val:.2f}"
+            p_str_general = f"{p_val:g}"
+            has_price = (
+                p_str_2dec in content_text
+                or f"${p_str_2dec}" in content_text
+                or p_str_general in content_text
+                or f"${p_str_general}" in content_text
+            )
+            if not has_price:
+                return False, (
+                    f"Artifact content does not contain the claimed observed price '${p_val:.2f}'."
+                ), {"actual_sha256": actual_digest}
+        except (ValueError, TypeError):
+            pass
+
+    return True, None, {"actual_sha256": actual_digest, "size_bytes": size}
 
 
 class EvidenceVerificationOutcome(str, enum.Enum):
@@ -645,20 +788,80 @@ async def verify_commercial_evidence_db(
         or raw.get("artifact_file")
     )
     has_valid_disk_artifact = False
+    artifact_meta: Dict[str, Any] = {}
+
     if artifact_ref:
-        from pathlib import Path
-        art_p = Path(artifact_ref)
-        if not art_p.is_absolute():
-            repo_root = Path(__file__).resolve().parent.parent.parent
-            art_p = repo_root / artifact_ref
-        if art_p.exists() and art_p.is_file() and art_p.stat().st_size > 0:
+        repo_root = Path(__file__).resolve().parents[3]
+        is_safe, art_p, path_err = is_safe_artifact_path(artifact_ref, repo_root)
+        if not is_safe or art_p is None:
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "unverified"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or "unverified",
+                product_identity=product_identity or str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: {path_err}",
+            )
+
+        expected_digest = raw.get("artifact_sha256") or raw.get("capture_digest")
+        item_identity = str(srec.external_id or source_item_id or expected_id or "")
+
+        is_content_valid, content_err, meta = inspect_artifact_content(
+            artifact_path=art_p,
+            expected_digest=expected_digest,
+            expected_identity=item_identity,
+            expected_price=s_price_f,
+            expected_currency=currency,
+            source_url=captured_url,
+        )
+
+        if not is_content_valid:
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "unverified"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or "unverified",
+                product_identity=product_identity or str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: {content_err}",
+            )
+        else:
             has_valid_disk_artifact = True
+            artifact_meta = meta
 
     has_apify_proof = bool(
         raw.get("apify_dataset_item_id")
         and not any(bad in str(raw.get("apify_dataset_item_id")).lower() for bad in ("mock", "fake", "arbitrary"))
         and raw.get("provider") in RECOGNIZED_PROVIDERS
     )
+    if has_apify_proof and raw.get("apify_run_id"):
+        if hasattr(c_run, "external_run_id") and c_run.external_run_id:
+            if str(raw.get("apify_run_id")).strip() != str(c_run.external_run_id).strip():
+                return EvidenceVerificationResult(
+                    outcome=EvidenceVerificationOutcome.REJECTED,
+                    source_provider="mismatched_apify_run",
+                    record_identity=source_record_id,
+                    listing_url=url,
+                    retailer_name=retailer_name or "mismatched_run",
+                    product_identity=product_identity or str(srec.external_id),
+                    variant_and_pack_size=raw.get("pack_size"),
+                    observed_price=observed_price,
+                    currency=currency,
+                    observed_at=observed_at,
+                    raw_extraction=raw,
+                    verification_notes=f"REJECTED: Apify run ID '{raw.get('apify_run_id')}' does not match CollectionRun external run ID '{c_run.external_run_id}'.",
+                )
 
     # Fail closed if no verifiable capture proof exists
     if not (has_valid_disk_artifact or has_apify_proof):
@@ -804,7 +1007,51 @@ def verify_commercial_listing_evidence(
             verification_notes=notes,
         )
 
-    # 4. Fully verified external observation
+    # 4. Content check on referenced artifact (if provided)
+    if raw_extraction and (raw_extraction.get("artifact_path") or raw_extraction.get("source_capture_ref")):
+        art_ref = raw_extraction.get("artifact_path") or raw_extraction.get("source_capture_ref")
+        repo_root = Path(__file__).resolve().parents[3]
+        is_safe, art_p, path_err = is_safe_artifact_path(art_ref, repo_root)
+        if not is_safe or art_p is None:
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw_extraction.get("provider", "unverified"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or "unverified",
+                product_identity=product_identity or "unverified",
+                variant_and_pack_size=None,
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw_extraction,
+                verification_notes=f"REJECTED: {path_err}",
+            )
+        is_content_valid, content_err, _ = inspect_artifact_content(
+            artifact_path=art_p,
+            expected_digest=raw_extraction.get("artifact_sha256"),
+            expected_identity=product_identity or raw_extraction.get("asin"),
+            expected_price=observed_price,
+            expected_currency=currency,
+            source_url=url,
+        )
+        if not is_content_valid:
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw_extraction.get("provider", "unverified"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or "unverified",
+                product_identity=product_identity or "unverified",
+                variant_and_pack_size=None,
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw_extraction,
+                verification_notes=f"REJECTED: {content_err}",
+            )
+
+    # 5. Fully verified external observation
     return EvidenceVerificationResult(
         outcome=EvidenceVerificationOutcome.VERIFIED,
         source_provider=raw_extraction.get("provider", "external_provider"),

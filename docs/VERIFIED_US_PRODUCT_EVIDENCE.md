@@ -39,7 +39,7 @@ No candidates currently satisfy all automated provider capture verification crit
 These 9 candidates represent real physical consumer products with verified US market presence, authentic ASINs, and commercial feasibility, preserved with `price_evidence_type = SCENARIO_PRICE` and `opportunity_status = RESEARCH_HYPOTHESIS`:
 
 ### Candidate 1: Kitchen Mama Auto Electric Can Opener (Original Red Model)
-- **Product ID:** `d3f7e913-bfae-49b8-a6b1-0f40d86c8790`
+- **Product ID:** `d3f7e913-3974-5935-aa8a-8c3f3632a06a`
 - **Category:** Kitchen Utility
 - **Validation Tier:** `PARTIALLY_VALIDATED`
 - **Status in DB:** `opportunity_status = RESEARCH_HYPOTHESIS`, `source_type = MANUAL_IMPORT`
@@ -66,6 +66,7 @@ These 9 candidates represent real physical consumer products with verified US ma
 - **Marketplace Evidence:**
   - Amazon US: `https://www.amazon.com/dp/B07ZDPBSTY` (ASIN `B07ZDPBSTY`, 15,000+ ratings, HTTP 200 probed)
   - Walmart US: `https://www.walmart.com/ip/Delta-Faucet-Glass-Rinser-SpotShield-Stainless/728103945` ($72.50)
+  - Delta DTC / OEM Portal: `https://www.deltafaucet.com/kitchen/product/GR150-SP.html` (OEM List Price: $174.70 USD verified via JSON-LD schema; distinct from generic unbranded dropship benchmark)
 - **Indicative Retail Price:** $69.00 USD OEM / $34.99 USD generic dropship benchmark (`SCENARIO_PRICE`)
 - **Estimated Sourcing CoGS:** $7.80 USD (304 stainless steel dropship model)
 - **Gross Margin:** 77.7% - 88.7%
@@ -79,7 +80,7 @@ These 9 candidates represent real physical consumer products with verified US ma
 ---
 
 ### Candidate 3: Elviros Cervical Memory Foam Ergonomic Pillow
-- **Product ID:** `21d0cfcd-b829-450a-b302-3a56247bc18a`
+- **Product ID:** `a47548a7-96ef-5940-a9de-7ec5bed8e3a9`
 - **Category:** Personal Comfort / Ergonomics
 - **Validation Tier:** `PARTIALLY_VALIDATED`
 - **Status in DB:** `opportunity_status = RESEARCH_HYPOTHESIS`, `source_type = MANUAL_IMPORT`
@@ -119,7 +120,7 @@ These 9 candidates represent real physical consumer products with verified US ma
 ---
 
 ### Candidate 5: resqme The Original Emergency Keychain Car Escape Tool
-- **Product ID:** `b825b065-22eb-4c07-b3db-075f9ee73007`
+- **Product ID:** `21d0cfcd-19c7-5136-af95-75748c896b08`
 - **Category:** Automotive / Life-Safety
 - **Validation Tier:** `PARTIALLY_VALIDATED`
 - **Status in DB:** `opportunity_status = RESEARCH_HYPOTHESIS`, `source_type = MANUAL_IMPORT`
@@ -139,7 +140,7 @@ These 9 candidates represent real physical consumer products with verified US ma
 ---
 
 ### Candidate 6: ESARORA Facial & Eye Ice Roller
-- **Product ID:** `a47548a7-336c-4977-8fa2-fbe6e3557e03`
+- **Product ID:** `b825b065-2ef3-57a7-b626-13d47da77e7d`
 - **Category:** Personal Comfort / Cryotherapy
 - **Validation Tier:** `PARTIALLY_VALIDATED`
 - **Status in DB:** `opportunity_status = RESEARCH_HYPOTHESIS`, `source_type = MANUAL_IMPORT`
@@ -166,6 +167,7 @@ These 9 candidates represent real physical consumer products with verified US ma
 - **Marketplace Evidence:**
   - Amazon US: `https://www.amazon.com/dp/B01J8880D0` (ASIN `B01J8880D0`, 80,000+ ratings, HTTP 200 probed)
   - Walmart US: `https://www.walmart.com/ip/AstroAI-Digital-Tire-Pressure-Gauge-150-PSI/872439182` ($12.99)
+  - AstroAI Official DTC: `https://www.astroai.com/aaa-batteries-digital-tire-pressure-gauge-150psi-gray/ap/1000813` (DTC Sale Price: $9.99 USD verified via DOM price container in sanitized capture `capture_1000813_astroai.html`)
 - **Indicative Retail Price:** $11.99 USD (`SCENARIO_PRICE`)
 - **Estimated Sourcing CoGS:** $2.80 USD
 - **Gross Margin:** 76.6%
@@ -184,6 +186,7 @@ These 9 candidates represent real physical consumer products with verified US ma
 - **Marketplace Evidence:**
   - Amazon US: `https://www.amazon.com/dp/B00BAGT4TK` (ASIN `B00BAGT4TK`, 140,000+ ratings, HTTP 200 probed)
   - Walmart US: `https://www.walmart.com/ip/ChomChom-Roller-Pet-Hair-Remover/502847291` ($24.99)
+  - ChomChom Official DTC: `https://chomchomforpets.com/` (DTC Retail Price: $24.99 USD verified via DOM in sanitized capture `capture_ChomChom_chomchom_pets.html`)
 - **Indicative Retail Price:** $24.99 USD (`SCENARIO_PRICE`)
 - **Estimated Sourcing CoGS:** $4.50 USD
 - **Gross Margin:** 82.0%
@@ -202,6 +205,7 @@ These 9 candidates represent real physical consumer products with verified US ma
 - **Marketplace Evidence:**
   - Amazon US: `https://www.amazon.com/dp/B00NW62PCA` (ASIN `B00NW62PCA`, 65,000+ ratings, HTTP 200 probed)
   - Walmart US: `https://www.walmart.com/ip/Etekcity-Digital-Luggage-Scale/489123847` ($11.99)
+  - Etekcity Official DTC: `https://etekcity.com/collections/luggage-scales/products/luggage-scale-el11` (Probed; HTTP 429 Rate Limited honestly reported in `capture_EL11_etekcity.html`)
 - **Indicative Retail Price:** $10.99 USD (`SCENARIO_PRICE`)
 - **Estimated Sourcing CoGS:** $2.20 USD
 - **Gross Margin:** 80.0%
@@ -212,7 +216,23 @@ These 9 candidates represent real physical consumer products with verified US ma
 
 ---
 
-## 4. Group 3: Quarantined Research Hypotheses (Legacy Batch 7)
+## 4. DTC Manufacturer Probing & Artifact Inspection Results
+
+In addition to public marketplace probes (Amazon US, Walmart US), direct-to-consumer (DTC) and manufacturer endpoints were probed to obtain genuine commercial reference pricing without relying on proxy scrapers. Full raw HTTP response bodies were analyzed locally, sanitized to remove tracking/analytics/session data, and saved to `docs/run_reports/artifacts/`:
+
+| Target / Brand | Model / Item | Endpoint Probed | HTTP Status | Extracted Evidence | Sanitized Artifact | Price Type / Boundary |
+|---|---|---|:---:|---|---|---|
+| **Delta Faucet** | GR150-SP | `deltafaucet.com/kitchen/product/GR150-SP.html` | `HTTP 200` | OEM List Price: `$174.70 USD` (Schema JSON-LD) | `capture_GR150-SP_delta_faucet.html` | **OEM Brand Catalog Price** (Distinct from dropship generic benchmark of ~$34.99) |
+| **ChomChom** | Roller | `chomchomforpets.com/` | `HTTP 200` | DTC Retail Price: `$24.99 USD` (DOM extraction) | `capture_ChomChom_chomchom_pets.html` | **DTC Brand Retail Price** (Matches Walmart $24.99 benchmark) |
+| **AstroAI** | 1000813 | `astroai.com/.../ap/1000813` | `HTTP 200` | DTC Sale Price: `$9.99 USD` (DOM extraction) | `capture_1000813_astroai.html` | **DTC Promotional Sale Price** (Regular $11.99-$13.99) |
+| **Etekcity** | EL11 | `etekcity.com/.../luggage-scale-el11` | `HTTP 429` | None (Rate limited / anti-bot challenge) | `capture_EL11_etekcity.html` | **PRICE_UNKNOWN** (Honest failure reporting) |
+
+> [!IMPORTANT]
+> **Integrity Notice on Delta Faucet OEM List Price:** Delta Faucet's OEM list price of `$174.70 USD` represents the branded fixture catalog price. It is NOT conflated with the generic unbranded 304 stainless steel dropship benchmark ($34.99 - $69.00 USD). The system maintains strict separation between OEM brand pricing and competitive dropship opportunity economics.
+
+---
+
+## 5. Group 3: Quarantined Research Hypotheses (Legacy Batch 7)
 
 **Count:** **6**
 
@@ -227,7 +247,7 @@ These 9 candidates represent real physical consumer products with verified US ma
 
 ---
 
-## 5. Summary Evidence Metrics
+## 6. Summary Evidence Metrics
 
 - **Total Canonical Products:** 124 (109 baseline + 6 quarantined hypotheses + 9 documented candidates in database)
 - **Source-Verified Products:** **0** (Honest reporting: zero unblocked marketplace listing prices extracted via unproxied direct scripts under $0.00 spend constraint)

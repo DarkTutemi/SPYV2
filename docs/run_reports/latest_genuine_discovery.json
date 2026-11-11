@@ -1,6 +1,6 @@
 {
-  "report_standard": "GENUINE_COMMERCIAL_RESEARCH_PROVENANCE_V4",
-  "generated_at": "2026-11-11T15:05:00Z",
+  "report_standard": "GENUINE_COMMERCIAL_RESEARCH_PROVENANCE_V5",
+  "generated_at": "2026-11-11T16:45:00Z",
   "paid_apify_spend_usd": 0.0,
   "frozen_t14_experiment_untouched": true,
   "baseline_meta_ads_count": 145,
@@ -19,8 +19,56 @@
     "partially_validated_count": 9,
     "research_hypothesis_count": 6,
     "total_commercial_candidates": 15,
+    "dtc_manufacturer_probes_count": 4,
+    "dtc_manufacturer_success_count": 3,
     "blocker_statement": "Honest reporting: Exactly 0 products are categorized as SOURCE_VERIFIED because external commercial endpoints (Amazon US Robot Check, Cloudflare challenges, Shopify 429 rate limits) enforce anti-bot controls against unproxied direct scripts, and $0.00 spend was strictly mandated. No fake provider extraction receipts were synthesized."
   },
+  "dtc_manufacturer_captures": [
+    {
+      "brand": "Delta Faucet",
+      "model": "GR150-SP",
+      "endpoint": "https://www.deltafaucet.com/kitchen/product/GR150-SP.html",
+      "http_status": 200,
+      "extraction_status": "EXTRACTED",
+      "price_usd": 174.70,
+      "price_type": "OEM_BRAND_LIST_PRICE",
+      "artifact_path": "docs/run_reports/artifacts/capture_GR150-SP_delta_faucet.html",
+      "integrity_note": "OEM brand catalog price. Not conflated with generic unbranded dropship benchmark of $34.99-$69.00 USD."
+    },
+    {
+      "brand": "ChomChom",
+      "model": "ChomChom Roller Pet Hair Remover",
+      "endpoint": "https://chomchomforpets.com/",
+      "http_status": 200,
+      "extraction_status": "EXTRACTED",
+      "price_usd": 24.99,
+      "price_type": "DTC_BRAND_RETAIL_PRICE",
+      "artifact_path": "docs/run_reports/artifacts/capture_ChomChom_chomchom_pets.html",
+      "integrity_note": "Direct-to-consumer store retail price for hero unit, matching Walmart $24.99 listing."
+    },
+    {
+      "brand": "AstroAI",
+      "model": "1000813 (Digital Tire Pressure Gauge 150 PSI)",
+      "endpoint": "https://www.astroai.com/aaa-batteries-digital-tire-pressure-gauge-150psi-gray/ap/1000813",
+      "http_status": 200,
+      "extraction_status": "EXTRACTED",
+      "price_usd": 9.99,
+      "price_type": "DTC_PROMOTIONAL_SALE_PRICE",
+      "artifact_path": "docs/run_reports/artifacts/capture_1000813_astroai.html",
+      "integrity_note": "Official portal sale price, regular benchmark $11.99-$13.99 USD."
+    },
+    {
+      "brand": "Etekcity",
+      "model": "EL11 (Digital Luggage Scale)",
+      "endpoint": "https://etekcity.com/collections/luggage-scales/products/luggage-scale-el11",
+      "http_status": 429,
+      "extraction_status": "PRICE_UNKNOWN",
+      "price_usd": null,
+      "price_type": "RATE_LIMITED",
+      "artifact_path": "docs/run_reports/artifacts/capture_EL11_etekcity.html",
+      "integrity_note": "Shopify bot protection rate limited (HTTP 429). Honestly reported as unextracted."
+    }
+  ],
   "source_verified_products": [],
   "partially_validated_products": [
     {

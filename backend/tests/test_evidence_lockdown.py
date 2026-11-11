@@ -702,3 +702,243 @@ async def test_scenario_14_nonexistent_artifact_path_rejected(disposable_db):
     )
     assert result.outcome == EvidenceVerificationOutcome.REJECTED
     assert "inspectable acquisition artifact on disk" in result.verification_notes
+
+
+@pytest.mark.asyncio
+async def test_scenario_15_robot_check_artifact_with_claimed_price_rejected(disposable_db):
+    """
+    Scenario 15 (Adversarial): Caller attempts to claim OBSERVED_RETAIL_LISTING_PRICE using
+    one of the real committed Amazon Robot Check artifacts (capture_B07FVQLBL3_amazon_us.html).
+    Must return REJECTED because the artifact contains Robot Check / automated access restriction markers.
+    """
+    run_id = f"run_valid_{_uuid()[:8]}"
+    asin = "B07FVQLBL3"
+    price = 29.99
+    ts = "2026-11-10T14:30:00Z"
+
+    c_run = CollectionRun(
+        id=run_id,
+        job_id="job_real_crawler",
+        status=CollectionJobStatus.COMPLETED,
+        started_at=_utcnow(),
+        completed_at=_utcnow(),
+    )
+    disposable_db.add(c_run)
+
+    canonical_sig = generate_capture_signature(run_id, asin, price, ts)
+
+    srec = SourceRecord(
+        id=f"srec_{_uuid()[:12]}",
+        collection_run_id=run_id,
+        source_type=DataSourceType.AMAZON,
+        external_id=asin,
+        geo_confidence=ConfidenceLevel.HIGH,
+        is_synthetic=False,
+        raw_data={
+            "url": f"https://www.amazon.com/dp/{asin}",
+            "provider": "authentic_public_marketplace_capture",
+            "retailer": "amazon",
+            "asin": asin,
+            "observed_price": price,
+            "source_timestamp": ts,
+            "capture_signature": canonical_sig,
+            "artifact_path": "docs/run_reports/artifacts/capture_B07FVQLBL3_amazon_us.html",
+        },
+    )
+    disposable_db.add(srec)
+    await disposable_db.commit()
+
+    result = await verify_commercial_evidence_db(
+        db=disposable_db,
+        url=f"https://www.amazon.com/dp/{asin}",
+        price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+        source_record_id=srec.id,
+        expected_asin=asin,
+        observed_price=price,
+    )
+    assert result.outcome == EvidenceVerificationOutcome.REJECTED
+    assert any(pat in result.verification_notes.lower() for pat in ("robot check", "automated access", "bot challenge"))
+
+    # Strict gate also rejects and raises ValueError
+    with pytest.raises(ValueError, match="integrity check"):
+        await validate_commercial_evidence_strict_db(
+            db=disposable_db,
+            url=f"https://www.amazon.com/dp/{asin}",
+            price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+            source_record_id=srec.id,
+            expected_asin=asin,
+            observed_price=price,
+        )
+
+
+@pytest.mark.asyncio
+async def test_scenario_16_artifact_content_missing_expected_price_rejected(disposable_db):
+    """Scenario 16: Artifact contains product ASIN but lacks the claimed observed price -> REJECTED."""
+    run_id = f"run_valid_{_uuid()[:8]}"
+    asin = "B08N5WRWNW"
+    price = 99.99
+    ts = "2026-11-10T14:30:00Z"
+
+    fd, art_path = tempfile.mkstemp(prefix=f"art_test_{asin}_", suffix=".html")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write("<html><head><title>B08N5WRWNW</title></head><body>Price: $14.99</body></html>")
+
+    try:
+        c_run = CollectionRun(
+            id=run_id,
+            job_id="job_real_crawler",
+            status=CollectionJobStatus.COMPLETED,
+            started_at=_utcnow(),
+            completed_at=_utcnow(),
+        )
+        disposable_db.add(c_run)
+
+        canonical_sig = generate_capture_signature(run_id, asin, price, ts)
+
+        srec = SourceRecord(
+            id=f"srec_{_uuid()[:12]}",
+            collection_run_id=run_id,
+            source_type=DataSourceType.AMAZON,
+            external_id=asin,
+            geo_confidence=ConfidenceLevel.HIGH,
+            is_synthetic=False,
+            raw_data={
+                "url": f"https://www.amazon.com/dp/{asin}",
+                "provider": "authentic_public_marketplace_capture",
+                "retailer": "amazon",
+                "asin": asin,
+                "observed_price": price,
+                "source_timestamp": ts,
+                "capture_signature": canonical_sig,
+                "artifact_path": art_path,
+            },
+        )
+        disposable_db.add(srec)
+        await disposable_db.commit()
+
+        result = await verify_commercial_evidence_db(
+            db=disposable_db,
+            url=f"https://www.amazon.com/dp/{asin}",
+            price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+            source_record_id=srec.id,
+            expected_asin=asin,
+            observed_price=price,
+        )
+        assert result.outcome == EvidenceVerificationOutcome.REJECTED
+        assert "claimed observed price" in result.verification_notes
+    finally:
+        if os.path.exists(art_path):
+            os.remove(art_path)
+
+
+@pytest.mark.asyncio
+async def test_scenario_17_artifact_sha256_digest_mismatch_rejected(disposable_db):
+    """Scenario 17: Recorded artifact_sha256 does not match file's actual hash -> REJECTED."""
+    run_id = f"run_valid_{_uuid()[:8]}"
+    asin = "B08N5WRWNW"
+    price = 29.99
+    ts = "2026-11-10T14:30:00Z"
+
+    fd, art_path = tempfile.mkstemp(prefix=f"art_test_{asin}_", suffix=".html")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(f"<html><head><title>B08N5WRWNW</title></head><body>Price: ${price}</body></html>")
+
+    try:
+        c_run = CollectionRun(
+            id=run_id,
+            job_id="job_real_crawler",
+            status=CollectionJobStatus.COMPLETED,
+            started_at=_utcnow(),
+            completed_at=_utcnow(),
+        )
+        disposable_db.add(c_run)
+
+        canonical_sig = generate_capture_signature(run_id, asin, price, ts)
+
+        srec = SourceRecord(
+            id=f"srec_{_uuid()[:12]}",
+            collection_run_id=run_id,
+            source_type=DataSourceType.AMAZON,
+            external_id=asin,
+            geo_confidence=ConfidenceLevel.HIGH,
+            is_synthetic=False,
+            raw_data={
+                "url": f"https://www.amazon.com/dp/{asin}",
+                "provider": "authentic_public_marketplace_capture",
+                "retailer": "amazon",
+                "asin": asin,
+                "observed_price": price,
+                "source_timestamp": ts,
+                "capture_signature": canonical_sig,
+                "artifact_path": art_path,
+                "artifact_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            },
+        )
+        disposable_db.add(srec)
+        await disposable_db.commit()
+
+        result = await verify_commercial_evidence_db(
+            db=disposable_db,
+            url=f"https://www.amazon.com/dp/{asin}",
+            price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+            source_record_id=srec.id,
+            expected_asin=asin,
+            observed_price=price,
+        )
+        assert result.outcome == EvidenceVerificationOutcome.REJECTED
+        assert "integrity check failed" in result.verification_notes
+    finally:
+        if os.path.exists(art_path):
+            os.remove(art_path)
+
+
+@pytest.mark.asyncio
+async def test_scenario_18_path_traversal_artifact_rejected(disposable_db):
+    """Scenario 18: Path traversal escaping authorized directories -> REJECTED."""
+    run_id = f"run_valid_{_uuid()[:8]}"
+    asin = "B08N5WRWNW"
+    price = 29.99
+    ts = "2026-11-10T14:30:00Z"
+
+    c_run = CollectionRun(
+        id=run_id,
+        job_id="job_real_crawler",
+        status=CollectionJobStatus.COMPLETED,
+        started_at=_utcnow(),
+        completed_at=_utcnow(),
+    )
+    disposable_db.add(c_run)
+
+    canonical_sig = generate_capture_signature(run_id, asin, price, ts)
+
+    srec = SourceRecord(
+        id=f"srec_{_uuid()[:12]}",
+        collection_run_id=run_id,
+        source_type=DataSourceType.AMAZON,
+        external_id=asin,
+        geo_confidence=ConfidenceLevel.HIGH,
+        is_synthetic=False,
+        raw_data={
+            "url": f"https://www.amazon.com/dp/{asin}",
+            "provider": "authentic_public_marketplace_capture",
+            "retailer": "amazon",
+            "asin": asin,
+            "observed_price": price,
+            "source_timestamp": ts,
+            "capture_signature": canonical_sig,
+            "artifact_path": "../../../../../../../../../windows/system32/cmd.exe",
+        },
+    )
+    disposable_db.add(srec)
+    await disposable_db.commit()
+
+    result = await verify_commercial_evidence_db(
+        db=disposable_db,
+        url=f"https://www.amazon.com/dp/{asin}",
+        price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+        source_record_id=srec.id,
+        expected_asin=asin,
+        observed_price=price,
+    )
+    assert result.outcome == EvidenceVerificationOutcome.REJECTED
+    assert any(w in result.verification_notes.lower() for w in ("outside", "escapes", "authorized"))
