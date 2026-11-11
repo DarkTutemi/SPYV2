@@ -136,6 +136,16 @@ export default function Ranking() {
       case "QUALIFIED":
       case "QUALIFIED_OPPORTUNITY":
         return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">QUALIFIED</span>;
+      case "SOURCE_VERIFIED":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-900 border border-emerald-400">SOURCE VERIFIED</span>;
+      case "PARTIALLY_VALIDATED":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-teal-100 text-teal-900 border border-teal-400">PARTIALLY VALIDATED</span>;
+      case "COMMERCIAL_VALIDATION_REQUIRED":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-900 border border-orange-400">VALIDATION REQUIRED</span>;
+      case "UNVERIFIED_IMPORT":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-400">UNVERIFIED IMPORT</span>;
+      case "RESEARCH_HYPOTHESIS":
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-violet-100 text-violet-900 border border-violet-400">RESEARCH HYPOTHESIS</span>;
       case "PROMISING":
         return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-300">PROMISING</span>;
       case "DISCOVERED":
@@ -177,6 +187,12 @@ export default function Ranking() {
         return (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-rose-100 text-rose-800 border border-rose-200">
             TikTok
+          </span>
+        );
+      case "manual_import":
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-800 border border-slate-300" title="Manual research import (unverified external source)">
+            Manual Import
           </span>
         );
       case "meta_ad_library":
@@ -223,6 +239,16 @@ export default function Ranking() {
     const single = r.score.observed_single_price_usd;
     const bundle = r.score.observed_bundle_price_usd;
     const price = bundle || single;
+
+    if (src === "manual_import" || r.score.opportunity_status === "UNVERIFIED_IMPORT" || r.product.opportunity_status === "UNVERIFIED_IMPORT") {
+      const hypPrice = r.product.min_price_usd;
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-300" title="Unverified research scenario price without verified external marketplace observation">
+          <span className="text-[10px] text-amber-700 font-bold">[Scenario Price]</span>
+          {hypPrice != null ? <span>${hypPrice.toFixed(2)}</span> : <span>Unknown</span>}
+        </span>
+      );
+    }
 
     if (price) {
       if (src === "shopify") {
@@ -428,8 +454,11 @@ export default function Ranking() {
             >
               <option value="ALL">All Statuses</option>
               <option value="QUALIFIED_OPPORTUNITY">QUALIFIED ONLY</option>
+              <option value="SOURCE_VERIFIED">SOURCE VERIFIED</option>
               <option value="PROMISING">PROMISING</option>
               <option value="DISCOVERED">DISCOVERED</option>
+              <option value="UNVERIFIED_IMPORT">UNVERIFIED IMPORT</option>
+              <option value="RESEARCH_HYPOTHESIS">RESEARCH HYPOTHESIS</option>
               <option value="NEEDS_SAFETY_VERIFICATION">SAFETY CHECK</option>
               <option value="REJECTED">REJECTED</option>
             </select>

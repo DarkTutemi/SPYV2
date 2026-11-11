@@ -47,10 +47,12 @@ from app.models.models import (
     EvidenceLink,
     EvidenceType,
     OpportunityScore,
+    PriceEvidenceType,
     Product,
     ProductCluster,
     ProductClusterMember,
     ProductDailyMetric,
+    ProductOffer,
     SourceRecord,
 )
 
@@ -123,19 +125,54 @@ class ScoringEngine:
         bundle_eval = await self._compute_bundle_potential(product, ads)
 
         # Check observed pricing across product and non-modeled bundle offers
+        is_unverified_product = (
+            getattr(product, "opportunity_status", None) in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
+            or product.source_type == DataSourceType.MANUAL_IMPORT
+        )
+
+        offers_res = await self.db.execute(
+            select(ProductOffer).where(ProductOffer.product_id == product_id)
+        )
+        offers = list(offers_res.scalars().all())
+
         bundle_offers_res = await self.db.execute(
             select(BundleOffer).where(BundleOffer.product_id == product_id)
         )
         bundle_offers = list(bundle_offers_res.scalars().all())
 
-        obs_single = product.min_price_usd or product.max_price_usd
+        obs_single = None
+        if not is_unverified_product:
+            for o in offers:
+                if (
+                    not o.is_bundle
+                    and o.price_usd
+                    and o.price_evidence_type in (
+                        PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                        PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
+                    )
+                    and o.evidence_type != EvidenceType.UNVERIFIED_HYPOTHESIS
+                ):
+                    obs_single = o.price_usd
+                    break
+            if not obs_single and (product.min_price_usd or product.max_price_usd):
+                obs_single = product.min_price_usd or product.max_price_usd
+
         obs_bundle = None
-        for b in bundle_offers:
-            if b.bundle_price_usd is not None and b.bundle_status != "modeled_scenario":
-                obs_bundle = b.bundle_price_usd
-                if not obs_single and b.unit_price_usd:
-                    obs_single = b.unit_price_usd
-                break
+        if not is_unverified_product:
+            for b in bundle_offers:
+                if (
+                    b.bundle_price_usd is not None
+                    and b.bundle_status != "modeled_scenario"
+                    and b.price_evidence_type in (
+                        PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                        PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
+                    )
+                    and b.evidence_type != EvidenceType.UNVERIFIED_HYPOTHESIS
+                ):
+                    obs_bundle = b.bundle_price_usd
+                    if not obs_single and b.unit_price_usd:
+                        obs_single = b.unit_price_usd
+                    break
 
         has_observed_price = (obs_single is not None) or (obs_bundle is not None)
 
@@ -719,10 +756,17 @@ class ScoringEngine:
             2,
         )
 
-        # Synthetic fixture penalty
+        # Synthetic fixture penalty & unverified import cap
         is_synth = getattr(product, "is_synthetic", False) or product.name.startswith("DEMO ") or product.source_type == DataSourceType.OTHER
         if is_synth:
             total = min(20.0, round(total * 0.25, 2))
+
+        is_unverified = (
+            getattr(product, "opportunity_status", None) in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
+            or product.source_type == DataSourceType.MANUAL_IMPORT
+        )
+        if is_unverified:
+            total = min(10.0, round(total * 0.15, 2))
 
         return {"score": total, "components": components}
 
@@ -828,6 +872,13 @@ class ScoringEngine:
         """
         if getattr(product, "is_synthetic", False) or product.name.startswith("DEMO ") or product.source_type == DataSourceType.OTHER:
             return "SYNTHETIC_FIXTURE", "Synthetic fixture or test data — strictly excluded from live opportunity pipeline."
+
+        if getattr(product, "opportunity_status", None) in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS") or product.source_type == DataSourceType.MANUAL_IMPORT:
+            current_st = getattr(product, "opportunity_status", None) or "UNVERIFIED_IMPORT"
+            return (
+                current_st,
+                "Unverified research hypothesis import — strictly excluded from verified commercial opportunities until independent marketplace confirmation.",
+            )
 
         if not product.is_physical or product.target_country != "US":
             return "REJECTED", "Non-physical product or non-US market targeting."
@@ -1130,6 +1181,13 @@ class ScoringEngine:
         if getattr(product, "is_synthetic", False) or product.name.startswith("DEMO ") or product.source_type == DataSourceType.OTHER:
             return "SYNTHETIC_FIXTURE", "Synthetic fixture or test data — strictly excluded from live opportunity pipeline."
 
+        if getattr(product, "opportunity_status", None) in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS") or product.source_type == DataSourceType.MANUAL_IMPORT:
+            current_st = getattr(product, "opportunity_status", None) or "UNVERIFIED_IMPORT"
+            return (
+                current_st,
+                "Unverified research hypothesis import — strictly excluded from verified commercial opportunities until independent marketplace confirmation.",
+            )
+
         if not product.is_physical or product.target_country != "US":
             return "REJECTED", "Non-physical product or non-US market targeting."
 
@@ -1208,8 +1266,8 @@ class ScoringEngine:
             Deducts safety_penalty (e.g. 10.0 for unverified high-voltage electrical)
             Deducts claim_penalty (e.g. 15.0 for illegal medical cure claims)
         """
-        if status in ("REJECTED", "SYNTHETIC_FIXTURE"):
-            return round(min(30.0, core_opp * 0.4), 2)
+        if status in ("REJECTED", "SYNTHETIC_FIXTURE", "UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS"):
+            return round(min(20.0, core_opp * 0.3), 2)
 
         if model == "MODEL_A_SINGLE_PRODUCT":
             # 100% attainable without bundle

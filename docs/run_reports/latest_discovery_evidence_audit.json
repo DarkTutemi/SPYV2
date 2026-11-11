@@ -1,0 +1,144 @@
+{
+  "audit_metadata": {
+    "audit_type": "DISCOVERY_PROVENANCE_REMEDIATION",
+    "timestamp": "2026-11-11T17:28:00+07:00",
+    "auditor": "Principal Engineer & Commercial Data Integrity Auditor",
+    "target_commit": "757de725f5c5fcb3afafa71bd91eee675dfb6c19",
+    "status": "COMPLETED_QUARANTINED"
+  },
+  "summary_metrics": {
+    "imported_candidates_audited": 6,
+    "genuine_retail_links_verified": 0,
+    "unsupported_or_inaccessible_links": 12,
+    "verified_retail_prices": 0,
+    "modeled_prices_reclassified": 18,
+    "products_currently_source_verified": 0,
+    "products_retained_as_hypotheses": 6,
+    "new_genuinely_verified_products": 0,
+    "actual_new_api_spend_usd": 0.00,
+    "database_product_count_before": 115,
+    "database_product_count_after": 115
+  },
+  "baseline_data_integrity": {
+    "advertisements_count": 145,
+    "snapshots_count": 435,
+    "snapshots_verified_source_observations": 145,
+    "snapshots_database_derived": 290,
+    "advertisements_intact": true,
+    "snapshots_intact": true
+  },
+  "quarantine_audit": {
+    "collection_run_id": "run_us_discovery_20261111",
+    "previous_run_status": "COMPLETED",
+    "quarantined_run_status": "PARTIAL",
+    "coverage_notes": "QUARANTINED: Manual research hypothesis import without verified external provider collection.",
+    "source_records_quarantined": 6,
+    "products_quarantined": 6,
+    "product_offers_reclassified": 12,
+    "bundle_offers_reclassified": 6,
+    "opportunity_scores_reclassified": 6,
+    "new_opportunity_status": "UNVERIFIED_IMPORT",
+    "new_source_type": "MANUAL_IMPORT",
+    "new_geo_confidence": "UNKNOWN",
+    "new_price_evidence_type": "SCENARIO_PRICE",
+    "new_evidence_type": "UNVERIFIED_HYPOTHESIS"
+  },
+  "link_audit_details": [
+    {
+      "candidate": "42kHz Ultrasonic Retainer & Mouthguard Cleaning Pod",
+      "retailer": "Amazon US",
+      "url": "https://www.amazon.com/dp/B0C9QWXYZ1",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "Robot Check / Synthetic ASIN containing XYZ",
+      "verified": false
+    },
+    {
+      "candidate": "42kHz Ultrasonic Retainer & Mouthguard Cleaning Pod",
+      "retailer": "Walmart US",
+      "url": "https://www.walmart.com/ip/ultrasonic-dental-cleaner/184920491",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "PerimeterX bot check / Synthetic item ID 184920491",
+      "verified": false
+    },
+    {
+      "candidate": "Cordless Electric Spin Scrubber with Telescopic Extension Pole",
+      "retailer": "Amazon US",
+      "url": "https://www.amazon.com/dp/B0BXYZ7890",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "HTTP 404 / Dog page / Synthetic ASIN containing XYZ",
+      "verified": false
+    },
+    {
+      "candidate": "Cordless Electric Spin Scrubber with Telescopic Extension Pole",
+      "retailer": "Walmart US",
+      "url": "https://www.walmart.com/ip/electric-spin-scrubber-cordless/592810482",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "Mismatched report ID 789123456 vs DB 592810482 / Bot check",
+      "verified": false
+    },
+    {
+      "candidate": "High-Pressure Kitchen Sink Glass Rinser (304 Stainless Steel)",
+      "retailer": "Amazon US",
+      "url": "https://www.amazon.com/dp/B09XYZ4321",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "Mismatched report ASIN B09VXYZ345 vs DB B09XYZ4321",
+      "verified": false
+    },
+    {
+      "candidate": "High-Pressure Kitchen Sink Glass Rinser (304 Stainless Steel)",
+      "retailer": "Home Depot",
+      "url": "https://www.homedepot.com/p/delta-glass-rinser-gr150",
+      "result": "UNSUPPORTED",
+      "error": "HTTP 403 Forbidden / Mismatched report ID 314159265 ($49.99 vs $89.00)",
+      "verified": false
+    },
+    {
+      "candidate": "Dual-Chip Red Light & Near-Infrared Therapy Lumbar Belt",
+      "retailer": "Amazon US",
+      "url": "https://www.amazon.com/dp/B0D1XYZ567",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "Mismatched report ASIN B0DXYZ5678 vs DB B0D1XYZ567",
+      "verified": false
+    },
+    {
+      "candidate": "Dual-Chip Red Light & Near-Infrared Therapy Lumbar Belt",
+      "retailer": "LifePro / Walmart",
+      "url": "https://lifeprofitness.com/products/alleva-red-light-belt",
+      "result": "UNSUPPORTED",
+      "error": "HTTP 403 Forbidden / Mismatched domain (report Walmart 987654321)",
+      "verified": false
+    },
+    {
+      "candidate": "Portable Cordless Tire Inflator & Emergency Digital Air Pump",
+      "retailer": "Amazon US",
+      "url": "https://www.amazon.com/dp/B0A1XYZ999",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "Mismatched report ASIN B0EXYZ9012 vs DB B0A1XYZ999",
+      "verified": false
+    },
+    {
+      "candidate": "Portable Cordless Tire Inflator & Emergency Digital Air Pump",
+      "retailer": "Walmart / Home Depot",
+      "url": "https://www.walmart.com/ip/cordless-air-compressor-tire-pump/981240182",
+      "result": "UNSUPPORTED",
+      "error": "Mismatched retailer and URL (report Home Depot 321654987)",
+      "verified": false
+    },
+    {
+      "candidate": "All-in-One Pet Grooming Vacuum Kit with Low-Noise Electric Clippers",
+      "retailer": "Amazon US",
+      "url": "https://www.amazon.com/dp/B0P1XYZ111",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "Mismatched report ASIN B0FXYZ3456 vs DB B0P1XYZ111",
+      "verified": false
+    },
+    {
+      "candidate": "All-in-One Pet Grooming Vacuum Kit with Low-Noise Electric Clippers",
+      "retailer": "Walmart US",
+      "url": "https://www.walmart.com/ip/pet-grooming-vacuum-kit/391024819",
+      "result": "SYNTHETIC_PATTERN",
+      "error": "Mismatched report ID 654987321 ($129.99) vs DB 391024819 ($74.99)",
+      "verified": false
+    }
+  ]
+}
