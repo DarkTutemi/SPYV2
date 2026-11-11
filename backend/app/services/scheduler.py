@@ -88,10 +88,15 @@ class SchedulerService:
             logger.info("Scheduler stopped")
         self._task = None
 
-    async def run_pipeline_now(self, run_type: str = "manual", include_collection: bool = False) -> dict[str, Any]:
+    async def run_pipeline_now(
+        self,
+        run_type: str = "manual",
+        include_collection: bool = False,
+        operator_authorized: bool = False,
+    ) -> dict[str, Any]:
         """Execute the full pipeline immediately (callable from API)."""
         if include_collection:
-            await self.run_collection_cycle(force=True)
+            await self.run_collection_cycle(force=True, operator_authorized=operator_authorized)
         return await self._execute_pipeline(run_type)
 
     # ── External Data Collection Phase ──────────────────────────────────────
@@ -101,11 +106,14 @@ class SchedulerService:
         mode: str = "seeds",  # "seeds", "expansion", "all"
         force: bool = False,
         limit_queries: int = 2,
+        operator_authorized: bool = False,
     ) -> dict[str, Any]:
         """
         Execute external data collection cycle:
         Collects from Apify using prioritized seeds or advertiser expansion queue.
         Fails closed if unauthorized or budget exhausted.
+        Requires explicit operator authorization (operator_authorized=True).
+        An internal force=True CANNOT bypass missing operator authorization.
         """
         if self._collection_running:
             return {"status": "already_running", "message": "Collection cycle is already executing"}
@@ -114,6 +122,12 @@ class SchedulerService:
             return {
                 "status": "disabled",
                 "message": "Automatic paid collection is disabled in settings. Enable in Settings or run with force=True.",
+            }
+
+        if not operator_authorized:
+            return {
+                "status": "unauthorized",
+                "message": "Paid collection requires explicit operator authorization (operator_authorized=True). Internal flags (such as force=True) cannot bypass authorization.",
             }
 
         self._collection_running = True

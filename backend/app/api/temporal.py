@@ -21,15 +21,13 @@ router = APIRouter()
 async def create_snapshot(
     date: Optional[str] = None,
     collection_run_id: Optional[str] = None,
-    observation_quality: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Create or update daily advertisement snapshots."""
+    """Create or update daily advertisement snapshots. Observation quality is server-derived from evidence."""
     engine = TemporalEngine(db)
     return await engine.create_daily_snapshot(
         snapshot_date=date,
         collection_run_id=collection_run_id,
-        observation_quality=observation_quality,
     )
 
 

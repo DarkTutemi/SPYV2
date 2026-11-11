@@ -40,6 +40,12 @@ from app.models.models import (
     SourceRecord,
 )
 from app.schemas.schemas import ImportResult
+from app.services.budget_manager import (
+    ApifyBudgetManager,
+    BudgetExceededError,
+    BudgetLockError,
+    InFlightRunPendingError,
+)
 from app.services.import_service import ImportService
 
 logger = logging.getLogger(__name__)
@@ -69,16 +75,42 @@ class ApifyProviderAdapter:
         self.api_token = (api_token if api_token is not None else (settings.apify_api_token or "")).strip()
         self.primary_actor = settings.apify_primary_actor
         self.fallback_actor = settings.apify_fallback_actor
-        self.daily_budget_usd = settings.apify_daily_budget_usd
-        self.monthly_budget_usd = settings.apify_monthly_budget_usd
+        self._daily_budget_usd = settings.apify_daily_budget_usd
+        self._monthly_budget_usd = settings.apify_monthly_budget_usd
         self.max_ads_per_query = settings.apify_max_ads_per_query
         self.timeout_seconds = settings.apify_request_timeout_seconds
         self.auto_enabled = settings.apify_auto_collection_enabled
+        self.budget_manager = ApifyBudgetManager(
+            db=self.db,
+            api_token=self.api_token,
+            daily_budget_usd=self._daily_budget_usd,
+            monthly_budget_usd=self._monthly_budget_usd,
+        )
+
+    @property
+    def daily_budget_usd(self) -> float:
+        return getattr(self, "_daily_budget_usd", 2.00)
+
+    @daily_budget_usd.setter
+    def daily_budget_usd(self, value: float) -> None:
+        self._daily_budget_usd = value
+        if hasattr(self, "budget_manager") and self.budget_manager:
+            self.budget_manager.daily_budget_usd = value
+
+    @property
+    def monthly_budget_usd(self) -> float:
+        return getattr(self, "_monthly_budget_usd", 10.00)
+
+    @monthly_budget_usd.setter
+    def monthly_budget_usd(self, value: float) -> None:
+        self._monthly_budget_usd = value
+        if hasattr(self, "budget_manager") and self.budget_manager:
+            self.budget_manager.monthly_budget_usd = value
 
     # ── Status & Budget Guardrails ─────────────────────────────────────────
 
     async def get_status(self) -> dict[str, Any]:
-        """Check adapter status and budget metrics."""
+        """Check adapter status and budget metrics via authoritative ApifyBudgetManager."""
         if not self.api_token:
             return {
                 "status": ProviderStatus.NOT_CONFIGURED.value,
@@ -90,11 +122,44 @@ class ApifyProviderAdapter:
                 "estimated_spent_today_usd": 0.0,
                 "estimated_spent_month_usd": 0.0,
                 "auto_collection_enabled": self.auto_enabled,
+                "has_pending": False,
                 "message": "APIFY_API_TOKEN is not configured. Live queries are disabled.",
             }
 
-        spent_today, spent_month = await self._calculate_current_spend()
-        is_blocked = spent_today >= self.daily_budget_usd or spent_month >= self.monthly_budget_usd
+        try:
+            metrics = await self.budget_manager.get_spend_metrics()
+        except Exception as e:
+            logger.error("Failed to query budget metrics from budget_manager: %s. Failing closed (BLOCKED).", e)
+            return {
+                "status": ProviderStatus.BLOCKED.value,
+                "configured": True,
+                "primary_actor": self.primary_actor,
+                "fallback_actor": self.fallback_actor,
+                "daily_budget_usd": self.daily_budget_usd,
+                "monthly_budget_usd": self.monthly_budget_usd,
+                "estimated_spent_today_usd": self.daily_budget_usd,  # Fail closed: never return 0.0 on DB error
+                "estimated_spent_month_usd": self.monthly_budget_usd,
+                "auto_collection_enabled": self.auto_enabled,
+                "has_pending": True,
+                "message": f"Database accounting error querying budget metrics: {e}. Fail-closed blocking in effect.",
+            }
+
+        spent_today = metrics.get("daily_spend_usd", 0.0)
+        spent_month = metrics.get("monthly_spend_usd", 0.0)
+        pending_runs = metrics.get("pending_in_flight_runs", [])
+        has_pending = len(pending_runs) > 0
+
+        is_blocked = (
+            spent_today >= self.daily_budget_usd
+            or spent_month >= self.monthly_budget_usd
+            or has_pending
+        )
+
+        msg = "Adapter ready for live queries."
+        if has_pending:
+            msg = f"Blocked: {len(pending_runs)} unresolved in-flight run(s) pending reconciliation."
+        elif is_blocked:
+            msg = "Budget limit reached. Collection blocked."
 
         return {
             "status": ProviderStatus.BLOCKED.value if is_blocked else ProviderStatus.READY.value,
@@ -106,103 +171,35 @@ class ApifyProviderAdapter:
             "estimated_spent_today_usd": round(spent_today, 4),
             "estimated_spent_month_usd": round(spent_month, 4),
             "auto_collection_enabled": self.auto_enabled,
-            "message": "Budget limit reached. Collection blocked." if is_blocked else "Adapter ready for live queries.",
+            "has_pending": has_pending,
+            "pending_in_flight_runs": pending_runs,
+            "message": msg,
         }
 
     async def _calculate_current_spend(self) -> tuple[float, float]:
         """
-        Calculate current spend based on verified Apify charges, fallback estimates,
-        and active in-flight commitments (status=RUNNING within last 15 min).
-        Also cleans up stale/orphaned runs (>15m in RUNNING state).
+        Calculate current spend via authoritative ApifyBudgetManager.
+        Fails closed on error: never returns 0.0, 0.0 on database failure.
         """
         try:
-            now = datetime.now(timezone.utc)
-            start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            stale_threshold = now - timedelta(minutes=15)
-
-            # Query runs
-            result_day = await self.db.execute(
-                select(CollectionRun).join(CollectionJob).filter(
-                    CollectionJob.job_type == "apify_live",
-                    CollectionRun.started_at >= start_of_day,
-                )
-            )
-            runs_today = result_day.scalars().all()
-
-            result_month = await self.db.execute(
-                select(CollectionRun).join(CollectionJob).filter(
-                    CollectionJob.job_type == "apify_live",
-                    CollectionRun.started_at >= start_of_month,
-                )
-            )
-            runs_month = result_month.scalars().all()
-
-            stale_runs_detected = False
-
-            def sum_runs(runs):
-                nonlocal stale_runs_detected
-                total = 0.0
-                for r in runs:
-                    if r.status == CollectionJobStatus.RUNNING:
-                        # Check if stale orphaned run
-                        if r.started_at and r.started_at < stale_threshold:
-                            r.status = CollectionJobStatus.FAILED
-                            r.completed_at = now
-                            reserved = 0.50
-                            if r.errors and isinstance(r.errors, dict) and "reserved_cost_usd" in r.errors:
-                                reserved = float(r.errors["reserved_cost_usd"])
-                            apify_id = r.errors.get("apify_run_id") if isinstance(r.errors, dict) else None
-                            # If remote run was initiated, hold reservation so budget cannot be bypassed
-                            r.errors = {
-                                "error": "In-flight run timed out / reservation expired",
-                                "cost_status": "TIMEOUT_RESERVATION_HELD" if apify_id else "EXPIRED",
-                                "actual_cost_usd": reserved if apify_id else 0.0,
-                                "apify_run_id": apify_id,
-                            }
-                            stale_runs_detected = True
-                        else:
-                            # Active in-flight commitment
-                            reserved = 0.50
-                            if r.errors and isinstance(r.errors, dict) and "reserved_cost_usd" in r.errors:
-                                reserved = float(r.errors["reserved_cost_usd"])
-                            total += reserved
-                    elif r.errors and isinstance(r.errors, dict) and "actual_cost_usd" in r.errors:
-                        total += float(r.errors["actual_cost_usd"])
-                    else:
-                        total += (r.records_fetched or 0) * 0.0012
-                return total
-
-            cost_today = sum_runs(runs_today)
-            cost_month = sum_runs(runs_month)
-
-            if stale_runs_detected:
-                try:
-                    await self.db.commit()
-                except Exception:
-                    pass
-
-            return cost_today, cost_month
+            metrics = await self.budget_manager.get_spend_metrics()
+            return metrics["daily_spend_usd"], metrics["monthly_spend_usd"]
         except Exception as e:
-            logger.warning("Error calculating Apify spend: %s", e)
-            return 0.0, 0.0
+            logger.error("Error retrieving spend metrics from budget manager: %s. Failing closed.", e)
+            return self.daily_budget_usd, self.monthly_budget_usd
 
     async def _check_budget(self, reservation_amount_usd: float = 0.50) -> tuple[bool, str]:
-        """Verify budget constraints before executing a live query, factoring in commitment."""
+        """Verify budget constraints before executing a live query via ApifyBudgetManager."""
         if not self.api_token:
             return False, "APIFY_API_TOKEN is missing or empty."
-        spent_today, spent_month = await self._calculate_current_spend()
-        if spent_today + reservation_amount_usd > self.daily_budget_usd:
-            return False, (
-                f"Daily budget of ${self.daily_budget_usd:.2f} reached "
-                f"(Spent/Committed: ${spent_today:.2f}, Requested: ${reservation_amount_usd:.2f})."
+        try:
+            is_allowed, reason, _ = await self.budget_manager.check_budget_availability(
+                requested_reservation_usd=reservation_amount_usd
             )
-        if spent_month + reservation_amount_usd > self.monthly_budget_usd:
-            return False, (
-                f"Monthly budget of ${self.monthly_budget_usd:.2f} reached "
-                f"(Spent/Committed: ${spent_month:.2f}, Requested: ${reservation_amount_usd:.2f})."
-            )
-        return True, ""
+            return is_allowed, reason
+        except Exception as e:
+            logger.error("Error during budget check: %s. Failing closed.", e)
+            return False, f"Budget check failed closed due to error: {e}"
 
     async def reserve_budget(
         self,
@@ -212,36 +209,56 @@ class ApifyProviderAdapter:
         config: Optional[dict[str, Any]] = None,
     ) -> tuple[bool, Optional[CollectionRun], Optional[CollectionJob], str]:
         """
-        Atomically reserve budget commitment in the database to prevent concurrent
-        workers, processes, or scheduler instances from bypassing daily/monthly limits.
+        Atomically reserve budget commitment in the database using ApifyBudgetManager
+        with apify_budget_locks serialization to prevent concurrent workers, processes,
+        or scheduler instances from bypassing daily/monthly limits.
         """
-        can_run, budget_msg = await self._check_budget(reservation_amount_usd)
-        if not can_run:
-            return False, None, None, budget_msg
+        if not self.api_token:
+            return False, None, None, "APIFY_API_TOKEN is missing or empty."
 
-        data_source = await self._ensure_apify_data_source()
-        job = CollectionJob(
-            data_source_id=data_source.id,
-            name=job_name,
-            job_type="apify_live",
-            config=config or {"actor": actor_name},
-        )
-        self.db.add(job)
-        await self.db.flush()
+        try:
+            reservation = await self.budget_manager.create_reservation(
+                actor_id=actor_name,
+                reserved_amount_usd=reservation_amount_usd,
+                input_payload=config,
+            )
 
-        run = CollectionRun(
-            job_id=job.id,
-            status=CollectionJobStatus.RUNNING,
-            started_at=datetime.now(timezone.utc),
-            errors={
-                "reserved_cost_usd": round(reservation_amount_usd, 4),
-                "cost_status": "RESERVED",
-            },
-        )
-        self.db.add(run)
-        await self.db.commit()
+            data_source = await self._ensure_apify_data_source()
+            job = CollectionJob(
+                data_source_id=data_source.id,
+                name=job_name,
+                job_type="apify_live",
+                config=config or {"actor": actor_name},
+            )
+            self.db.add(job)
+            await self.db.flush()
 
-        return True, run, job, ""
+            run = CollectionRun(
+                job_id=job.id,
+                status=CollectionJobStatus.RUNNING,
+                started_at=datetime.now(timezone.utc),
+                errors={
+                    "reservation_id": reservation.id,
+                    "reserved_cost_usd": round(reservation_amount_usd, 4),
+                    "cost_status": "RESERVED",
+                },
+            )
+            self.db.add(run)
+            await self.db.flush()
+
+            payload = dict(config or {"actor": actor_name})
+            payload["run_id"] = run.id
+            reservation.input_payload = payload
+            await self.db.commit()
+
+            return True, run, job, ""
+
+        except BudgetExceededError as e:
+            logger.warning("Apify budget reservation rejected: %s", e)
+            return False, None, None, str(e)
+        except Exception as e:
+            logger.error("Failed to create budget reservation: %s. Failing closed.", e)
+            return False, None, None, f"Budget reservation failed: {e}"
 
     # ── High-Level Operations ──────────────────────────────────────────────
 
@@ -413,26 +430,54 @@ class ApifyProviderAdapter:
     # ── Apify REST Client Operations ──────────────────────────────────────
 
     @staticmethod
-    def extract_billing_details(run_data: dict[str, Any], records_fetched: int) -> dict[str, Any]:
+    def extract_billing_details(
+        run_data: dict[str, Any],
+        records_fetched: int,
+        reservation_cap: float = 0.50,
+    ) -> dict[str, Any]:
         """
         Inspect Apify billing details including platform usage, pay-per-event usage,
         and pricing model details. Distinguish verified billed charges from estimates.
+        Safeguard: Never record $0.00 without explicit verified provider confirmation.
+        If usageTotalUsd is missing/None/0 without explicit zero-charge confirmation,
+        retains the reserved budget cap.
         """
-        usage_total = float(run_data.get("usageTotalUsd") or run_data.get("usageUsd") or 0.0)
-        event_usage = float(run_data.get("eventUsageTotalUsd") or 0.0)
-        charged_total = float(run_data.get("chargedTotalUsd") or 0.0)
+        usage_total_raw = run_data.get("usageTotalUsd")
+        if usage_total_raw is None:
+            usage_total_raw = run_data.get("usageUsd")
 
-        # Combined verified billed charge
-        combined_charge = charged_total if charged_total > 0 else (usage_total + event_usage)
+        event_usage_raw = run_data.get("eventUsageTotalUsd")
+        charged_total_raw = run_data.get("chargedTotalUsd")
+
+        usage_total = float(usage_total_raw or 0.0)
+        event_usage = float(event_usage_raw or 0.0)
+        charged_total = float(charged_total_raw or 0.0)
+
         pricing_info = run_data.get("pricingInfo") or {}
+        is_free_tier = (
+            pricing_info.get("pricingModel") == "FREE"
+            or run_data.get("is_free_tier") is True
+            or run_data.get("explicit_zero_charge_confirmed") is True
+        )
+
+        combined_charge = charged_total if charged_total > 0 else (usage_total + event_usage)
         charged_events = run_data.get("chargedEventCounts") or {}
+
+        is_missing_usage = (usage_total_raw is None and charged_total_raw is None)
 
         if combined_charge > 0:
             actual_cost = round(combined_charge, 4)
             cost_status = "VERIFIED_CHARGED"
+        elif is_free_tier:
+            actual_cost = 0.0
+            cost_status = "VERIFIED_FREE_TIER"
         elif records_fetched > 0:
             actual_cost = round(records_fetched * 0.0012, 4)
             cost_status = "ESTIMATED"
+        elif is_missing_usage:
+            # Missing/None or unconfirmed zero billing: retain reserved budget cap to fail safe
+            actual_cost = round(reservation_cap, 4)
+            cost_status = "HELD_RESERVATION_CAP"
         else:
             actual_cost = 0.0
             cost_status = "UNMETERED"
@@ -445,6 +490,7 @@ class ApifyProviderAdapter:
             "charged_total_usd": round(charged_total, 4),
             "charged_event_counts": charged_events,
             "pricing_info": pricing_info,
+            "explicit_zero_charge_confirmed": is_free_tier,
         }
 
     async def _execute_and_process(
@@ -457,7 +503,7 @@ class ApifyProviderAdapter:
     ) -> dict[str, Any]:
         """
         Submit run, poll status, download dataset, normalize, validate, and persist.
-        Uses persistent atomic database reservation to prevent race conditions.
+        Uses persistent atomic database reservation via ApifyBudgetManager to prevent race conditions.
         """
         can_reserve, run, job, budget_msg = await self.reserve_budget(
             job_name=job_name,
@@ -474,36 +520,121 @@ class ApifyProviderAdapter:
                 "records_valid": 0,
             }
 
+        reservation_id = run.errors.get("reservation_id") if isinstance(run.errors, dict) else None
         apify_run_id: Optional[str] = None
+
         try:
+            # Mark launch attempted in durable budget manager before network dispatch
+            if reservation_id:
+                await self.budget_manager.mark_launch_attempted(reservation_id)
+                await self.db.commit()
+
             # 1. Trigger Apify Actor Run with cloud-side hard spending cap
-            spent_today, spent_month = await self._calculate_current_spend()
-            remaining_budget = max(0.01, min(self.daily_budget_usd - spent_today, self.monthly_budget_usd - spent_month, reservation_amount))
+            metrics = await self.budget_manager.get_spend_metrics()
+            remaining_budget = max(
+                0.01,
+                min(
+                    metrics.get("daily_remaining_usd", reservation_amount),
+                    metrics.get("monthly_remaining_usd", reservation_amount),
+                    reservation_amount,
+                ),
+            )
 
             actor_id_slug = actor_name.replace("/", "~")
             run_data = await self._start_actor_run(actor_id_slug, run_input, max_charge_usd=remaining_budget)
             apify_run_id = run_data.get("id")
             dataset_id = run_data.get("defaultDatasetId")
 
+            if not apify_run_id or not dataset_id:
+                raise RuntimeError(f"Start response for Apify actor {actor_name} succeeded but omitted run id or dataset id.")
+
             # Associate apify_run_id with database run record immediately
-            run.errors = {"apify_run_id": apify_run_id, "reserved_cost_usd": reservation_amount, "cost_status": "RESERVED"}
+            if reservation_id:
+                await self.budget_manager.mark_run_started(reservation_id, apify_run_id=apify_run_id)
+
+            run.errors = {
+                "apify_run_id": apify_run_id,
+                "reservation_id": reservation_id,
+                "reserved_cost_usd": reservation_amount,
+                "cost_status": "RESERVED",
+            }
             await self.db.commit()
 
-            if not apify_run_id or not dataset_id:
-                raise RuntimeError(f"Failed to start Apify actor {actor_name}: invalid response.")
-
             # 2. Wait for completion and extract provider-reported usage
-            final_run_data = await self._wait_for_run_completion(apify_run_id)
+            try:
+                final_run_data = await self._wait_for_run_completion(apify_run_id)
+            except TimeoutError as te:
+                logger.warning("Apify run %s timed out polling: %s", apify_run_id, te)
+                if reservation_id:
+                    await self.budget_manager.mark_polling_timeout(
+                        reservation_id,
+                        apify_run_id=apify_run_id,
+                        notes=f"Polling window timed out after {self.timeout_seconds}s.",
+                    )
+                run.status = CollectionJobStatus.FAILED
+                run.completed_at = datetime.now(timezone.utc)
+                run.errors = {
+                    "error": str(te),
+                    "cost_status": "NEEDS_RECONCILIATION",
+                    "actual_cost_usd": reservation_amount,
+                    "apify_run_id": apify_run_id,
+                    "reservation_id": reservation_id,
+                }
+                await self.db.commit()
+                return {
+                    "status": ProviderStatus.FAILED.value,
+                    "success": False,
+                    "error": str(te),
+                    "records_fetched": 0,
+                    "records_valid": 0,
+                }
+
             final_status = final_run_data.get("status")
             if final_status != "SUCCEEDED":
-                raise RuntimeError(f"Apify actor run {apify_run_id} finished with status: {final_status}")
+                billing = self.extract_billing_details(final_run_data, 0, reservation_cap=reservation_amount)
+                cost = billing["actual_cost_usd"]
+                if reservation_id:
+                    await self.budget_manager.reconcile_run(
+                        reservation_id=reservation_id,
+                        final_status=final_status or "FAILED",
+                        actual_cost_usd=cost,
+                        billing_detail=billing,
+                        notes=f"Apify actor run {apify_run_id} finished with non-success status: {final_status}",
+                    )
+                run.status = CollectionJobStatus.FAILED
+                run.completed_at = datetime.now(timezone.utc)
+                run.errors = {
+                    "error": f"Apify actor run {apify_run_id} finished with status: {final_status}",
+                    "cost_status": billing["cost_status"],
+                    "actual_cost_usd": cost,
+                    "apify_run_id": apify_run_id,
+                    "reservation_id": reservation_id,
+                }
+                await self.db.commit()
+                return {
+                    "status": ProviderStatus.FAILED.value,
+                    "success": False,
+                    "error": f"Apify actor run {apify_run_id} finished with status: {final_status}",
+                    "records_fetched": 0,
+                    "records_valid": 0,
+                }
 
             # 3. Fetch Dataset Records
             raw_records = await self.fetch_dataset(dataset_id)
 
             # 4. Extract verified billed charges vs estimates
-            billing = self.extract_billing_details(final_run_data, len(raw_records))
+            billing = self.extract_billing_details(final_run_data, len(raw_records), reservation_cap=reservation_amount)
             actual_cost = billing["actual_cost_usd"]
+
+            # Reconcile durable reservation with verified billing
+            if reservation_id:
+                await self.budget_manager.reconcile_run(
+                    reservation_id=reservation_id,
+                    final_status="SUCCEEDED",
+                    actual_cost_usd=actual_cost,
+                    billing_detail=billing,
+                    notes=f"Verified successful run with {len(raw_records)} records.",
+                )
 
             # 5. Normalize Records
             normalized = self.normalize_records(raw_records, actor_name)
@@ -515,7 +646,6 @@ class ApifyProviderAdapter:
             import_result = ImportResult(success=True)
             if persist and valid_records:
                 import_service = ImportService(self.db)
-                # Import directly into database
                 import_result = await import_service._import_meta_ads(
                     valid_records, run, {"is_synthetic": False}
                 )
@@ -541,6 +671,7 @@ class ApifyProviderAdapter:
                 "cost_status": billing["cost_status"],
                 "billing": billing,
                 "apify_run_id": apify_run_id,
+                "reservation_id": reservation_id,
             }
 
             data_source = await self._ensure_apify_data_source()
@@ -565,28 +696,64 @@ class ApifyProviderAdapter:
 
         except Exception as e:
             logger.exception("Apify live run failed: %s", e)
-            held_cost = 0.0
-            cost_status = "FAILED"
+            is_client_rejection = False
+            http_status = None
 
-            if apify_run_id:
-                # Abort remote actor immediately to cease incurring charges
-                try:
-                    await self.abort_actor_run(apify_run_id)
-                except Exception:
-                    pass
-                # Crucial safety: do NOT release budget if remote run was started
+            if isinstance(e, httpx.HTTPStatusError):
+                http_status = e.response.status_code
+                if 400 <= http_status < 500:
+                    is_client_rejection = True
+            elif isinstance(e, PermissionError):
+                http_status = 401
+                is_client_rejection = True
+
+            if is_client_rejection and not apify_run_id:
+                held_cost = 0.0
+                cost_status = "FAILED"
+                if reservation_id:
+                    await self.budget_manager.reconcile_run(
+                        reservation_id=reservation_id,
+                        final_status="FAILED",
+                        actual_cost_usd=0.0,
+                        billing_detail={
+                            "http_status": http_status,
+                            "definitive_client_rejection": True,
+                            "error": str(e),
+                        },
+                        notes=f"HTTP {http_status} definitive client rejection on start (no run created). Released reservation.",
+                    )
+            else:
                 held_cost = reservation_amount
-                cost_status = "RESERVATION_HELD_REMOTE_ABORTED"
+                cost_status = "NEEDS_RECONCILIATION"
+                if apify_run_id:
+                    try:
+                        await self.abort_actor_run(apify_run_id)
+                    except Exception:
+                        pass
+                if reservation_id:
+                    await self.budget_manager.reconcile_run(
+                        reservation_id=reservation_id,
+                        final_status="NEEDS_RECONCILIATION",
+                        actual_cost_usd=reservation_amount,
+                        billing_detail={
+                            "http_status": http_status,
+                            "ambiguous_failure": True,
+                            "error": str(e),
+                        },
+                        notes="Ambiguous failure or error during run. Held full reservation amount.",
+                    )
 
-            run.status = CollectionJobStatus.FAILED
-            run.completed_at = datetime.now(timezone.utc)
-            run.errors = {
-                "error": str(e),
-                "cost_status": cost_status,
-                "actual_cost_usd": held_cost,
-                "apify_run_id": apify_run_id,
-            }
-            await self.db.commit()
+            if run:
+                run.status = CollectionJobStatus.FAILED
+                run.completed_at = datetime.now(timezone.utc)
+                run.errors = {
+                    "error": str(e),
+                    "cost_status": cost_status,
+                    "actual_cost_usd": held_cost,
+                    "apify_run_id": apify_run_id,
+                    "reservation_id": reservation_id,
+                }
+                await self.db.commit()
 
             return {
                 "status": ProviderStatus.FAILED.value,
@@ -599,7 +766,11 @@ class ApifyProviderAdapter:
     async def _start_actor_run(
         self, actor_slug: str, run_input: dict[str, Any], max_charge_usd: Optional[float] = None
     ) -> dict[str, Any]:
-        """Post execution to Apify with exponential retry and cloud-side spend cap enforcement."""
+        """
+        Post execution to Apify without automatic retries.
+        Cloud-side spend cap enforcement via maxTotalChargeUsd.
+        Classifies start failures immediately (4xx definitive vs 5xx/network ambiguous).
+        """
         url = f"{APIFY_BASE_URL}/acts/{actor_slug}/runs"
         params: dict[str, Any] = {}
         if max_charge_usd is not None and max_charge_usd > 0:
@@ -611,29 +782,20 @@ class ApifyProviderAdapter:
             "Content-Type": "application/json",
         }
 
-        retries = 3
-        backoff = 1.0
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            for attempt in range(retries):
-                try:
-                    resp = await client.post(url, json=run_input, params=params, headers=headers)
-                    if resp.status_code in (200, 201):
-                        return resp.json().get("data", {})
-                    elif resp.status_code in (401, 403):
-                        raise PermissionError(f"Apify authentication failed ({resp.status_code}): {resp.text}")
-                    elif resp.status_code == 429:
-                        await asyncio.sleep(backoff)
-                        backoff *= 2
-                        continue
-                    else:
-                        resp.raise_for_status()
-                except (httpx.RequestError, httpx.HTTPStatusError) as e:
-                    if attempt == retries - 1:
-                        raise
-                    await asyncio.sleep(backoff)
-                    backoff *= 2
-
-        raise RuntimeError("Exceeded retry attempts starting Apify actor run.")
+            resp = await client.post(url, json=run_input, params=params, headers=headers)
+            if resp.status_code in (200, 201):
+                return resp.json().get("data", {})
+            elif resp.status_code in (401, 403):
+                raise PermissionError(f"Apify authentication failed ({resp.status_code}): {resp.text}")
+            elif 400 <= resp.status_code < 500:
+                raise httpx.HTTPStatusError(
+                    f"Apify start rejected ({resp.status_code}): {resp.text}",
+                    request=resp.request,
+                    response=resp,
+                )
+            else:
+                resp.raise_for_status()
 
     async def _wait_for_run_completion(self, run_id: str, poll_interval: float = 3.0, max_wait: float = 180.0) -> dict[str, Any]:
         """Poll run status until terminal status or timeout. Returns full run payload."""

@@ -126,6 +126,7 @@ class PriceEvidenceType(str, enum.Enum):
 
 class SnapshotObservationQuality(str, enum.Enum):
     """Explicit observation-quality and provenance classification for advertisement snapshots."""
+    VERIFIED_SOURCE_OBSERVATION = "VERIFIED_SOURCE_OBSERVATION"
     GENUINE_SOURCE_OBSERVATION = "GENUINE_SOURCE_OBSERVATION"
     DATABASE_DERIVED_SNAPSHOT = "DATABASE_DERIVED_SNAPSHOT"
     UNKNOWN = "UNKNOWN"

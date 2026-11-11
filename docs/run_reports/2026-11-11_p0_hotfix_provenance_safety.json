@@ -1,0 +1,90 @@
+{
+  "report_id": "2026-11-11_p0_hotfix_provenance_safety",
+  "generated_at": "2026-11-11T12:26:00Z",
+  "status": "COMPLETED",
+  "audited_head_commit": "472acdfd588ddb934f533110c63926018d55819f",
+  "hotfix_type": "P0_INTEGRITY_AND_SAFETY_HARDENING",
+  "scope": {
+    "zero_paid_apify_runs": true,
+    "paid_actors_executed": 0,
+    "actual_cost_usd": 0.00,
+    "t14_freeze_preserved": true,
+    "new_development_phases_created": 0,
+    "new_dashboards_created": 0
+  },
+  "database_snapshot_reconciliation": {
+    "total_snapshots_audited": 435,
+    "distinct_advertisements": 145,
+    "total_products": 109,
+    "breakdown_by_date_and_quality": {
+      "2026-11-09": {
+        "count": 145,
+        "quality": "VERIFIED_SOURCE_OBSERVATION",
+        "notes": "Reconciled to authentic SourceRecord collection_run_ids; parallel T0 batch discrepancy resolved."
+      },
+      "2026-11-10": {
+        "count": 145,
+        "quality": "DATABASE_DERIVED_SNAPSHOT",
+        "notes": "Zero live Meta collections occurred on Nov 10; analytical projection without source evidence."
+      },
+      "2026-11-11": {
+        "count": 145,
+        "quality": "DATABASE_DERIVED_SNAPSHOT",
+        "notes": "Zero live Meta collections occurred on Nov 11; analytical projection without source evidence."
+      }
+    }
+  },
+  "issue_a_provenance_remediation": {
+    "caller_supplied_observation_quality_removed": true,
+    "api_endpoint_sanitized": "/api/v1/temporal/snapshot no longer accepts observation_quality parameter",
+    "temporal_engine_sanitized": "create_daily_snapshot derives observation quality strictly from completed CollectionRun and SourceRecords",
+    "run_date_validation_enforced": "Rejects collection runs whose execution date does not match snapshot date",
+    "per_ad_provenance_enforced": "Collection runs containing a subset of ads snapshot ONLY those specific ads (e.g. 6 ads create 6 snapshots, never 145)",
+    "omitted_ads_remain_unknown": "Ads omitted from observation batches remain UNKNOWN, never defaulting to INACTIVE without evidence",
+    "derived_overwrite_prevention": "Subsequent derived snapshot passes strictly preserve existing VERIFIED_SOURCE_OBSERVATION records",
+    "metric_active_ad_integrity": "ProductDailyMetric active ad counts strictly require VERIFIED_SOURCE_OBSERVATION or GENUINE_SOURCE_OBSERVATION"
+  },
+  "issue_b_apify_safety_unification": {
+    "authoritative_budget_controller": "ApifyBudgetManager",
+    "atomic_concurrency_serialization": "Enforced via SQLite write locks on apify_budget_locks table",
+    "spend_calculation_fail_closed": "get_status() and _calculate_current_spend() query budget_manager; fail closed with ceiling amounts on DB error (never return 0.0)",
+    "in_flight_commitments_block": "Unresolved in-flight runs (status in RESERVED, LAUNCH_ATTEMPTED, RUNNING, NEEDS_RECONCILIATION) block subsequent paid launches",
+    "start_retries_eliminated": "Single HTTP dispatch on start; 4xx definitive client errors fail immediately ($0.00 release), 5xx/network errors transition to NEEDS_RECONCILIATION (held budget cap)",
+    "secondary_actor_fallback_removed": "No silent actor switching on failure; explicit operator configuration required",
+    "polling_timeout_protection": "Timeouts transition to NEEDS_RECONCILIATION holding full reservation amount (never converted to FAILED with $0.00)",
+    "missing_billing_safeguard": "Missing or None usageTotalUsd in billing extraction retains reserved budget cap; $0.00 accepted only on verified provider confirmation",
+    "scheduler_guardrail_enforced": "run_collection_cycle() requires explicit operator_authorized=True; internal force=True cannot bypass authorization"
+  },
+  "test_verification": {
+    "test_suite": "backend/tests/test_provenance_and_unified_safety.py",
+    "mandated_test_points_verified": 14,
+    "mandated_test_points_passed": 14,
+    "mandated_points": [
+      "1. Unrelated collection run cannot authenticate an advertisement snapshot",
+      "2. Missing ad IDs remain UNKNOWN (not INACTIVE)",
+      "3. A six-ad collection cannot mark 145 advertisements freshly observed",
+      "4. Old stored active states cannot create fresh observations",
+      "5. Arbitrary quality input is rejected (removed from endpoint/function)",
+      "6. Derived processing cannot overwrite genuine source evidence",
+      "7. Historical run ID cannot create a new current-date observation",
+      "8. Existing T0 data is preserved (145 unique ads, 435 snapshots)",
+      "9. Legacy ApifyAdapter cannot launch without durable budget reservation",
+      "10. Database accounting errors never become zero spending (fails closed)",
+      "11. Two concurrent processes cannot over-reserve the budget (DB lock test)",
+      "12. Failed or ambiguous Actor starts prevent subsequent paid launches",
+      "13. Automatic collection remains disabled (requires operator_authorized=True)",
+      "14. No paid Actor is executed in tests (mocked httpx, $0.00 egress)"
+    ],
+    "full_suite_passed": 181,
+    "full_suite_failed": 0,
+    "full_suite_warnings": 55,
+    "full_suite_duration_seconds": 147.33
+  },
+  "service_health": {
+    "backend_status": "UP",
+    "backend_ping_endpoint": "http://127.0.0.1:8000/api/v1/health/ping -> ok",
+    "frontend_status": "UP",
+    "frontend_http_status": "http://localhost:3000 -> 200 OK"
+  }
+}
+

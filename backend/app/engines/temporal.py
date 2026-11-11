@@ -17,7 +17,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select, func, and_, distinct
+from sqlalchemy import select, func, and_, or_, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
@@ -30,6 +30,7 @@ from app.models.models import (
     Product,
     ProductDailyMetric,
     SnapshotObservationQuality,
+    SourceRecord,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,71 +49,150 @@ class TemporalEngine:
         snapshot_date: Optional[str] = None,
         collection_run_id: Optional[str] = None,
         observed_ad_statuses: Optional[dict[str, bool]] = None,
-        observation_quality: Optional[str] = None,
     ) -> dict:
         """
         Snapshot advertisements' status for the given date.
-        Distinguishes genuine source observations (with collection provenance)
-        from database-derived snapshots (analytical backfills/projections).
-        Idempotent: re-running for the same date updates existing snapshots.
+        Observation quality is strictly server-derived and evidence-validated:
+        - VERIFIED_SOURCE_OBSERVATION: Confirmed per-ad source evidence from completed collection run or live observation.
+        - DATABASE_DERIVED_SNAPSHOT: Analytical projection / backfill without live source evidence.
+        - UNKNOWN: Missing or unverified evidence.
+        Idempotent: re-running produces consistent state and never overwrites genuine evidence with derived data.
         """
         if snapshot_date is None:
             snapshot_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-        # Determine observation quality and audit provenance
-        if observation_quality is not None:
-            quality = observation_quality
-        elif collection_run_id is not None or observed_ad_statuses is not None:
-            quality = SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value
-        else:
-            # Check if there is an authoritative completed collection run today
-            stmt = select(CollectionRun.id).where(
-                CollectionRun.status == CollectionJobStatus.COMPLETED,
-                func.substr(func.cast(CollectionRun.created_at, sqlalchemy_text_type()), 1, 10) == snapshot_date,
-            ).limit(1)
-            linked_run_id = (await self.db.execute(stmt)).scalar()
-            if linked_run_id:
-                collection_run_id = linked_run_id
-                quality = SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value
-            else:
-                quality = SnapshotObservationQuality.DATABASE_DERIVED_SNAPSHOT.value
-                logger.info(
-                    "Creating database-derived snapshot for %s without live source collection provenance.",
-                    snapshot_date,
-                )
+        # 1. Validate collection_run_id if supplied
+        validated_run: Optional[CollectionRun] = None
+        source_records_by_ext_id: dict[str, Any] = {}
 
-        result = await self.db.execute(select(Advertisement))
-        ads = result.scalars().all()
+        if collection_run_id:
+            run_stmt = select(CollectionRun).where(
+                CollectionRun.id == collection_run_id,
+                CollectionRun.status == CollectionJobStatus.COMPLETED,
+            )
+            run_obj = (await self.db.execute(run_stmt)).scalar_one_or_none()
+            if not run_obj:
+                logger.warning(
+                    "Collection run %s not found or not completed. Cannot authenticate observations.",
+                    collection_run_id,
+                )
+            else:
+                # Prevent historical runs from manufacturing fresh observation dates
+                run_date = (run_obj.completed_at or run_obj.created_at).strftime("%Y-%m-%d")
+                if run_date != snapshot_date:
+                    logger.warning(
+                        "Collection run %s execution date (%s) does not match snapshot date (%s). Rejecting as fresh observation.",
+                        collection_run_id,
+                        run_date,
+                        snapshot_date,
+                    )
+                else:
+                    validated_run = run_obj
+                    sr_stmt = select(SourceRecord).where(
+                        SourceRecord.collection_run_id == collection_run_id,
+                        SourceRecord.source_type == DataSourceType.META_AD_LIBRARY,
+                    )
+                    srs = (await self.db.execute(sr_stmt)).scalars().all()
+                    for sr in srs:
+                        if sr.external_id:
+                            source_records_by_ext_id[str(sr.external_id)] = sr
+
+        # 2. Scope target advertisements
+        has_collection_evidence = bool(validated_run or observed_ad_statuses is not None)
+
+        if has_collection_evidence:
+            observed_ext_ids = set(source_records_by_ext_id.keys())
+            observed_keys = set(str(k) for k in observed_ad_statuses.keys()) if observed_ad_statuses else set()
+            target_ids = observed_ext_ids | observed_keys
+
+            if not target_ids:
+                logger.info("Collection run %s contains 0 Meta ad records. Created 0 observations.", collection_run_id)
+                return {
+                    "date": snapshot_date,
+                    "created": 0,
+                    "updated": 0,
+                    "observation_quality": SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value if validated_run else SnapshotObservationQuality.DATABASE_DERIVED_SNAPSHOT.value,
+                    "collection_run_id": validated_run.id if validated_run else None,
+                }
+
+            ad_stmt = select(Advertisement).where(
+                or_(
+                    Advertisement.external_id.in_(target_ids),
+                    Advertisement.id.in_(target_ids),
+                )
+            )
+            ads = list((await self.db.execute(ad_stmt)).scalars().all())
+        else:
+            # Analytical derived snapshot across all advertisements in database
+            ad_stmt = select(Advertisement)
+            ads = list((await self.db.execute(ad_stmt)).scalars().all())
 
         created = 0
         updated = 0
+        final_quality = SnapshotObservationQuality.DATABASE_DERIVED_SNAPSHOT.value
 
         for ad in ads:
-            # Determine is_active status based on provenance
-            if observed_ad_statuses is not None:
-                # Direct live observation dictionary: maps ad id or external_id -> bool
-                ad_is_active = bool(observed_ad_statuses.get(ad.id, observed_ad_statuses.get(ad.external_id, False)))
-            else:
-                ad_is_active = bool(ad.is_active)
-
-            existing = await self.db.execute(
+            existing = (await self.db.execute(
                 select(AdvertisementSnapshot).where(
                     AdvertisementSnapshot.advertisement_id == ad.id,
                     AdvertisementSnapshot.snapshot_date == snapshot_date,
                 )
-            )
-            snap = existing.scalar_one_or_none()
+            )).scalar_one_or_none()
 
-            raw_meta = {
-                "observation_quality": quality,
-                "collection_run_id": collection_run_id,
-            }
+            # Prevent derived snapshots from overwriting genuine evidence
+            if existing and existing.observation_quality in (
+                SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value,
+                SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value,
+            ):
+                is_verified_input = bool(
+                    (validated_run and str(ad.external_id) in source_records_by_ext_id)
+                    or (observed_ad_statuses and (ad.id in observed_ad_statuses or ad.external_id in observed_ad_statuses))
+                )
+                if not is_verified_input:
+                    logger.info("Preserving existing verified observation for ad %s on %s; skipping derived overwrite.", ad.id, snapshot_date)
+                    continue
 
-            if snap:
+            # Determine status and evidence-validated observation quality
+            if observed_ad_statuses is not None and (ad.id in observed_ad_statuses or ad.external_id in observed_ad_statuses):
+                ad_is_active = bool(observed_ad_statuses.get(ad.id, observed_ad_statuses.get(ad.external_id)))
+                quality = SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value
+                active_run_id = validated_run.id if validated_run else (collection_run_id or (existing.collection_run_id if existing else None))
+                raw_meta = {
+                    "provenance": "observed_ad_statuses",
+                    "observation_quality": quality,
+                    "observed_at": datetime.now(timezone.utc).isoformat(),
+                    "collection_run_id": active_run_id,
+                }
+            elif validated_run and str(ad.external_id) in source_records_by_ext_id:
+                srec = source_records_by_ext_id[str(ad.external_id)]
+                ad_is_active = True
+                quality = SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value
+                active_run_id = validated_run.id
+                raw_meta = {
+                    "provenance": "verified_source_record",
+                    "observation_quality": quality,
+                    "source_record_id": srec.id,
+                    "collection_run_id": validated_run.id,
+                    "ad_archive_id": ad.external_id,
+                    "observed_at": (srec.created_at or datetime.now(timezone.utc)).isoformat(),
+                }
+            else:
+                # Derived projection without live source observation
+                ad_is_active = bool(ad.is_active)
+                quality = SnapshotObservationQuality.DATABASE_DERIVED_SNAPSHOT.value
+                active_run_id = None
+                raw_meta = {
+                    "provenance": "database_derived_projection",
+                    "observation_quality": quality,
+                    "note": "analytical snapshot without live Meta source observation",
+                }
+
+            final_quality = quality
+
+            if snap := existing:
                 snap.is_active = ad_is_active
                 snap.observation_quality = quality
-                if collection_run_id:
-                    snap.collection_run_id = collection_run_id
+                snap.collection_run_id = active_run_id
                 snap.raw_snapshot = raw_meta
                 updated += 1
             else:
@@ -121,7 +201,7 @@ class TemporalEngine:
                     snapshot_date=snapshot_date,
                     is_active=ad_is_active,
                     source_type=ad.source_type,
-                    collection_run_id=collection_run_id,
+                    collection_run_id=active_run_id,
                     observation_quality=quality,
                     raw_snapshot=raw_meta,
                 )
@@ -132,7 +212,7 @@ class TemporalEngine:
         logger.info(
             "Snapshot %s (quality=%s): %d created, %d updated",
             snapshot_date,
-            quality,
+            final_quality,
             created,
             updated,
         )
@@ -140,8 +220,8 @@ class TemporalEngine:
             "date": snapshot_date,
             "created": created,
             "updated": updated,
-            "observation_quality": quality,
-            "collection_run_id": collection_run_id,
+            "observation_quality": final_quality,
+            "collection_run_id": validated_run.id if validated_run else None,
         }
 
     # ── Daily Metrics Aggregation ────────────────────────────────────────
@@ -183,7 +263,10 @@ class TemporalEngine:
             select(func.count(AdvertisementSnapshot.id)).where(
                 AdvertisementSnapshot.snapshot_date == metric_date,
                 AdvertisementSnapshot.is_active == True,
-                AdvertisementSnapshot.observation_quality == SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value,
+                AdvertisementSnapshot.observation_quality.in_([
+                    SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value,
+                    SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value,
+                ]),
                 AdvertisementSnapshot.advertisement_id.in_(
                     select(Advertisement.id).where(Advertisement.product_id == product_id)
                 ),

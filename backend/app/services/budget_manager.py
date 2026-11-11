@@ -157,9 +157,45 @@ class ApifyBudgetManager:
 
         seen_apify_ids = set()
 
+        # Pre-fetch completed collection runs to synchronize any direct completions
+        completed_runs_stmt = select(CollectionRun).where(
+            CollectionRun.status.in_([CollectionJobStatus.COMPLETED, CollectionJobStatus.FAILED])
+        )
+        completed_runs = (await self.db.execute(completed_runs_stmt)).scalars().all()
+        completed_by_res_id = {}
+        for cr in completed_runs:
+            if cr.errors and isinstance(cr.errors, dict) and cr.errors.get("reservation_id"):
+                completed_by_res_id[cr.errors["reservation_id"]] = cr
+
+        seen_cr_ids = set()
         for r in reservations_all:
             if r.apify_run_id:
                 seen_apify_ids.add(r.apify_run_id)
+
+            # Check if associated CollectionRun has completed
+            assoc_cr = completed_by_res_id.get(r.id)
+            if not assoc_cr and r.input_payload and isinstance(r.input_payload, dict):
+                r_run_id = r.input_payload.get("run_id")
+                if r_run_id:
+                    for cr in completed_runs:
+                        if cr.id == r_run_id:
+                            assoc_cr = cr
+                            break
+
+            if assoc_cr:
+                seen_cr_ids.add(assoc_cr.id)
+                if r.status in UNRESOLVED_STATUSES:
+                    cr_cost_status = assoc_cr.errors.get("cost_status") if (assoc_cr.errors and isinstance(assoc_cr.errors, dict)) else None
+                    if cr_cost_status == "NEEDS_RECONCILIATION" or r.status == ApifyReservationStatus.NEEDS_RECONCILIATION.value:
+                        r.status = ApifyReservationStatus.NEEDS_RECONCILIATION.value
+                        r.actual_amount_usd = float(assoc_cr.errors.get("actual_cost_usd", r.reserved_amount_usd)) if (assoc_cr.errors and isinstance(assoc_cr.errors, dict)) else r.reserved_amount_usd
+                    elif assoc_cr.status == CollectionJobStatus.COMPLETED:
+                        r.status = ApifyReservationStatus.SUCCEEDED.value
+                        r.actual_amount_usd = float(assoc_cr.errors.get("actual_cost_usd", r.reserved_amount_usd)) if (assoc_cr.errors and isinstance(assoc_cr.errors, dict)) else r.reserved_amount_usd
+                    else:
+                        r.status = ApifyReservationStatus.FAILED.value
+                        r.actual_amount_usd = float(assoc_cr.errors.get("actual_cost_usd", 0.0)) if (assoc_cr.errors and isinstance(assoc_cr.errors, dict)) else 0.0
+                    await self.db.flush()
 
             # Determine cost for this reservation
             if r.status in UNRESOLVED_STATUSES:
@@ -199,7 +235,7 @@ class ApifyBudgetManager:
         historical_runs = (await self.db.execute(runs_stmt)).scalars().all()
 
         for cr in historical_runs:
-            if cr.id in seen_apify_ids:
+            if cr.id in seen_apify_ids or cr.id in seen_cr_ids:
                 continue
 
             # Calculate cost

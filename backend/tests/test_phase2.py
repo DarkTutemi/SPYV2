@@ -17,6 +17,7 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 from datetime import datetime, timezone, timedelta
+from sqlalchemy import select
 
 from app.core.database import Base, engine, async_session_factory
 from app.engines.fingerprinting import (
@@ -402,9 +403,9 @@ class TestTemporalEngine:
         await db.commit()
 
         engine = TemporalEngine(db)
-        await engine.create_daily_snapshot(
-            observation_quality=SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value
-        )
+        ads = (await db.execute(select(Advertisement).where(Advertisement.product_id == product.id))).scalars().all()
+        observed_statuses = {str(a.id): True for a in ads}
+        await engine.create_daily_snapshot(observed_ad_statuses=observed_statuses)
         metrics = await engine.aggregate_daily_metrics()
         await db.commit()
 

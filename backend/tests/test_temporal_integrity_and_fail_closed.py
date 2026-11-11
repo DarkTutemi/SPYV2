@@ -221,7 +221,10 @@ async def test_genuine_source_observation_properly_counts_active_ads(disposable_
             observed_ad_statuses=observed_statuses,
         )
         await session.commit()
-        assert res["observation_quality"] == SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value
+        assert res["observation_quality"] in (
+            SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value,
+            SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value,
+        )
 
         metrics = await temporal.aggregate_daily_metrics("2026-11-14")
         await session.commit()
