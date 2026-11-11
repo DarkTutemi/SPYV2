@@ -61,6 +61,11 @@ class BudgetExceededError(RuntimeError):
     pass
 
 
+class BudgetLockError(BudgetExceededError):
+    """Raised when database serialization lock cannot be acquired, failing closed to refuse reservation."""
+    pass
+
+
 class InFlightRunPendingError(RuntimeError):
     """Raised when an un-reconciled in-flight run is still active."""
     pass
@@ -104,8 +109,18 @@ class ApifyBudgetManager:
         """
         Acquires SQLite write serialization lock via exclusive UPDATE on the lock table.
         Prevents race conditions between concurrent worker processes attempting budget check-and-reserve.
+        FAILS CLOSED: If lock table is missing or locking fails, raises BudgetLockError to refuse reservation.
         """
         try:
+            # Check table existence (SQLite check)
+            tbl_check = await self.db.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table' AND name='apify_budget_locks'")
+            )
+            if not tbl_check.scalar_one_or_none():
+                raise BudgetLockError(
+                    "Database budget lock table 'apify_budget_locks' does not exist. Failing closed to refuse reservation."
+                )
+
             # Upsert/Update lock row 1 to force immediate write lock acquisition
             await self.db.execute(
                 text(
@@ -116,8 +131,11 @@ class ApifyBudgetManager:
                 {"who": session_id, "now": _utcnow()},
             )
             await self.db.flush()
+        except BudgetLockError:
+            raise
         except Exception as e:
-            logger.warning("Could not execute lock table update (proceeding with session transaction): %s", e)
+            logger.error("Failed to acquire database budget lock: %s. Refusing reservation (fail-closed).", e)
+            raise BudgetLockError(f"Failed to acquire database budget lock: {e}") from e
 
     async def get_spend_metrics(self, session_id: str = "default_session") -> dict[str, Any]:
         """
@@ -427,10 +445,14 @@ class ApifyBudgetManager:
             elif actual_cost_usd == 0.0 and explicit_zero_confirmed:
                 cost = 0.0
                 reconciled_notes += " [Explicit verified zero-charge confirmed by provider]"
-            elif final_status == ApifyReservationStatus.FAILED.value and not res.apify_run_id and not res.launch_attempted_at:
-                # Pre-launch failure (e.g. invalid local payload, zero remote call made)
+            elif final_status == ApifyReservationStatus.FAILED.value and not res.apify_run_id and (
+                not res.launch_attempted_at
+                or detail.get("definitive_client_rejection") is True
+                or (isinstance(detail.get("http_status"), int) and 400 <= detail.get("http_status") < 500)
+            ):
+                # Pre-launch failure or definitive client-side rejection (e.g. 400, 401, 403, 404, 422 where no run was created)
                 cost = 0.0
-                reconciled_notes += " [Pre-launch validation failure: no remote call made]"
+                reconciled_notes += " [Definitive client-side rejection: provider confirmed no run created]"
             else:
                 # Conservative fallback: hold reservation amount so zero dollars leak
                 cost = res.reserved_amount_usd

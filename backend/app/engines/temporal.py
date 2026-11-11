@@ -29,6 +29,7 @@ from app.models.models import (
     EvidenceType,
     Product,
     ProductDailyMetric,
+    SnapshotObservationQuality,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,13 +43,43 @@ class TemporalEngine:
 
     # ── Daily Snapshot ───────────────────────────────────────────────────
 
-    async def create_daily_snapshot(self, snapshot_date: Optional[str] = None) -> dict:
+    async def create_daily_snapshot(
+        self,
+        snapshot_date: Optional[str] = None,
+        collection_run_id: Optional[str] = None,
+        observed_ad_statuses: Optional[dict[str, bool]] = None,
+        observation_quality: Optional[str] = None,
+    ) -> dict:
         """
-        Snapshot all advertisements' current active status for the given date.
+        Snapshot advertisements' status for the given date.
+        Distinguishes genuine source observations (with collection provenance)
+        from database-derived snapshots (analytical backfills/projections).
         Idempotent: re-running for the same date updates existing snapshots.
         """
         if snapshot_date is None:
             snapshot_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Determine observation quality and audit provenance
+        if observation_quality is not None:
+            quality = observation_quality
+        elif collection_run_id is not None or observed_ad_statuses is not None:
+            quality = SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value
+        else:
+            # Check if there is an authoritative completed collection run today
+            stmt = select(CollectionRun.id).where(
+                CollectionRun.status == CollectionJobStatus.COMPLETED,
+                func.substr(func.cast(CollectionRun.created_at, sqlalchemy_text_type()), 1, 10) == snapshot_date,
+            ).limit(1)
+            linked_run_id = (await self.db.execute(stmt)).scalar()
+            if linked_run_id:
+                collection_run_id = linked_run_id
+                quality = SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value
+            else:
+                quality = SnapshotObservationQuality.DATABASE_DERIVED_SNAPSHOT.value
+                logger.info(
+                    "Creating database-derived snapshot for %s without live source collection provenance.",
+                    snapshot_date,
+                )
 
         result = await self.db.execute(select(Advertisement))
         ads = result.scalars().all()
@@ -57,6 +88,13 @@ class TemporalEngine:
         updated = 0
 
         for ad in ads:
+            # Determine is_active status based on provenance
+            if observed_ad_statuses is not None:
+                # Direct live observation dictionary: maps ad id or external_id -> bool
+                ad_is_active = bool(observed_ad_statuses.get(ad.id, observed_ad_statuses.get(ad.external_id, False)))
+            else:
+                ad_is_active = bool(ad.is_active)
+
             existing = await self.db.execute(
                 select(AdvertisementSnapshot).where(
                     AdvertisementSnapshot.advertisement_id == ad.id,
@@ -65,22 +103,46 @@ class TemporalEngine:
             )
             snap = existing.scalar_one_or_none()
 
+            raw_meta = {
+                "observation_quality": quality,
+                "collection_run_id": collection_run_id,
+            }
+
             if snap:
-                snap.is_active = bool(ad.is_active)
+                snap.is_active = ad_is_active
+                snap.observation_quality = quality
+                if collection_run_id:
+                    snap.collection_run_id = collection_run_id
+                snap.raw_snapshot = raw_meta
                 updated += 1
             else:
                 snap = AdvertisementSnapshot(
                     advertisement_id=ad.id,
                     snapshot_date=snapshot_date,
-                    is_active=bool(ad.is_active),
+                    is_active=ad_is_active,
                     source_type=ad.source_type,
+                    collection_run_id=collection_run_id,
+                    observation_quality=quality,
+                    raw_snapshot=raw_meta,
                 )
                 self.db.add(snap)
                 created += 1
 
         await self.db.flush()
-        logger.info("Snapshot %s: %d created, %d updated", snapshot_date, created, updated)
-        return {"date": snapshot_date, "created": created, "updated": updated}
+        logger.info(
+            "Snapshot %s (quality=%s): %d created, %d updated",
+            snapshot_date,
+            quality,
+            created,
+            updated,
+        )
+        return {
+            "date": snapshot_date,
+            "created": created,
+            "updated": updated,
+            "observation_quality": quality,
+            "collection_run_id": collection_run_id,
+        }
 
     # ── Daily Metrics Aggregation ────────────────────────────────────────
 
@@ -111,26 +173,27 @@ class TemporalEngine:
     async def _compute_product_daily_metric(
         self, product_id: str, metric_date: str
     ) -> Optional[ProductDailyMetric]:
-        """Compute or update one product's daily metric."""
-        # Active ads (from snapshots if available, otherwise from advertisement table)
+        """
+        Compute or update one product's daily metric.
+        Requires genuine source observation provenance for confirmed active ads.
+        Zero confirmed active ads stays strictly zero (no fallback to advertisements table).
+        """
+        # Active ads: count ONLY genuine source observations where is_active is True!
         active_count = (await self.db.execute(
             select(func.count(AdvertisementSnapshot.id)).where(
                 AdvertisementSnapshot.snapshot_date == metric_date,
                 AdvertisementSnapshot.is_active == True,
+                AdvertisementSnapshot.observation_quality == SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value,
                 AdvertisementSnapshot.advertisement_id.in_(
                     select(Advertisement.id).where(Advertisement.product_id == product_id)
                 ),
             )
         )).scalar() or 0
 
-        # If no snapshots, fall back to advertisement table
-        if active_count == 0:
-            active_count = (await self.db.execute(
-                select(func.count(Advertisement.id)).where(
-                    Advertisement.product_id == product_id,
-                    Advertisement.is_active == True,
-                )
-            )).scalar() or 0
+        # Note: We do NOT fall back to the advertisements table!
+        # Requirement 4: When active snapshots for a date are zero because no collection was executed
+        # or no ads were confirmed active, DO NOT fall back to historic Advertisement.is_active.
+        # Zero confirmed active ads is zero.
 
         # New ads (first_seen on this date)
         new_ad_count = (await self.db.execute(

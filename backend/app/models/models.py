@@ -124,6 +124,22 @@ class PriceEvidenceType(str, enum.Enum):
         return None
 
 
+class SnapshotObservationQuality(str, enum.Enum):
+    """Explicit observation-quality and provenance classification for advertisement snapshots."""
+    GENUINE_SOURCE_OBSERVATION = "GENUINE_SOURCE_OBSERVATION"
+    DATABASE_DERIVED_SNAPSHOT = "DATABASE_DERIVED_SNAPSHOT"
+    UNKNOWN = "UNKNOWN"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            upper_val = value.strip().upper()
+            for member in cls:
+                if member.value == upper_val or member.name == upper_val:
+                    return member
+        return None
+
+
 class RelationshipType(str, enum.Enum):
     IDENTICAL_CREATIVE = "identical_creative"
     IDENTICAL_PRODUCT = "identical_product"
@@ -347,6 +363,9 @@ class AdvertisementSnapshot(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False)
     source_type: Mapped[DataSourceType] = mapped_column(Enum(DataSourceType), nullable=False)
     collection_run_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("collection_runs.id"), nullable=True)
+    observation_quality: Mapped[str] = mapped_column(
+        String(50), default="UNKNOWN", nullable=False
+    )
     raw_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
@@ -355,6 +374,7 @@ class AdvertisementSnapshot(Base):
     __table_args__ = (
         UniqueConstraint("advertisement_id", "snapshot_date", name="uq_ad_snapshot_date"),
         Index("ix_snapshots_date", "snapshot_date"),
+        Index("ix_snapshots_quality", "observation_quality"),
     )
 
 

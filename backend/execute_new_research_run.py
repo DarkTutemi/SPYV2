@@ -155,19 +155,69 @@ async def execute_run():
                     break
 
                 if start_resp.status_code not in (200, 201):
-                    logger.error(f"Failed to start actor run {actor_id}: HTTP {start_resp.status_code} - {start_resp.text}")
+                    # Ambiguous vs definitive start failures (Issue 3 hardening)
+                    if 400 <= start_resp.status_code < 500:
+                        logger.error(f"Definitive client error starting {actor_id}: HTTP {start_resp.status_code} - {start_resp.text}")
+                        await bm.reconcile_run(
+                            reservation_id=reservation.id,
+                            final_status="FAILED",
+                            actual_cost_usd=0.0,
+                            billing_detail={
+                                "http_status": start_resp.status_code,
+                                "definitive_client_rejection": True,
+                                "response_text": start_resp.text[:500],
+                            },
+                            notes=f"HTTP {start_resp.status_code} definitive client rejection by Apify on start (no run created)",
+                        )
+                        await db_session.commit()
+                        if start_resp.status_code in (401, 403):
+                            logger.error(f"Fatal auth error HTTP {start_resp.status_code}. Halting run sequence.")
+                            break
+                        continue
+                    else:
+                        logger.error(f"Ambiguous server error starting {actor_id}: HTTP {start_resp.status_code} - {start_resp.text}")
+                        await bm.reconcile_run(
+                            reservation_id=reservation.id,
+                            final_status="NEEDS_RECONCILIATION",
+                            actual_cost_usd=budget_cap,
+                            billing_detail={
+                                "http_status": start_resp.status_code,
+                                "ambiguous_failure": True,
+                                "response_text": start_resp.text[:500],
+                            },
+                            notes=f"HTTP {start_resp.status_code} ambiguous provider error during dispatch. Preserved full budget cap.",
+                        )
+                        await db_session.commit()
+                        logger.warning("Ambiguous launch failure encountered. Halting sequence to prevent overspend.")
+                        break
+
+                try:
+                    run_data = start_resp.json().get("data", {})
+                except Exception as json_err:
+                    logger.error(f"Failed to parse JSON from start response for {actor_id}: {json_err}")
                     await bm.reconcile_run(
                         reservation_id=reservation.id,
-                        final_status="FAILED",
-                        actual_cost_usd=0.0,
-                        notes=f"HTTP {start_resp.status_code} rejected by Apify on start",
+                        final_status="NEEDS_RECONCILIATION",
+                        actual_cost_usd=budget_cap,
+                        notes=f"Failed to parse JSON from start response: {json_err}. Preserved full budget cap.",
                     )
                     await db_session.commit()
-                    continue
+                    break
 
-                run_data = start_resp.json().get("data", {})
                 apify_run_id = run_data.get("id")
                 dataset_id = run_data.get("defaultDatasetId")
+
+                if not apify_run_id:
+                    logger.error(f"Start response succeeded (HTTP {start_resp.status_code}) but omitted run id!")
+                    await bm.reconcile_run(
+                        reservation_id=reservation.id,
+                        final_status="NEEDS_RECONCILIATION",
+                        actual_cost_usd=budget_cap,
+                        notes="Start response succeeded but omitted data.id. Preserved full budget cap.",
+                    )
+                    await db_session.commit()
+                    break
+
                 logger.info(f"Apify Run ID: {apify_run_id} | Default Dataset: {dataset_id}")
 
                 # 3. SAVE REMOTE RUN ID & TRANSITION TO RUNNING
@@ -227,16 +277,39 @@ async def execute_run():
                     logger.info(f"Saved raw payload to {raw_file}")
 
                 # 7. VERIFY BILLING & RECONCILE
-                usage_usd = float(final_run_data.get("usageTotalUsd", 0.0))
+                usage_raw = final_run_data.get("usageTotalUsd")
                 charged_events = final_run_data.get("chargedEventCounts", {})
+
+                if usage_raw is None:
+                    logger.warning(
+                        f"Run {apify_run_id} missing usageTotalUsd in billing response! "
+                        f"Retaining full budget cap ${budget_cap:.4f} USD to prevent overspend."
+                    )
+                    usage_usd = budget_cap
+                    has_explicit_zero = False
+                    billing_notes = "Missing usageTotalUsd in provider response; retained reserved budget cap."
+                else:
+                    usage_usd = float(usage_raw)
+                    has_explicit_zero = (usage_usd == 0.0 and (
+                        charged_events != {}
+                        or final_run_data.get("is_free_tier") is True
+                        or final_run_data.get("pricingInfo", {}).get("pricingModel") == "FREE"
+                    ))
+                    billing_notes = f"Verified provider usage: ${usage_usd:.4f} USD"
+
                 logger.info(f"Verified Apify Run Cost: ${usage_usd:.4f} USD | Charged Events: {charged_events}")
 
                 terminal_status = "SUCCEEDED" if run_status == "SUCCEEDED" else "FAILED"
+                detail_payload = dict(final_run_data)
+                if has_explicit_zero:
+                    detail_payload["explicit_zero_charge_confirmed"] = True
+
                 await bm.reconcile_run(
                     reservation_id=reservation.id,
                     final_status=terminal_status,
                     actual_cost_usd=usage_usd,
-                    billing_detail=final_run_data,
+                    billing_detail=detail_payload,
+                    notes=billing_notes,
                 )
                 await db_session.commit()
 

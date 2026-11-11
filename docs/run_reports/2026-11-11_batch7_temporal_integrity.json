@@ -1,0 +1,57 @@
+{
+  "batch": 7,
+  "title": "Temporal Evidence Integrity & Apify Fail-Closed Hardening",
+  "executed_at": "2026-11-11T09:35:00+07:00",
+  "commit_message": "fix(reliability): prevent stale ad observations and unsafe Apify retries",
+  "defects_resolved": [
+    {
+      "issue": 1,
+      "name": "False Fresh Ad Observations",
+      "root_cause": "create_daily_snapshot() copied Advertisement.is_active into today's snapshot without external source provenance. _compute_product_daily_metric() fell back to historic Advertisement.is_active when active snapshots were zero, fabricating artificial active momentum.",
+      "remediation": [
+        "Added SnapshotObservationQuality enum (GENUINE_SOURCE_OBSERVATION, DATABASE_DERIVED_SNAPSHOT, UNKNOWN).",
+        "Added observation_quality column to advertisement_snapshots table with database index.",
+        "Ran migration on winhunter.db: 145 T0 baseline snapshots classified as GENUINE_SOURCE_OBSERVATION, 290 analytical/derived snapshots classified as DATABASE_DERIVED_SNAPSHOT. All 145 unique ads preserved.",
+        "create_daily_snapshot() requires collection_run_id or observed_ad_statuses for GENUINE_SOURCE_OBSERVATION. Analytical calls create DATABASE_DERIVED_SNAPSHOT.",
+        "Removed stale fallback in _compute_product_daily_metric(): active_ad_count counts strictly GENUINE_SOURCE_OBSERVATION active ads; zero confirmed active ads remains zero.",
+        "In scheduler.py, Step 1 skips snapshot creation during analytical cycles unless a fresh Meta collection run completed."
+      ]
+    },
+    {
+      "issue": 2,
+      "name": "Database Budget Lock Must Fail Closed",
+      "root_cause": "_acquire_db_lock() caught all exceptions and logged a warning while proceeding with unlocked transactions, risking duplicate Actor launches and overspend.",
+      "remediation": [
+        "Defined BudgetLockError(BudgetExceededError).",
+        "Verified apify_budget_locks table existence before locking; raises BudgetLockError if absent.",
+        "Refuses reservation immediately on SQLite lock contention, busy states, or DB errors without swallowing exceptions."
+      ]
+    },
+    {
+      "issue": 3,
+      "name": "Ambiguous Actor Start Failures",
+      "root_cause": "Starting an Actor run returning non-200/201 or network errors released reservation to FAILED with $0.00 and continued to next Actor. Missing usageTotalUsd defaulted to $0.00.",
+      "remediation": [
+        "Separated definitive client rejections (HTTP 4xx: 400, 401, 403, 404, 422) from ambiguous server errors (HTTP 5xx, timeouts, drops).",
+        "Ambiguous server errors, response JSON decode errors, and responses missing data.id transition to NEEDS_RECONCILIATION, retain full reserved budget cap, and halt (break) sequence.",
+        "Definitive 4xx client errors reconcile to FAILED with $0.00 and break on fatal auth errors (401, 403).",
+        "In billing check, missing or None usageTotalUsd retains reserved budget_cap rather than assuming verified $0.00."
+      ]
+    }
+  ],
+  "verification": {
+    "total_tests": 167,
+    "tests_passed": 167,
+    "tests_failed": 0,
+    "new_test_suite": "backend/tests/test_temporal_integrity_and_fail_closed.py (8 scenarios)",
+    "database_audit": {
+      "total_advertisements": 145,
+      "distinct_advertisements_in_snapshots": 145,
+      "total_snapshots": 435,
+      "genuine_source_observations": 145,
+      "database_derived_snapshots": 290
+    },
+    "zero_paid_apify_runs": true,
+    "t14_experiment_frozen": true
+  }
+}

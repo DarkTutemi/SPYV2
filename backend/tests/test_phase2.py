@@ -33,6 +33,7 @@ from app.engines.temporal import TemporalEngine
 from app.models.models import (
     Advertisement, Advertiser, Product, DataSourceType,
     ConfidenceLevel, RelationshipType,
+    SnapshotObservationQuality,
 )
 
 
@@ -401,7 +402,9 @@ class TestTemporalEngine:
         await db.commit()
 
         engine = TemporalEngine(db)
-        await engine.create_daily_snapshot()
+        await engine.create_daily_snapshot(
+            observation_quality=SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value
+        )
         metrics = await engine.aggregate_daily_metrics()
         await db.commit()
 

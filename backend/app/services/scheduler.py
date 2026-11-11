@@ -243,14 +243,32 @@ class SchedulerService:
                 await db.flush()
 
                 # Step 1: Snapshots
-                try:
-                    temporal = TemporalEngine(db)
-                    snap_result = await temporal.create_daily_snapshot(today)
-                    steps["snapshot"] = snap_result
-                    logger.info("Step 1/6 — Snapshot: %s", snap_result)
-                except Exception as e:
-                    errors["snapshot"] = str(e)
-                    logger.error("Step 1 FAILED: %s", e)
+                # Requirement 5: Do not create false daily snapshots in analytical loops unless a real Meta observation run was completed.
+                has_fresh_collection = bool(
+                    self._last_collection
+                    and self._last_collection.date() == start_time.date()
+                    and self._last_collection_result
+                    and self._last_collection_result.get("status") == "success"
+                )
+                if has_fresh_collection:
+                    try:
+                        temporal = TemporalEngine(db)
+                        c_run_id = self._last_collection_result.get("collection_run_id")
+                        snap_result = await temporal.create_daily_snapshot(
+                            snapshot_date=today,
+                            collection_run_id=c_run_id,
+                        )
+                        steps["snapshot"] = snap_result
+                        logger.info("Step 1/6 — Snapshot: %s", snap_result)
+                    except Exception as e:
+                        errors["snapshot"] = str(e)
+                        logger.error("Step 1 FAILED: %s", e)
+                else:
+                    steps["snapshot"] = {
+                        "status": "skipped",
+                        "reason": "No live Meta collection run completed in this cycle; skipping daily snapshot creation to prevent false active ad observations."
+                    }
+                    logger.info("Step 1/6 — Snapshot skipped: no fresh collection run in this cycle")
 
                 # Step 2: Aggregate metrics
                 try:

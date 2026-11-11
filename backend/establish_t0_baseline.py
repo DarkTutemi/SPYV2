@@ -16,6 +16,7 @@ from app.models.models import (
     DataSourceType,
     Product,
     SourceRecord,
+    SnapshotObservationQuality,
 )
 
 async def establish_baseline():
@@ -98,6 +99,7 @@ async def establish_baseline():
                     is_active=bool(ad.is_active),
                     source_type=DataSourceType.META_AD_LIBRARY,
                     collection_run_id=c_run_id,
+                    observation_quality=SnapshotObservationQuality.GENUINE_SOURCE_OBSERVATION.value,
                     raw_snapshot={
                         "creative_fingerprint": fingerprint,
                         "ad_archive_id": ad.external_id,
