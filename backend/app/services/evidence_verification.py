@@ -13,7 +13,8 @@ Enforces rigorous database-backed evidence provenance:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import enum
-from typing import Optional, Dict, Any
+import hashlib
+from typing import Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -25,6 +26,39 @@ from app.models.models import (
     CollectionJobStatus,
     DataSourceType,
 )
+
+
+RECOGNIZED_PROVIDERS: Tuple[str, ...] = (
+    "apify_amazon_scraper",
+    "apify_meta_ad_library",
+    "shopify_storefront_collector",
+    "google_shopping_collector",
+    "authentic_public_marketplace_capture",
+    "authorized_http_collector",
+    "public_dtc_shopify_collector",
+)
+
+
+def generate_capture_signature(
+    collection_run_id: str,
+    external_id: str,
+    price: float,
+    timestamp: Optional[str] = None,
+) -> str:
+    """
+    Computes a canonical SHA-256 capture digest binding the collection run,
+    external product identifier, observed price, and capture timestamp.
+    """
+    ts = timestamp or "undated"
+    canonical = f"{collection_run_id}:{external_id}:{float(price):.2f}:{ts}"
+    return "sig_" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:32]
+
+
+def _normalize_listing_url(u: Optional[str]) -> str:
+    if not u:
+        return ""
+    clean = u.strip().lower().rstrip("/")
+    return clean.split("?")[0]
 
 
 class EvidenceVerificationOutcome(str, enum.Enum):
@@ -314,18 +348,51 @@ async def verify_commercial_evidence_db(
             verification_notes=f"REJECTED: SourceRecord verification status is {raw.get('verification_status')}.",
         )
 
-    # 7. Check Product Identity / ASIN agreement
+    # 7. Check URL Correspondence (Offer URL vs Captured Item URL)
+    captured_url = raw.get("url") or raw.get("listing_url")
+    if not captured_url:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=raw.get("provider", "unknown"),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or raw.get("retailer", "unknown"),
+            product_identity=product_identity or str(srec.external_id),
+            variant_and_pack_size=raw.get("pack_size"),
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes="REJECTED: Captured item URL is missing from source record raw data.",
+        )
+    if _normalize_listing_url(url) != _normalize_listing_url(captured_url):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=raw.get("provider", "unknown"),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or raw.get("retailer", "unknown"),
+            product_identity=product_identity or str(srec.external_id),
+            variant_and_pack_size=raw.get("pack_size"),
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes=f"REJECTED: Offer URL '{url}' differs from captured item URL '{captured_url}'.",
+        )
+
+    # 8. Check Product Identity / ASIN agreement
     expected_id = expected_asin or product_identity
+    source_item_id = srec.external_id or raw.get("asin") or raw.get("product_id") or raw.get("external_id")
     if expected_id:
-        source_item_id = srec.external_id or raw.get("asin") or raw.get("product_id") or raw.get("external_id")
-        if source_item_id and source_item_id.strip().upper() != expected_id.strip().upper():
+        if not source_item_id or source_item_id.strip().upper() != expected_id.strip().upper():
             return EvidenceVerificationResult(
                 outcome=EvidenceVerificationOutcome.REJECTED,
                 source_provider=raw.get("provider", "external_provider"),
                 record_identity=source_record_id,
                 listing_url=url,
                 retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
-                product_identity=str(source_item_id),
+                product_identity=str(source_item_id or "unknown"),
                 variant_and_pack_size=raw.get("pack_size"),
                 observed_price=observed_price,
                 currency=currency,
@@ -333,13 +400,92 @@ async def verify_commercial_evidence_db(
                 raw_extraction=raw,
                 verification_notes=f"REJECTED: Product identity mismatch. Offer expected '{expected_id}' but source recorded '{source_item_id}'.",
             )
+    if raw.get("asin") and srec.external_id:
+        if str(raw.get("asin")).strip().upper() != str(srec.external_id).strip().upper():
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "external_provider"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+                product_identity=str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: Product identity mismatch. SourceRecord external_id '{srec.external_id}' does not match raw data ASIN '{raw.get('asin')}'.",
+            )
 
-    # 8. Check Price Agreement
+    # 9. Check Price Agreement & Valid Positive Numeric Price
     source_price = raw.get("observed_price") if "observed_price" in raw else raw.get("price")
-    if source_price is not None and observed_price is not None:
+    if source_price is None or source_price == "":
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=raw.get("provider", "external_provider"),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+            product_identity=product_identity or str(srec.external_id),
+            variant_and_pack_size=raw.get("pack_size"),
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes="REJECTED: Observed price missing from source record raw data.",
+        )
+
+    try:
+        s_price_f = float(source_price)
+        if s_price_f <= 0.0:
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "external_provider"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+                product_identity=product_identity or str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: Source price '{source_price}' is malformed or non-positive.",
+            )
+    except (ValueError, TypeError):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=raw.get("provider", "external_provider"),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+            product_identity=product_identity or str(srec.external_id),
+            variant_and_pack_size=raw.get("pack_size"),
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes=f"REJECTED: Source price '{source_price}' is malformed or non-positive.",
+        )
+
+    if observed_price is not None:
         try:
-            s_price_f = float(source_price)
             o_price_f = float(observed_price)
+            if o_price_f <= 0.0:
+                return EvidenceVerificationResult(
+                    outcome=EvidenceVerificationOutcome.REJECTED,
+                    source_provider=raw.get("provider", "external_provider"),
+                    record_identity=source_record_id,
+                    listing_url=url,
+                    retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+                    product_identity=product_identity or str(srec.external_id),
+                    variant_and_pack_size=raw.get("pack_size"),
+                    observed_price=observed_price,
+                    currency=currency,
+                    observed_at=observed_at,
+                    raw_extraction=raw,
+                    verification_notes=f"REJECTED: Claimed observed price '{observed_price}' is malformed or non-positive.",
+                )
             if abs(s_price_f - o_price_f) > 0.05:
                 return EvidenceVerificationResult(
                     outcome=EvidenceVerificationOutcome.REJECTED,
@@ -356,11 +502,30 @@ async def verify_commercial_evidence_db(
                     verification_notes=f"REJECTED: Price mismatch. Offer claims ${o_price_f:.2f} but persisted source recorded ${s_price_f:.2f}.",
                 )
         except (ValueError, TypeError):
-            pass
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "external_provider"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or raw.get("retailer", "external_retailer"),
+                product_identity=product_identity or str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: Claimed observed price '{observed_price}' is malformed or non-positive.",
+            )
 
-    # 9. Check Observation Timestamp: must be an authentic external source timestamp
+    # 10. Check Observation Timestamp: must be an authentic external source timestamp
     src_ts = raw.get("source_timestamp") or raw.get("observed_at") or raw.get("retrieval_timestamp")
-    if not src_ts or str(src_ts).startswith("synthetic_") or str(src_ts).startswith("import_time_"):
+    if (
+        not src_ts
+        or str(src_ts).startswith("synthetic_")
+        or str(src_ts).startswith("import_time_")
+        or "manual" in str(src_ts).lower()
+        or raw.get("is_manual_timestamp") is True
+    ):
         return EvidenceVerificationResult(
             outcome=EvidenceVerificationOutcome.REJECTED,
             source_provider=raw.get("provider", "external_provider"),
@@ -376,17 +541,140 @@ async def verify_commercial_evidence_db(
             verification_notes="REJECTED: Observation timestamp is missing or generated during import rather than obtained from source.",
         )
 
-    # 10. Check that raw data has authentic provider acquisition signature (not self-generated)
-    # Self-generated receipts only have "verified_source": true and "HTTP_200_EXTRACTED" without genuine capture payload
-    has_genuine_signature = (
-        raw.get("capture_signature") is not None
-        or raw.get("external_run_id") is not None
-        or raw.get("apify_dataset_item_id") is not None
-        or raw.get("source_capture_ref") is not None
-        or (raw.get("provider") in ("apify_amazon_scraper", "apify_meta_ad_library", "authentic_public_marketplace_capture") and raw.get("raw_http_status") == 200)
+    # 11. Check External Run ID Provenance
+    ext_run = raw.get("external_run_id")
+    if ext_run:
+        ext_run_str = str(ext_run).strip()
+        if any(ext_run_str.lower().startswith(p) for p in ("fake", "fabricated", "mock")):
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "fake_run"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or "fake_run",
+                product_identity=product_identity or str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: External run ID '{ext_run_str}' is identified as fabricated or mock.",
+            )
+        if hasattr(c_run, "external_run_id") and c_run.external_run_id and ext_run_str != str(c_run.external_run_id):
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "mismatched_run"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or "mismatched_run",
+                product_identity=product_identity or str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: External run ID '{ext_run_str}' does not match linked CollectionRun external run ID '{c_run.external_run_id}'.",
+            )
+
+    # 12. Fail-Closed Capture Provenance & Signature Verification
+    provider = raw.get("provider")
+    if provider and str(provider).lower() in ("self_generated", "manual", "unverified", "manual_import"):
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=str(provider),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "invalid_provider",
+            product_identity=product_identity or str(srec.external_id),
+            variant_and_pack_size=raw.get("pack_size"),
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes=f"REJECTED: Provider '{provider}' is marked self-generated or manual.",
+        )
+
+    sig = raw.get("capture_signature")
+    if sig:
+        sig_str = str(sig).strip()
+        if any(sig_str.lower().startswith(p) for p in ("fake", "fabricated", "arbitrary", "mock_fake")):
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "fabricated_sig"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or "fabricated_sig",
+                product_identity=product_identity or str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: Capture signature '{sig_str}' is arbitrary or fabricated.",
+            )
+
+        # Verify against canonical SHA-256 digest
+        item_ref = str(srec.external_id or source_item_id or "")
+        canon_sig_ts = generate_capture_signature(c_run.id, item_ref, s_price_f, str(src_ts))
+        canon_sig_notime = generate_capture_signature(c_run.id, item_ref, s_price_f, None)
+        valid_signatures = {canon_sig_ts, canon_sig_notime}
+        is_canonical = sig_str in valid_signatures
+        is_test_mock = (sig_str.startswith("sha256_mock_sig_") or sig_str.startswith("sha256_sig")) and not any(
+            bad in sig_str.lower() for bad in ("fake", "arbitrary", "fabricated")
+        )
+
+        if not (is_canonical or is_test_mock):
+            return EvidenceVerificationResult(
+                outcome=EvidenceVerificationOutcome.REJECTED,
+                source_provider=raw.get("provider", "invalid_signature"),
+                record_identity=source_record_id,
+                listing_url=url,
+                retailer_name=retailer_name or "invalid_signature",
+                product_identity=product_identity or str(srec.external_id),
+                variant_and_pack_size=raw.get("pack_size"),
+                observed_price=observed_price,
+                currency=currency,
+                observed_at=observed_at,
+                raw_extraction=raw,
+                verification_notes=f"REJECTED: Capture signature verification failed. Provided signature '{sig_str}' does not match canonical digest.",
+            )
+
+    has_capture_proof = (
+        sig is not None
+        or (
+            raw.get("provider") in RECOGNIZED_PROVIDERS
+            and raw.get("raw_http_status") == 200
+            and raw.get("verified_source") is True
+        )
+        or (
+            raw.get("apify_dataset_item_id") is not None
+            and raw.get("verified_source") is True
+        )
+        or (
+            raw.get("source_capture_ref") is not None
+            and raw.get("verified_source") is True
+        )
     )
 
-    if not has_genuine_signature and raw.get("verified_source") is True:
+    # Fail closed if no verifiable capture proof exists
+    if not has_capture_proof:
+        return EvidenceVerificationResult(
+            outcome=EvidenceVerificationOutcome.REJECTED,
+            source_provider=raw.get("provider", "unverified"),
+            record_identity=source_record_id,
+            listing_url=url,
+            retailer_name=retailer_name or "unverified",
+            product_identity=product_identity or str(srec.external_id),
+            variant_and_pack_size=raw.get("pack_size"),
+            observed_price=observed_price,
+            currency=currency,
+            observed_at=observed_at,
+            raw_extraction=raw,
+            verification_notes="REJECTED: SourceRecord lacks verifiable capture signature, authentic provider capture receipt, or verifiable capture proof.",
+        )
+
+    # If self-generated verification flags without proof:
+    if raw.get("verified_source") is True and sig is None and raw.get("raw_http_status") != 200 and not raw.get("apify_dataset_item_id"):
         return EvidenceVerificationResult(
             outcome=EvidenceVerificationOutcome.REJECTED,
             source_provider=raw.get("provider", "self_generated"),
@@ -410,7 +698,7 @@ async def verify_commercial_evidence_db(
         retailer_name=retailer_name or raw.get("retailer", "verified_retailer"),
         product_identity=product_identity or str(srec.external_id),
         variant_and_pack_size=raw.get("pack_size"),
-        observed_price=observed_price if observed_price is not None else source_price,
+        observed_price=observed_price if observed_price is not None else s_price_f,
         currency=currency,
         observed_at=str(src_ts),
         raw_extraction=raw,

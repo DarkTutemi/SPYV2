@@ -99,134 +99,136 @@ async def remediate_legacy_discovery_data(db: AsyncSession) -> Dict[str, int]:
         "scores_modified": 0,
     }
 
-    # 1. Remediate CollectionRuns
-    for run_id, notes in ALL_TARGET_RUNS:
-        c_run = await db.get(CollectionRun, run_id)
-        if c_run:
-            needs_run_update = (
-                c_run.status != CollectionJobStatus.PARTIAL
-                or c_run.coverage_notes != notes
-                or c_run.records_fetched != 0
-                or c_run.records_new != 0
-            )
-            if needs_run_update:
-                c_run.status = CollectionJobStatus.PARTIAL
-                c_run.coverage_notes = notes
-                c_run.records_fetched = 0
-                c_run.records_new = 0
-                stats["collection_runs_modified"] += 1
+    try:
+        # 1. Remediate CollectionRuns
+        for run_id, notes in ALL_TARGET_RUNS:
+            c_run = await db.get(CollectionRun, run_id)
+            if c_run:
+                needs_run_update = (
+                    c_run.status != CollectionJobStatus.PARTIAL
+                    or c_run.coverage_notes != notes
+                    or c_run.records_fetched != 0
+                    or c_run.records_new != 0
+                )
+                if needs_run_update:
+                    c_run.status = CollectionJobStatus.PARTIAL
+                    c_run.coverage_notes = notes
+                    c_run.records_fetched = 0
+                    c_run.records_new = 0
+                    stats["collection_runs_modified"] += 1
 
-        # 2. Remediate SourceRecords for this run
-        srecs_res = await db.execute(
-            select(SourceRecord).where(SourceRecord.collection_run_id == run_id)
-        )
-        for srec in srecs_res.scalars().all():
-            needs_srec_update = (
-                srec.source_type != DataSourceType.MANUAL_IMPORT
-                or srec.geo_confidence != ConfidenceLevel.UNKNOWN
-                or not srec.is_synthetic
-                or (srec.raw_data or {}).get("verification_status") not in ("QUARANTINED_UNVERIFIED", "QUARANTINED_SELF_GENERATED_RECEIPT")
+            # 2. Remediate SourceRecords for this run
+            srecs_res = await db.execute(
+                select(SourceRecord).where(SourceRecord.collection_run_id == run_id)
             )
-            if needs_srec_update:
-                srec.source_type = DataSourceType.MANUAL_IMPORT
-                srec.geo_confidence = ConfidenceLevel.UNKNOWN
-                srec.is_synthetic = True
-                raw = dict(srec.raw_data or {})
-                raw["provenance"] = "unverified_manual_hypothesis"
-                raw["verification_status"] = "QUARANTINED_SELF_GENERATED_RECEIPT" if run_id == BATCH8_COLLECTION_RUN_ID else "QUARANTINED_UNVERIFIED"
-                raw["quarantine_reason"] = "Self-generated receipt or placeholder pattern without authentic external provider execution."
-                srec.raw_data = raw
-                stats["source_records_modified"] += 1
+            for srec in srecs_res.scalars().all():
+                needs_srec_update = (
+                    srec.source_type != DataSourceType.MANUAL_IMPORT
+                    or srec.geo_confidence != ConfidenceLevel.UNKNOWN
+                    or not srec.is_synthetic
+                    or (srec.raw_data or {}).get("verification_status") not in ("QUARANTINED_UNVERIFIED", "QUARANTINED_SELF_GENERATED_RECEIPT")
+                )
+                if needs_srec_update:
+                    srec.source_type = DataSourceType.MANUAL_IMPORT
+                    srec.geo_confidence = ConfidenceLevel.UNKNOWN
+                    srec.is_synthetic = True
+                    raw = dict(srec.raw_data or {})
+                    raw["provenance"] = "unverified_manual_hypothesis"
+                    raw["verification_status"] = "QUARANTINED_SELF_GENERATED_RECEIPT" if run_id == BATCH8_COLLECTION_RUN_ID else "QUARANTINED_UNVERIFIED"
+                    raw["quarantine_reason"] = "Self-generated receipt or placeholder pattern without authentic external provider execution."
+                    srec.raw_data = raw
+                    stats["source_records_modified"] += 1
 
-    # 3. Remediate Products, ProductOffers, BundleOffers across all quarantined items
-    for p_id in ALL_QUARANTINED_PRODUCTS.keys():
-        prod = await db.get(Product, p_id)
-        if prod:
+        # 3. Remediate Products, ProductOffers, BundleOffers across all quarantined items
+        for p_id in ALL_QUARANTINED_PRODUCTS.keys():
+            prod = await db.get(Product, p_id)
+            if prod:
+                target_status = "RESEARCH_HYPOTHESIS" if p_id in AUDITED_BATCH8_PRODUCTS else "UNVERIFIED_IMPORT"
+                needs_prod_update = (
+                    prod.opportunity_status not in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
+                    or prod.source_type != DataSourceType.MANUAL_IMPORT
+                    or prod.us_relevance_confidence != ConfidenceLevel.UNKNOWN
+                    or (prod.raw_data or {}).get("verification_status") != "QUARANTINED_UNVERIFIED"
+                )
+                if needs_prod_update:
+                    prod.opportunity_status = target_status
+                    prod.source_type = DataSourceType.MANUAL_IMPORT
+                    prod.us_relevance_confidence = ConfidenceLevel.UNKNOWN
+                    raw = dict(prod.raw_data or {})
+                    raw["provenance"] = "unverified_manual_import"
+                    raw["verification_status"] = "QUARANTINED_UNVERIFIED"
+                    raw["commercial_listing_verified"] = False
+                    raw["unsupported_claims_warning"] = "Product concepts and pricing are unverified research scenarios."
+                    prod.raw_data = raw
+                    stats["products_modified"] += 1
+
+                # ProductOffers
+                offers_res = await db.execute(
+                    select(ProductOffer).where(ProductOffer.product_id == p_id)
+                )
+                for off in offers_res.scalars().all():
+                    needs_off_update = (
+                        off.evidence_type != EvidenceType.UNVERIFIED_HYPOTHESIS
+                        or off.price_evidence_type != PriceEvidenceType.SCENARIO_PRICE
+                    )
+                    if needs_off_update:
+                        off.evidence_type = EvidenceType.UNVERIFIED_HYPOTHESIS
+                        off.price_evidence_type = PriceEvidenceType.SCENARIO_PRICE
+                        stats["product_offers_modified"] += 1
+
+                # BundleOffers
+                bundles_res = await db.execute(
+                    select(BundleOffer).where(BundleOffer.product_id == p_id)
+                )
+                for bnd in bundles_res.scalars().all():
+                    needs_bnd_update = (
+                        bnd.bundle_status != "modeled_scenario"
+                        or bnd.evidence_type != EvidenceType.UNVERIFIED_HYPOTHESIS
+                        or bnd.price_evidence_type != PriceEvidenceType.SCENARIO_PRICE
+                        or bnd.is_natural_bundle is not False
+                    )
+                    if needs_bnd_update:
+                        bnd.bundle_status = "modeled_scenario"
+                        bnd.evidence_type = EvidenceType.UNVERIFIED_HYPOTHESIS
+                        bnd.price_evidence_type = PriceEvidenceType.SCENARIO_PRICE
+                        bnd.is_natural_bundle = False
+                        stats["bundle_offers_modified"] += 1
+
+        # 4. Score recomputation & score quarantine enforcement within same atomic transaction
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        scoring = ScoringEngine(db, mode="balanced")
+
+        for p_id in ALL_QUARANTINED_PRODUCTS.keys():
             target_status = "RESEARCH_HYPOTHESIS" if p_id in AUDITED_BATCH8_PRODUCTS else "UNVERIFIED_IMPORT"
-            needs_prod_update = (
-                prod.opportunity_status not in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
-                or prod.source_type != DataSourceType.MANUAL_IMPORT
-                or prod.us_relevance_confidence != ConfidenceLevel.UNKNOWN
-                or (prod.raw_data or {}).get("verification_status") != "QUARANTINED_UNVERIFIED"
-            )
-            if needs_prod_update:
-                prod.opportunity_status = target_status
-                prod.source_type = DataSourceType.MANUAL_IMPORT
-                prod.us_relevance_confidence = ConfidenceLevel.UNKNOWN
-                raw = dict(prod.raw_data or {})
-                raw["provenance"] = "unverified_manual_import"
-                raw["verification_status"] = "QUARANTINED_UNVERIFIED"
-                raw["commercial_listing_verified"] = False
-                raw["unsupported_claims_warning"] = "Product concepts and pricing are unverified research scenarios."
-                prod.raw_data = raw
-                stats["products_modified"] += 1
-
-            # ProductOffers
-            offers_res = await db.execute(
-                select(ProductOffer).where(ProductOffer.product_id == p_id)
-            )
-            for off in offers_res.scalars().all():
-                needs_off_update = (
-                    off.evidence_type != EvidenceType.UNVERIFIED_HYPOTHESIS
-                    or off.price_evidence_type != PriceEvidenceType.SCENARIO_PRICE
+            sc_res = await db.execute(
+                select(OpportunityScore).where(
+                    OpportunityScore.product_id == p_id,
+                    OpportunityScore.score_date == today,
                 )
-                if needs_off_update:
-                    off.evidence_type = EvidenceType.UNVERIFIED_HYPOTHESIS
-                    off.price_evidence_type = PriceEvidenceType.SCENARIO_PRICE
-                    stats["product_offers_modified"] += 1
-
-            # BundleOffers
-            bundles_res = await db.execute(
-                select(BundleOffer).where(BundleOffer.product_id == p_id)
             )
-            for bnd in bundles_res.scalars().all():
-                needs_bnd_update = (
-                    bnd.bundle_status != "modeled_scenario"
-                    or bnd.evidence_type != EvidenceType.UNVERIFIED_HYPOTHESIS
-                    or bnd.price_evidence_type != PriceEvidenceType.SCENARIO_PRICE
-                    or bnd.is_natural_bundle is not False
+            score_rec = sc_res.scalar_one_or_none()
+            if score_rec:
+                needs_score_update = (
+                    score_rec.opportunity_status not in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
+                    or score_rec.evidence_confidence > 15.0
+                    or score_rec.observed_single_price_usd is not None
+                    or score_rec.observed_bundle_price_usd is not None
                 )
-                if needs_bnd_update:
-                    bnd.bundle_status = "modeled_scenario"
-                    bnd.evidence_type = EvidenceType.UNVERIFIED_HYPOTHESIS
-                    bnd.price_evidence_type = PriceEvidenceType.SCENARIO_PRICE
-                    bnd.is_natural_bundle = False
-                    stats["bundle_offers_modified"] += 1
+                if needs_score_update:
+                    score_rec.opportunity_status = target_status
+                    score_rec.evidence_confidence = 4.5
+                    score_rec.observed_single_price_usd = None
+                    score_rec.observed_bundle_price_usd = None
+                    score_rec.composite_score = min(20.0, score_rec.composite_score)
+                    score_rec.requires_verification = True
+                    stats["scores_modified"] += 1
 
-    # 4. Commit transactional changes
-    await db.commit()
-
-    # 5. Score recomputation & score quarantine enforcement
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    scoring = ScoringEngine(db, mode="balanced")
-
-    for p_id in ALL_QUARANTINED_PRODUCTS.keys():
-        target_status = "RESEARCH_HYPOTHESIS" if p_id in AUDITED_BATCH8_PRODUCTS else "UNVERIFIED_IMPORT"
-        sc_res = await db.execute(
-            select(OpportunityScore).where(
-                OpportunityScore.product_id == p_id,
-                OpportunityScore.score_date == today,
-            )
-        )
-        score_rec = sc_res.scalar_one_or_none()
-        if score_rec:
-            needs_score_update = (
-                score_rec.opportunity_status not in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
-                or score_rec.evidence_confidence > 15.0
-                or score_rec.observed_single_price_usd is not None
-                or score_rec.observed_bundle_price_usd is not None
-            )
-            if needs_score_update:
-                score_rec.opportunity_status = target_status
-                score_rec.evidence_confidence = 4.5
-                score_rec.observed_single_price_usd = None
-                score_rec.observed_bundle_price_usd = None
-                score_rec.composite_score = min(20.0, score_rec.composite_score)
-                score_rec.requires_verification = True
-                stats["scores_modified"] += 1
-
-    await db.commit()
-    return stats
+        # Single atomic commit for all remediation changes (records + scores together)
+        await db.commit()
+        return stats
+    except Exception:
+        await db.rollback()
+        raise
 
 
 if __name__ == "__main__":

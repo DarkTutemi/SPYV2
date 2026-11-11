@@ -232,17 +232,19 @@ GENUINE_PRODUCTS_DATA = [
 
 
 async def run_genuine_us_discovery_ingestion():
-    """Executes transactional, idempotent ingestion and scoring of 6 verified US products."""
-    print("=" * 70)
-    print("US WIN HUNTER — Genuine US Product Discovery Ingestion Pipeline")
-    print("=" * 70)
-
-    now = datetime.now(timezone.utc)
-    today = now.strftime("%Y-%m-%d")
-
-    async with async_session_factory() as session:
-        # 1. CollectionRun
-        c_run = await session.get(CollectionRun, VERIFIED_COLLECTION_RUN_ID)
+    """
+    DEPRECATED & PERMANENTLY DISABLED ENTRYPOINT.
+    This entrypoint is disabled to eliminate false verification pathways.
+    It cannot be used to ingest products, create completed collection runs, or promote
+    quarantined items to verified status based on hard-coded dictionaries.
+    """
+    raise RuntimeError(
+        "DEPRECATED_ENTRYPOINT: ingest_verified_us_products.py is permanently disabled and cannot be executed "
+        "as a verified marketplace ingestion pathway. It previously constructed in-memory receipts and self-certified "
+        "collection runs without external provider executions. All authentic commercial evidence must originate from "
+        "external provider executions and pass verify_commercial_evidence_db()."
+    )
+    if False:
         if not c_run:
             c_run = CollectionRun(
                 id=VERIFIED_COLLECTION_RUN_ID,
@@ -567,4 +569,7 @@ async def run_genuine_us_discovery_ingestion():
 
 
 if __name__ == "__main__":
-    asyncio.run(run_genuine_us_discovery_ingestion())
+    raise RuntimeError(
+        "DEPRECATED_ENTRYPOINT: ingest_verified_us_products.py is permanently disabled and cannot be executed. "
+        "Do not run this script against database."
+    )
