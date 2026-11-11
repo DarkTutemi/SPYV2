@@ -247,7 +247,7 @@ async def test_six_ad_collection_only_authenticates_six_ads(disposable_db):
                 collection_run_id=crun.id,
                 source_type=DataSourceType.META_AD_LIBRARY,
                 external_id=f"ad_pool_{i:03d}",
-                raw_data={"title": f"Ad {i}"},
+                raw_data={"title": f"Ad {i}", "isActive": True},
             )
             session.add(sr)
         await session.commit()

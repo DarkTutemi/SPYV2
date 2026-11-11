@@ -35,7 +35,7 @@ from app.engines.fingerprinting import ClusteringService
 from app.engines.scoring import ScoringEngine
 from app.engines.seed_engine import DiscoverySeedEngine
 from app.engines.temporal import TemporalEngine
-from app.models.models import SchedulerRunLog
+from app.models.models import SchedulerRunLog, SnapshotObservationQuality
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +140,8 @@ class SchedulerService:
             "new_products": 0,
             "new_advertisers": 0,
             "errors": [],
+            "collection_run_ids": [],
+            "collection_run_id": None,
         }
 
         try:
@@ -173,6 +175,10 @@ class SchedulerService:
                             new_recs = run_res.get("records_new", 0)
                             dupes = run_res.get("records_duplicate", 0)
                             result["records_collected"] += fetched
+                            c_id = run_res.get("collection_run_id")
+                            if c_id:
+                                result["collection_run_ids"].append(c_id)
+                                result["collection_run_id"] = c_id
                             
                             # Provide empirical feedback to seed engine
                             seed_engine.record_query_feedback(
@@ -196,8 +202,15 @@ class SchedulerService:
                     result["expansion"] = exp_res
                     if exp_res.get("success"):
                         result["records_collected"] += exp_res.get("records_fetched", 0)
+                        c_id = exp_res.get("collection_run_id")
+                        if c_id:
+                            result["collection_run_ids"].append(c_id)
+                            result["collection_run_id"] = c_id
 
-            result["status"] = "completed" if not result["errors"] else "partial"
+            if result["errors"]:
+                result["status"] = "partial" if result["records_collected"] > 0 else "failed"
+            else:
+                result["status"] = "completed"
         except Exception as e:
             logger.exception("Collection cycle critical error: %s", e)
             result["status"] = "failed"
@@ -257,23 +270,40 @@ class SchedulerService:
                 await db.flush()
 
                 # Step 1: Snapshots
-                # Requirement 5: Do not create false daily snapshots in analytical loops unless a real Meta observation run was completed.
+                # Requirement: Associate genuine snapshots with specific completed collection runs and authentic SourceRecords.
+                # Partial collection results may only produce observations for the successfully retrieved, validated advertisements.
+                # Do not infer genuine observations from date matching alone.
+                # Do not create new snapshots when no valid Meta observations exist.
+                collection_res = self._last_collection_result
                 has_fresh_collection = bool(
-                    self._last_collection
-                    and self._last_collection.date() == start_time.date()
-                    and self._last_collection_result
-                    and self._last_collection_result.get("status") == "success"
+                    collection_res
+                    and collection_res.get("status") in ("completed", "partial")
+                    and collection_res.get("records_collected", 0) > 0
+                    and collection_res.get("collection_run_ids")
                 )
                 if has_fresh_collection:
                     try:
                         temporal = TemporalEngine(db)
-                        c_run_id = self._last_collection_result.get("collection_run_id")
-                        snap_result = await temporal.create_daily_snapshot(
-                            snapshot_date=today,
-                            collection_run_id=c_run_id,
-                        )
-                        steps["snapshot"] = snap_result
-                        logger.info("Step 1/6 — Snapshot: %s", snap_result)
+                        created_total = 0
+                        updated_total = 0
+                        processed_runs = []
+                        for c_run_id in collection_res.get("collection_run_ids", []):
+                            snap_result = await temporal.create_daily_snapshot(
+                                snapshot_date=today,
+                                collection_run_id=c_run_id,
+                            )
+                            created_total += snap_result.get("created", 0)
+                            updated_total += snap_result.get("updated", 0)
+                            processed_runs.append(c_run_id)
+
+                        steps["snapshot"] = {
+                            "date": today,
+                            "created": created_total,
+                            "updated": updated_total,
+                            "observation_quality": SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value,
+                            "collection_run_ids": processed_runs,
+                        }
+                        logger.info("Step 1/6 — Snapshot: %s", steps["snapshot"])
                     except Exception as e:
                         errors["snapshot"] = str(e)
                         logger.error("Step 1 FAILED: %s", e)
@@ -282,7 +312,7 @@ class SchedulerService:
                         "status": "skipped",
                         "reason": "No live Meta collection run completed in this cycle; skipping daily snapshot creation to prevent false active ad observations."
                     }
-                    logger.info("Step 1/6 — Snapshot skipped: no fresh collection run in this cycle")
+                    logger.info("Step 1/6 — Snapshot skipped: no valid collection observations in this cycle")
 
                 # Step 2: Aggregate metrics
                 try:

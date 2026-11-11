@@ -746,7 +746,8 @@ async def test_apify_billing_details_inspection():
     # Case A: PPE Actor with platform usage and event usage
     run_data_ppe = {
         "status": "SUCCEEDED",
-        "usageTotalUsd": 0.0102,
+        "usageTotalUsd": 0.0342,
+        "usageUsd": 0.0102,
         "eventUsageTotalUsd": 0.0240,
         "chargedEventCounts": {"ads": 20},
         "pricingInfo": {

@@ -36,6 +36,67 @@ from app.models.models import (
 logger = logging.getLogger(__name__)
 
 
+def extract_ad_status(raw_data: Any) -> tuple[Optional[bool], str]:
+    """
+    Extract active/inactive status from raw source record data according to normalization contract.
+    Returns (status_bool, status_str):
+      - (True, "ACTIVE")
+      - (False, "INACTIVE")
+      - (None, "UNKNOWN")
+    Never defaults to True/False when status is ambiguous or missing.
+    """
+    if not isinstance(raw_data, dict):
+        return None, "UNKNOWN"
+
+    # 1. Check isActive
+    val = raw_data.get("isActive")
+    if val is True:
+        return True, "ACTIVE"
+    if val is False:
+        return False, "INACTIVE"
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v in ("true", "active"):
+            return True, "ACTIVE"
+        if v in ("false", "inactive", "stopped", "paused", "archived", "completed"):
+            return False, "INACTIVE"
+
+    # 2. Check is_active
+    val = raw_data.get("is_active")
+    if val is True:
+        return True, "ACTIVE"
+    if val is False:
+        return False, "INACTIVE"
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v in ("true", "active"):
+            return True, "ACTIVE"
+        if v in ("false", "inactive", "stopped", "paused", "archived", "completed"):
+            return False, "INACTIVE"
+
+    # 3. Check activeStatus (from Meta Ad scraper input/output)
+    val = raw_data.get("activeStatus")
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v == "active":
+            return True, "ACTIVE"
+        if v == "inactive":
+            return False, "INACTIVE"
+        # "all" is a query filter, not an ad status confirmation!
+
+    # 4. Check status
+    val = raw_data.get("status")
+    if isinstance(val, str):
+        v = val.strip().upper()
+        if v in ("ACTIVE", "RUNNING"):
+            return True, "ACTIVE"
+        if v in ("INACTIVE", "STOPPED", "PAUSED", "ARCHIVED", "COMPLETED", "DELETED"):
+            return False, "INACTIVE"
+
+    # Missing or ambiguous
+    return None, "UNKNOWN"
+
+
 class TemporalEngine:
     """Temporal advertising intelligence — snapshots and metrics."""
 
@@ -154,28 +215,69 @@ class TemporalEngine:
 
             # Determine status and evidence-validated observation quality
             if observed_ad_statuses is not None and (ad.id in observed_ad_statuses or ad.external_id in observed_ad_statuses):
-                ad_is_active = bool(observed_ad_statuses.get(ad.id, observed_ad_statuses.get(ad.external_id)))
+                raw_status_val = observed_ad_statuses.get(ad.id, observed_ad_statuses.get(ad.external_id))
+                if isinstance(raw_status_val, bool):
+                    status_bool, status_str = raw_status_val, ("ACTIVE" if raw_status_val else "INACTIVE")
+                elif isinstance(raw_status_val, dict):
+                    status_bool, status_str = extract_ad_status(raw_status_val)
+                elif isinstance(raw_status_val, str):
+                    v = raw_status_val.strip().lower()
+                    if v in ("active", "true"):
+                        status_bool, status_str = True, "ACTIVE"
+                    elif v in ("inactive", "false"):
+                        status_bool, status_str = False, "INACTIVE"
+                    else:
+                        status_bool, status_str = None, "UNKNOWN"
+                else:
+                    status_bool, status_str = None, "UNKNOWN"
+
+                if status_bool is None:
+                    logger.info("Ad %s has unknown/ambiguous status in observed_ad_statuses; skipping confirmed snapshot.", ad.id)
+                    continue
+
+                ad_is_active = status_bool
                 quality = SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value
                 active_run_id = validated_run.id if validated_run else (collection_run_id or (existing.collection_run_id if existing else None))
                 raw_meta = {
                     "provenance": "observed_ad_statuses",
                     "observation_quality": quality,
-                    "observed_at": datetime.now(timezone.utc).isoformat(),
                     "collection_run_id": active_run_id,
+                    "status": status_str,
                 }
             elif validated_run and str(ad.external_id) in source_records_by_ext_id:
                 srec = source_records_by_ext_id[str(ad.external_id)]
-                ad_is_active = True
+                status_bool, status_str = extract_ad_status(srec.raw_data)
+
+                if status_bool is None:
+                    # Missing or ambiguous status must be UNKNOWN.
+                    # Do not create a confirmed active/inactive snapshot from a source record whose status cannot be established.
+                    logger.info(
+                        "Ad %s status in SourceRecord %s is inconclusive (%s). Skipping confirmed snapshot creation.",
+                        ad.id,
+                        srec.id,
+                        status_str,
+                    )
+                    continue
+
+                ad_is_active = status_bool
                 quality = SnapshotObservationQuality.VERIFIED_SOURCE_OBSERVATION.value
                 active_run_id = validated_run.id
+
+                # Do not manufacture an observation timestamp. Use authentic timestamp from source if available.
+                obs_timestamp = None
+                if isinstance(srec.raw_data, dict):
+                    obs_timestamp = srec.raw_data.get("snapshotDate") or srec.raw_data.get("timestamp") or srec.raw_data.get("observed_at")
+
                 raw_meta = {
                     "provenance": "verified_source_record",
                     "observation_quality": quality,
                     "source_record_id": srec.id,
                     "collection_run_id": validated_run.id,
                     "ad_archive_id": ad.external_id,
-                    "observed_at": (srec.created_at or datetime.now(timezone.utc)).isoformat(),
+                    "status": status_str,
                 }
+                if obs_timestamp:
+                    raw_meta["observed_at"] = obs_timestamp
             else:
                 # Derived projection without live source observation
                 ad_is_active = bool(ad.is_active)

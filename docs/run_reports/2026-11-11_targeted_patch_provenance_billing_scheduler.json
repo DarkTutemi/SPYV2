@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-11-11T16:54:00+07:00",
+  "batch": "TARGETED_PATCH_AD_STATUS_BILLING_SCHEDULER",
+  "repository": "https://github.com/DarkTutemi/SPYV2",
+  "branch": "master",
+  "fixes": {
+    "fix_1_ad_status_extraction": {
+      "status": "COMPLETED",
+      "file": "backend/app/engines/temporal.py",
+      "description": "Extracts ad active/inactive status strictly from authentic SourceRecord raw_data according to normalization contract (isActive, is_active, activeStatus, status). Preserves explicit False. Missing/ambiguous status is UNKNOWN (skips snapshot creation). Authentic timestamps only, no manufactured timestamps."
+    },
+    "fix_2_apify_billing_double_counting": {
+      "status": "COMPLETED",
+      "file": "backend/app/adapters/apify.py",
+      "description": "Authoritative usageTotalUsd used as total run cost without adding eventUsageTotalUsd. Realistic PPE payloads no longer double-count charges. Estimated billing marked not verified. Missing billing holds reservation cap."
+    },
+    "fix_3_scheduler_collection_status": {
+      "status": "COMPLETED",
+      "file": "backend/app/services/scheduler.py",
+      "description": "Corrected status mismatch: checks completed/partial instead of success. Associates genuine snapshots with specific completed collection runs and authentic SourceRecords. Zero records skips snapshot generation."
+    }
+  },
+  "tests": {
+    "targeted_tests_file": "backend/tests/test_targeted_patch_provenance_billing_scheduler.py",
+    "targeted_tests_passed": 11,
+    "targeted_tests_failed": 0,
+    "full_suite_passed": 192,
+    "full_suite_failed": 0,
+    "full_suite_pass_rate": "100%"
+  },
+  "service_health": {
+    "backend_ping": "ok",
+    "backend_data": "healthy",
+    "frontend_http": 200
+  },
+  "safety": {
+    "paid_actors_executed": 0,
+    "actual_cost_usd": 0.0,
+    "t14_experiment_frozen": true
+  }
+}

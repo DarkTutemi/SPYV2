@@ -438,59 +438,99 @@ class ApifyProviderAdapter:
         """
         Inspect Apify billing details including platform usage, pay-per-event usage,
         and pricing model details. Distinguish verified billed charges from estimates.
-        Safeguard: Never record $0.00 without explicit verified provider confirmation.
-        If usageTotalUsd is missing/None/0 without explicit zero-charge confirmation,
-        retains the reserved budget cap.
+        
+        Requirements:
+        - Authoritative usageTotalUsd is the total run cost. Do not add event costs
+          already included in this total (prevents billing double counting).
+        - Explicit zero-charge results are distinguished from unknown charges.
+        - Missing billing preserves reservation and reconciliation requirement.
+        - Do not treat estimated billing as verified billing.
         """
         usage_total_raw = run_data.get("usageTotalUsd")
-        if usage_total_raw is None:
-            usage_total_raw = run_data.get("usageUsd")
-
         event_usage_raw = run_data.get("eventUsageTotalUsd")
+        usage_usd_raw = run_data.get("usageUsd")
         charged_total_raw = run_data.get("chargedTotalUsd")
 
-        usage_total = float(usage_total_raw or 0.0)
-        event_usage = float(event_usage_raw or 0.0)
-        charged_total = float(charged_total_raw or 0.0)
+        usage_total = float(usage_total_raw) if usage_total_raw is not None else None
+        event_usage = float(event_usage_raw) if event_usage_raw is not None else 0.0
+        usage_usd = float(usage_usd_raw) if usage_usd_raw is not None else 0.0
+        charged_total = float(charged_total_raw) if charged_total_raw is not None else None
 
         pricing_info = run_data.get("pricingInfo") or {}
+        pricing_model = str(pricing_info.get("pricingModel", "")).upper()
         is_free_tier = (
-            pricing_info.get("pricingModel") == "FREE"
+            pricing_model == "FREE"
             or run_data.get("is_free_tier") is True
             or run_data.get("explicit_zero_charge_confirmed") is True
         )
 
-        combined_charge = charged_total if charged_total > 0 else (usage_total + event_usage)
         charged_events = run_data.get("chargedEventCounts") or {}
 
-        is_missing_usage = (usage_total_raw is None and charged_total_raw is None)
+        # Authoritative cost resolution:
+        # In Apify API, usageTotalUsd is the authoritative total run cost.
+        # Do not add eventUsageTotalUsd to usageTotalUsd.
+        if usage_total is not None:
+            authoritative_cost = usage_total
+            is_missing_billing = False
+        elif charged_total is not None and charged_total > 0:
+            authoritative_cost = charged_total
+            is_missing_billing = False
+        elif usage_usd_raw is not None and event_usage_raw is not None:
+            # Component fields reported separately without usageTotalUsd
+            authoritative_cost = usage_usd + event_usage
+            is_missing_billing = False
+        elif usage_usd_raw is not None:
+            authoritative_cost = usage_usd
+            is_missing_billing = False
+        elif event_usage_raw is not None:
+            authoritative_cost = event_usage
+            is_missing_billing = False
+        elif charged_total is not None:
+            authoritative_cost = charged_total
+            is_missing_billing = False
+        else:
+            authoritative_cost = None
+            is_missing_billing = True
 
-        if combined_charge > 0:
-            actual_cost = round(combined_charge, 4)
+        if is_missing_billing:
+            if is_free_tier:
+                actual_cost = 0.0
+                cost_status = "VERIFIED_FREE_TIER"
+                is_verified = True
+            else:
+                # Missing billing must preserve reservation cap to prevent budget leaks
+                actual_cost = round(reservation_cap, 4)
+                cost_status = "HELD_RESERVATION_CAP"
+                is_verified = False
+        elif authoritative_cost > 0:
+            actual_cost = round(authoritative_cost, 4)
             cost_status = "VERIFIED_CHARGED"
+            is_verified = True
         elif is_free_tier:
             actual_cost = 0.0
             cost_status = "VERIFIED_FREE_TIER"
-        elif records_fetched > 0:
-            actual_cost = round(records_fetched * 0.0012, 4)
-            cost_status = "ESTIMATED"
-        elif is_missing_usage:
-            # Missing/None or unconfirmed zero billing: retain reserved budget cap to fail safe
-            actual_cost = round(reservation_cap, 4)
-            cost_status = "HELD_RESERVATION_CAP"
-        else:
+            is_verified = True
+        elif records_fetched == 0:
             actual_cost = 0.0
             cost_status = "UNMETERED"
+            is_verified = True
+        else:
+            # Explicit zero charge reported, but records fetched on unconfirmed tier:
+            # Mark ESTIMATED (not verified) to avoid treating unconfirmed zero as verified.
+            actual_cost = round(records_fetched * 0.0012, 4)
+            cost_status = "ESTIMATED"
+            is_verified = False
 
         return {
             "actual_cost_usd": actual_cost,
             "cost_status": cost_status,
-            "usage_total_usd": round(usage_total, 4),
+            "is_verified": is_verified,
+            "usage_total_usd": round(usage_total, 4) if usage_total is not None else 0.0,
             "event_usage_usd": round(event_usage, 4),
-            "charged_total_usd": round(charged_total, 4),
+            "charged_total_usd": round(charged_total, 4) if charged_total is not None else 0.0,
             "charged_event_counts": charged_events,
             "pricing_info": pricing_info,
-            "explicit_zero_charge_confirmed": is_free_tier,
+            "explicit_zero_charge_confirmed": is_free_tier or (authoritative_cost == 0.0 and records_fetched == 0),
         }
 
     async def _execute_and_process(
@@ -683,6 +723,7 @@ class ApifyProviderAdapter:
                 "success": True,
                 "actor": actor_name,
                 "apify_run_id": apify_run_id,
+                "collection_run_id": run.id,
                 "actual_cost_usd": actual_cost,
                 "cost_status": billing["cost_status"],
                 "billing": billing,
