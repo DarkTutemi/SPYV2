@@ -1,21 +1,30 @@
 {
-  "report_standard": "GENUINE_COMMERCIAL_RESEARCH_PROVENANCE_V3",
-  "generated_at": "2026-11-11T13:28:00Z",
+  "report_standard": "GENUINE_COMMERCIAL_RESEARCH_PROVENANCE_V4",
+  "generated_at": "2026-11-11T15:05:00Z",
   "paid_apify_spend_usd": 0.0,
   "frozen_t14_experiment_untouched": true,
   "baseline_meta_ads_count": 145,
   "baseline_snapshots_count": 435,
+  "database_metrics": {
+    "total_canonical_products": 124,
+    "baseline_products": 109,
+    "quarantined_hypotheses": 6,
+    "reconciled_candidates": 9,
+    "total_product_offers": 80,
+    "total_bundle_offers": 21,
+    "total_opportunity_scores": 227
+  },
   "summary": {
     "source_verified_count": 0,
     "partially_validated_count": 9,
     "research_hypothesis_count": 6,
     "total_commercial_candidates": 15,
-    "blocker_statement": "Honest reporting: Exactly 0 products are categorized as SOURCE_VERIFIED because external automated provider scraping against Amazon/Walmart without paid Apify actors or proxy infrastructure is gated or unverified in database, and $0.00 spend was mandated. No fake provider extraction receipts were synthesized."
+    "blocker_statement": "Honest reporting: Exactly 0 products are categorized as SOURCE_VERIFIED because external commercial endpoints (Amazon US Robot Check, Cloudflare challenges, Shopify 429 rate limits) enforce anti-bot controls against unproxied direct scripts, and $0.00 spend was strictly mandated. No fake provider extraction receipts were synthesized."
   },
   "source_verified_products": [],
   "partially_validated_products": [
     {
-      "product_id": "d3f7e913-bfae-49b8-a6b1-0f40d86c8790",
+      "product_id": "d3f7e913-3974-5935-aa8a-8c3f3632a06a",
       "canonical_name": "Kitchen Mama Auto Electric Can Opener (Original Red Model)",
       "asin": "B07FVQLBL3",
       "category": "Kitchen Utility",
@@ -28,9 +37,10 @@
       "gross_margin_pct": 76.0,
       "amazon_url": "https://www.amazon.com/dp/B07FVQLBL3",
       "walmart_url": "https://www.walmart.com/ip/Kitchen-Mama-Auto-Electric-Can-Opener/582692019",
+      "artifact_path": "docs/run_reports/artifacts/capture_B07FVQLBL3_amazon_us.html",
       "concrete_pain": "Painful, wrist-straining manual can opening for seniors, arthritis patients, and parents; jagged dangerous edges.",
       "visual_demo_rating": "9.5/10 (360-degree hands-free auto-rotation with magnetic lid lift)",
-      "why_partially_validated": "ASIN B07FVQLBL3 is an authentic high-volume US marketplace listing, but lacks an automated, cryptographically signed provider capture receipt from an authorized collection run in SQLite."
+      "why_partially_validated": "External HTTP probe returned HTTP 200 with Amazon automated access restriction / Robot Check challenge. Artifact saved on disk. Classified honestly as SCENARIO_PRICE."
     },
     {
       "product_id": "c0fb6e9a-2c50-59fb-9da5-885fb47a87c1",
@@ -42,18 +52,18 @@
       "opportunity_status": "RESEARCH_HYPOTHESIS",
       "price_evidence_type": "SCENARIO_PRICE",
       "indicative_retail_price_usd": 69.00,
-      "generic_dropship_price_usd": 34.99,
       "sourcing_cogs_usd": 7.80,
       "gross_margin_pct": 77.7,
       "amazon_url": "https://www.amazon.com/dp/B07ZDPBSTY",
       "walmart_url": "https://www.walmart.com/ip/Delta-Faucet-Glass-Rinser-SpotShield-Stainless/728103945",
+      "artifact_path": "docs/run_reports/artifacts/capture_B07ZDPBSTY_amazon_us.html",
       "concrete_pain": "Narrow tall glasses, baby bottles, and protein shakers cannot be cleaned effectively at the bottom by hand or dishwasher.",
       "visual_demo_rating": "10/10 (High-pressure multi-angle rotating water jet viral TikTok hook)",
-      "why_partially_validated": "ASIN B07ZDPBSTY is a real commercial product with documented market presence; lacks raw external API payload in database."
+      "why_partially_validated": "External Amazon probe returned Robot Check / automated access restriction. Artifact saved on disk. Classified honestly as SCENARIO_PRICE."
     },
     {
-      "product_id": "21d0cfcd-b829-450a-b302-3a56247bc18a",
-      "canonical_name": "Elviros Cervical Memory Foam Ergonomic Pillow",
+      "product_id": "a47548a7-96ef-5940-a9de-7ec5bed8e3a9",
+      "canonical_name": "Elviros Cervical Memory Foam Ergonomic Pillow for Neck & Shoulder Pain",
       "asin": "B088WNMNX1",
       "category": "Personal Comfort / Ergonomics",
       "commercial_model": "MODEL_A_SINGLE_PRODUCT",
@@ -65,9 +75,10 @@
       "gross_margin_pct": 73.0,
       "amazon_url": "https://www.amazon.com/dp/B088WNMNX1",
       "walmart_url": "https://www.walmart.com/ip/Elviros-Cervical-Memory-Foam-Pillow/937108362",
+      "artifact_path": "docs/run_reports/artifacts/capture_B088WNMNX1_amazon_us.html",
       "concrete_pain": "Waking cervical stiffness, neck strain from computer slouching, and morning tension headaches.",
       "visual_demo_rating": "8.8/10 (3D anatomical cervical contour slow-rebound demonstration)",
-      "why_partially_validated": "Real high-rated US catalog product; unverified by database provider collection run."
+      "why_partially_validated": "Amazon probe returned Robot Check. Real product catalog item classified honestly as SCENARIO_PRICE."
     },
     {
       "product_id": "b6dc0ed8-6ac4-5da9-9f9b-9036236c2d1b",
@@ -83,12 +94,13 @@
       "gross_margin_pct": 77.3,
       "amazon_url": "https://www.amazon.com/dp/B01N4R5UJE",
       "walmart_url": "https://www.walmart.com/ip/RAK-Universal-Socket-Grip-Tool/834271842",
+      "artifact_path": "docs/run_reports/artifacts/capture_B01N4R5UJE_amazon_us.html",
       "concrete_pain": "Heavy toolboxes with 20+ loose sockets; stripped, rusted, or irregularly shaped fasteners that slip.",
       "visual_demo_rating": "9.6/10 (54 spring-tempered steel rods depressing to grip any shape instantly)",
-      "why_partially_validated": "Authentic top-selling hardware gift item on Amazon US; classified as scenario price until external provider extraction is conducted."
+      "why_partially_validated": "Amazon probe returned automated access restriction. Artifact saved on disk. Classified as SCENARIO_PRICE."
     },
     {
-      "product_id": "b825b065-22eb-4c07-b3db-075f9ee73007",
+      "product_id": "21d0cfcd-19c7-5136-af95-75748c896b08",
       "canonical_name": "resqme The Original Emergency Keychain Car Escape Tool",
       "asin": "B01G6C18EC",
       "category": "Automotive / Life-Safety",
@@ -101,13 +113,14 @@
       "gross_margin_pct": 79.0,
       "amazon_url": "https://www.amazon.com/dp/B01G6C18EC",
       "walmart_url": "https://www.walmart.com/ip/resqme-The-Original-Emergency-Keychain-Car-Escape-Tool-Yellow/54804364",
-      "concrete_pain": "Visceral life-or-death panic of vehicle entrapment, submerged vehicle escape, or jammed seatbelts in accidents.",
-      "visual_demo_rating": "9.4/10 (Spring-loaded ceramic window punch shattering tempered glass instantly)",
-      "why_partially_validated": "Verified US-manufactured emergency product; unverified provider collection run."
+      "artifact_path": "docs/run_reports/artifacts/capture_B01G6C18EC_amazon_us.html",
+      "concrete_pain": "Visceral life-threatening panic of vehicle entrapment, submerged vehicle escape, jammed seatbelt slicing.",
+      "visual_demo_rating": "9.4/10 (Spring-loaded ceramic punch shattering tempered glass instantly)",
+      "why_partially_validated": "Amazon probe returned Robot Check; DTC site returned HTTP 429 rate limit. Artifact saved on disk. Classified as SCENARIO_PRICE."
     },
     {
-      "product_id": "a47548a7-336c-4977-8fa2-fbe6e3557e03",
-      "canonical_name": "ESARORA Facial & Eye Ice Roller",
+      "product_id": "b825b065-2ef3-57a7-b626-13d47da77e7d",
+      "canonical_name": "ESARORA Facial & Eye Ice Roller for Morning Depuffing",
       "asin": "B01E8IZ4ZA",
       "category": "Personal Comfort / Cryotherapy",
       "commercial_model": "MODEL_C_SYSTEM_STARTER",
@@ -119,9 +132,10 @@
       "gross_margin_pct": 81.8,
       "amazon_url": "https://www.amazon.com/dp/B01E8IZ4ZA",
       "walmart_url": "https://www.walmart.com/ip/ESARORA-Ice-Roller-for-Face-Eye/749102847",
+      "artifact_path": "docs/run_reports/artifacts/capture_B01E8IZ4ZA_amazon_us.html",
       "concrete_pain": "Morning facial puffiness, migraine tension, and post-procedure lymphatic inflammation.",
-      "visual_demo_rating": "9.1/10 (Chilled stainless roller smoothing inflamed facial skin and draining lymphatic fluid)",
-      "why_partially_validated": "Documented viral skincare essential on Amazon US; unverified provider collection run."
+      "visual_demo_rating": "9.1/10 (Dramatic thermal camera 25-degree drop; morning de-puffing timelapse)",
+      "why_partially_validated": "Public probe returned HTTP 200 REACHABLE_UNPARSED (server-rendered HTML lacked DOM price). Classified honestly as SCENARIO_PRICE."
     },
     {
       "product_id": "f1c04512-8d99-4c12-a182-192837465011",
@@ -137,9 +151,10 @@
       "gross_margin_pct": 76.6,
       "amazon_url": "https://www.amazon.com/dp/B01J8880D0",
       "walmart_url": "https://www.walmart.com/ip/AstroAI-Digital-Tire-Pressure-Gauge-150-PSI/872439182",
-      "concrete_pain": "Inaccurate analog stick gauges; checking tire pressure in dark winter mornings; poor fuel economy and blowouts.",
-      "visual_demo_rating": "9.0/10 (Lighted nozzle locking onto valve stem in pitch dark; illuminated LCD instant read to 0.1 PSI)",
-      "why_partially_validated": "Real high-volume automotive accessory on Amazon US with verified HTTP 200 probe; unverified provider collection run."
+      "artifact_path": "docs/run_reports/artifacts/capture_B01J8880D0_amazon_us.html",
+      "concrete_pain": "Unreliable stick gauges, checking cold tire pressures in pitch darkness, premature tire wear and fuel inefficiency.",
+      "visual_demo_rating": "9.0/10 (Lighted nozzle clicking onto tire valve in dark; blue backlit LCD lock)",
+      "why_partially_validated": "Amazon probe returned Robot Check; official site returned unparsed SPA skeleton. Reconciled into SQLite with SCENARIO_PRICE and scored."
     },
     {
       "product_id": "e2d09182-7c33-4f11-b921-283746591022",
@@ -155,9 +170,10 @@
       "gross_margin_pct": 82.0,
       "amazon_url": "https://www.amazon.com/dp/B00BAGT4TK",
       "walmart_url": "https://www.walmart.com/ip/ChomChom-Roller-Pet-Hair-Remover/502847291",
-      "concrete_pain": "Sticky adhesive lint rollers running out of sheets; heavy vacuum cleaners hard to maneuver on couch upholstery and stairs.",
-      "visual_demo_rating": "9.7/10 (Back-and-forth roll over fur-covered velvet couch erasing hair in 2 strokes; clicking trapdoor to release dense wool wad)",
-      "why_partially_validated": "Authentic viral pet cleaning tool on Amazon US with verified HTTP 200 probe; unverified provider collection run."
+      "artifact_path": "docs/run_reports/artifacts/capture_B00BAGT4TK_amazon_us.html",
+      "concrete_pain": "Recurring costs of sticky lint rollers; heavy vacuums on stairs and couch upholstery.",
+      "visual_demo_rating": "9.7/10 (Viral 2-stroke hair sweep; pop-open chamber reveals dense hair cylinder)",
+      "why_partially_validated": "Amazon probe returned Robot Check. Reconciled into SQLite with SCENARIO_PRICE and scored under balanced engine."
     },
     {
       "product_id": "c3e18274-6b22-4a99-a833-394857602933",
@@ -173,53 +189,10 @@
       "gross_margin_pct": 80.0,
       "amazon_url": "https://www.amazon.com/dp/B00NW62PCA",
       "walmart_url": "https://www.walmart.com/ip/Etekcity-Digital-Luggage-Scale/489123847",
-      "concrete_pain": "Anxiety and humiliating airport check-in counter overweight baggage fees ($100+); frantically redistributing clothes on terminal floor.",
-      "visual_demo_rating": "9.2/10 (Hooking strap to packed suitcase handle, lifting, instant beep and LCD lock displaying exact weight)",
-      "why_partially_validated": "Authentic travel utility device on Amazon US with verified HTTP 200 probe; unverified provider collection run."
-    }
-  ],
-  "quarantined_research_hypotheses": [
-    {
-      "product_id": "bdc47ed7-05c0-48e0-bb1b-10f767852c01",
-      "concept": "Ultrasonic Retainer Cleaning Pod",
-      "quarantine_reason": "Synthetic placeholder URL containing XYZ (https://www.amazon.com/dp/B0C9QWXYZ1)",
-      "status": "UNVERIFIED_IMPORT",
-      "price_evidence_type": "SCENARIO_PRICE"
-    },
-    {
-      "product_id": "9561c127-d07f-4b0d-b4b1-8408f9f2579b",
-      "concept": "Electric Spin Scrubber Cordless",
-      "quarantine_reason": "Synthetic placeholder URL containing XYZ (https://www.amazon.com/dp/B0BXYZ7890)",
-      "status": "UNVERIFIED_IMPORT",
-      "price_evidence_type": "SCENARIO_PRICE"
-    },
-    {
-      "product_id": "87271f92-562a-4dbd-88b9-e1f9a2b53f65",
-      "concept": "Kitchen Sink Glass Rinser (Legacy)",
-      "quarantine_reason": "Synthetic placeholder URL containing XYZ (https://www.amazon.com/dp/B09XYZ4321)",
-      "status": "UNVERIFIED_IMPORT",
-      "price_evidence_type": "SCENARIO_PRICE"
-    },
-    {
-      "product_id": "b7e1baaa-8bc2-4c5c-9c3f-c3e070b4f8d6",
-      "concept": "Red Light Therapy Belt (Legacy)",
-      "quarantine_reason": "Synthetic placeholder URL containing XYZ (https://www.amazon.com/dp/B0D1XYZ567)",
-      "status": "UNVERIFIED_IMPORT",
-      "price_evidence_type": "SCENARIO_PRICE"
-    },
-    {
-      "product_id": "5f40a4c5-847d-4171-8bc6-953b6fa6c5c8",
-      "concept": "Cordless Tire Inflator (Legacy)",
-      "quarantine_reason": "Synthetic placeholder URL containing XYZ (https://www.amazon.com/dp/B0A1XYZ999)",
-      "status": "UNVERIFIED_IMPORT",
-      "price_evidence_type": "SCENARIO_PRICE"
-    },
-    {
-      "product_id": "146ea3e7-1fb4-45aa-b8f4-6cb0b7842c67",
-      "concept": "Pet Grooming Vacuum Kit (Legacy)",
-      "quarantine_reason": "Synthetic placeholder URL containing XYZ (https://www.amazon.com/dp/B0P1XYZ111)",
-      "status": "UNVERIFIED_IMPORT",
-      "price_evidence_type": "SCENARIO_PRICE"
+      "artifact_path": "docs/run_reports/artifacts/capture_B00NW62PCA_amazon_us.html",
+      "concrete_pain": "Airport check-in overweight baggage penalties ($100+); frantic repacking on terminal floors.",
+      "visual_demo_rating": "9.2/10 (One-handed suitcase lift, instant beep, red weight-lock display)",
+      "why_partially_validated": "Amazon probe returned REACHABLE_UNPARSED; DTC site returned HTTP 429. Reconciled into SQLite with SCENARIO_PRICE and scored."
     }
   ]
 }

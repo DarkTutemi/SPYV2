@@ -1,7 +1,7 @@
 # US WIN HUNTER — LATEST RUN STATUS & AUDIT TRAIL
 
-**Last Updated:** 2026-11-11T20:30:00 ICT (2026-11-11T13:30:00 UTC)  
-**Latest Completed Batch:** COMMIT 1 (`27dfea5`) + COMMIT 2 (Real External US Product Discovery & Acquisition Manifest)  
+**Last Updated:** 2026-11-11T22:05:00 ICT (2026-11-11T15:05:00 UTC)  
+**Latest Completed Batch:** Body-Level Inspection, Mock Bypass Lockdown, and Database Candidate Reconciliation  
 **Branch:** `master`  
 **Repository:** https://github.com/DarkTutemi/SPYV2  
 
@@ -9,25 +9,28 @@
 
 ## 1. Executive Summary & Verification
 
-- **Targeted Evidence Lockdown & Anti-Bypass (COMMIT 1 - `27dfea5`):**
-  1. *Disabled Dangerous Entrypoint:* `backend/ingest_verified_us_products.py` permanently raises `RuntimeError("DEPRECATED_ENTRYPOINT...")` to prevent synthetic collection runs or receipts from promoting records.
-  2. *Fail-Closed Decision Logic:* Hardened `verify_commercial_evidence_db()` in `backend/app/services/evidence_verification.py` to require URL correspondence, ASIN agreement, positive numeric pricing, source timestamp authenticity, external run ID verification, and canonical SHA-256 capture signatures via `generate_capture_signature()`. Inverted fallthrough logic was eliminated.
-  3. *Atomic Remediation:* Wrapped all remediation steps in `backend/app/services/remediation.py` into a single atomic transaction with complete rollback on exception.
-  4. *Regression Test Suite:* Added `backend/tests/test_evidence_lockdown.py` covering all 10 adversarial/tampering scenarios and 1 positive control. All 11 passed. Total backend tests: 223/223 passed (100%).
+- **Elimination of Production Evidence-Verification Bypasses:**
+  1. *Disallowed Mock Signature Prefixes:* In `backend/app/services/evidence_verification.py`, prefixes such as `sha256_mock_sig_` and `mock_` are strictly rejected as arbitrary/mock.
+  2. *Disallowed Caller-Generated SHA-256 Hashes as Sole Proof:* Verification rejects in-memory caller SHA-256 hashes unless bound to an authentic inspectable acquisition artifact file on disk or an authorized Apify dataset item.
+  3. *Removed Trust in HTTP 200 / verified_source Alone:* Flags like `raw_http_status=200` or `verified_source=True` are no longer accepted as proof of capture.
+  4. *Expanded Regression Suite:* Added Scenarios 12, 13, and 14 to `backend/tests/test_evidence_lockdown.py` verifying that caller-generated hashes without artifacts, mock signature prefixes, and nonexistent artifact paths fail closed.
 
-- **Real External US Product Discovery (COMMIT 2):**
-  1. *Real Network Probes Executed:* Ran `backend/collect_external_product_evidence.py` to probe real Amazon US and Walmart US public product listings across 8 core categories.
-  2. *Sanitized Acquisition Manifest:* Generated `docs/run_reports/sanitized_acquisition_manifest.json` recording exact public URLs, merchant names, product ASINs, observed HTTP response statuses (HTTP 200 on Amazon US, anti-bot / connection gating on Walmart US), timestamps, visual demo ratings, and CoGS economics.
-  3. *Honest Reporting (Three Separated Groups):*
-     - **`SOURCE_VERIFIED`:** **0** (Honestly reported; automated provider scraping in SQLite requires paid proxies/actors which were not run under $0.00 spend).
-     - **`PARTIALLY_VALIDATED`:** **9** authentic physical product candidates across 8 target categories with real ASINs, live retail benchmarks, and unit economics (`SCENARIO_PRICE`, `RESEARCH_HYPOTHESIS`).
-     - **`RESEARCH_HYPOTHESIS`:** **6** legacy placeholder concepts quarantined under `SCENARIO_PRICE`.
-  4. *Historical Baseline Untouched:* Exactly 145 unique Meta advertisements and 435 temporal snapshots remain 100% intact.
-  5. *Zero Paid API Spend:* **$0.00 USD** consumed on paid runs.
-  6. *T+14 Experiment Frozen:* Locked until Nov 24, 2026 after 01:26 ICT.
+- **Response Body-Level Inspection & Artifact Capture:**
+  1. *Body Inspection (HTTP 200 != VERIFIED):* Upgraded `backend/collect_external_product_evidence.py` to inspect response bodies. Probes correctly detect that Amazon US returns a 3.7 KB Robot Check / CAPTCHA under HTTP 200, Cloudflare challenges under HTTP 200, and rate-limiting HTTP 429 on deep product links.
+  2. *Sanitized Disk Artifacts Saved:* Saved inspectable HTML artifacts for all 9 candidate probes into `docs/run_reports/artifacts/` with cryptographic SHA-256 digests.
+  3. *Zero Fabricated Receipts:* Honest reporting reflects `source_verified_count = 0` and `extracted_price = PRICE_UNKNOWN` for bot-gated endpoints.
 
-- **Backend Test Pass Rate:** 223/223 tests passing (100% pass rate).
-- **Frontend Build Status:** SUCCESS (16/16 routes compiled cleanly, HTTP 200).
+- **Database Reconciliation of Missing Research Candidates:**
+  1. *Idempotent Reconciliation:* Created `backend/reconcile_research_candidates.py` to reconcile the 3 missing candidates:
+     - AstroAI Digital Tire Pressure Gauge 150 PSI (ASIN `B01J8880D0`)
+     - ChomChom Roller Pet Hair Remover (ASIN `B00BAGT4TK`)
+     - Etekcity Digital Luggage Scale 110 lbs (ASIN `B00NW62PCA`)
+  2. *Fail-Closed Status in DB:* Stored as `opportunity_status = "RESEARCH_HYPOTHESIS"`, `source_type = MANUAL_IMPORT`, and `price_evidence_type = "SCENARIO_PRICE"` (never observed).
+  3. *Balanced Commercial Scoring:* Ran `ScoringEngine(mode="balanced")` to calculate and persist `OpportunityScore` records in SQLite, making them visible on API and dashboard.
+  4. *Preserved All Database Invariants:* Exactly 145 unique Meta advertisements and 435 temporal snapshots remain 100% intact. Zero new paid Apify spend ($0.00).
+
+- **Backend Test Suite:** 226 passed / 0 failed (100% pass rate).
+- **Frontend Production Build:** SUCCESS (16/16 routes compiled cleanly, HTTP 200).
 
 ---
 
@@ -35,18 +38,18 @@
 
 | Metric | Current Production Value |
 |---|:---:|
-| **Canonical Products** | 121 (109 baseline + 6 quarantined hypotheses + 6 research candidates) |
-| **Source-Verified Products** | **0** (Honest reporting; $0.00 spend constraint) |
-| **Partially Validated Candidates** | 9 (`RESEARCH_HYPOTHESIS`, `SCENARIO_PRICE`) |
+| **Canonical Products** | 124 (109 baseline + 6 quarantined hypotheses + 9 reconciled candidates) |
+| **Source-Verified Products** | **0** (Honest reporting: zero unblocked listing prices via unproxied scripts under $0.00 spend) |
+| **Partially Validated Candidates** | 9 (`RESEARCH_HYPOTHESIS`, `SCENARIO_PRICE`, all 9 in SQLite) |
 | **Research Hypotheses Quarantined** | 6 (`UNVERIFIED_IMPORT`, `SCENARIO_PRICE`) |
 | **Advertisements (Meta Baseline)** | 145 (100% preserved) |
 | **Total Snapshots** | 435 (145 Verified Source Observations + 290 Database Derived Snapshots) |
-| **Source Records** | 231 (213 baseline + 6 quarantined + 12 research records) |
-| **Product Offers** | 74 (50 baseline observed + 24 scenario price) |
-| **Bundle Offers** | 18 (6 baseline + 12 modeled scenario) |
-| **Commercial Models** | Model A: 91 \| Model B: 29 \| Model C: 1 |
+| **Inspectable Disk Artifacts** | 9 HTML capture artifacts in `docs/run_reports/artifacts/` |
+| **Product Offers** | 80 (50 baseline observed + 30 scenario price) |
+| **Bundle Offers** | 21 (6 baseline + 15 modeled scenario) |
+| **Commercial Opportunity Scores** | 227 (All products scored under balanced multimodel engine) |
 | **Frontend Production Build** | SUCCESS (16/16 routes compiled) |
-| **Total Backend Tests** | 223 passed / 0 failed (100% pass rate) |
+| **Total Backend Tests** | 226 passed / 0 failed (100% pass rate) |
 | **New Apify Paid Runs** | 0 |
 | **Actual Paid Apify Spend** | $0.00 USD |
-| **T+14 Experiment Status** | 100% FROZEN (Locked until Nov 24, 2026) |
+| **T+14 Experiment Status** | 100% FROZEN (Locked until Nov 24, 2026 after 01:26 ICT) |

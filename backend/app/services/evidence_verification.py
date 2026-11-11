@@ -597,7 +597,7 @@ async def verify_commercial_evidence_db(
     sig = raw.get("capture_signature")
     if sig:
         sig_str = str(sig).strip()
-        if any(sig_str.lower().startswith(p) for p in ("fake", "fabricated", "arbitrary", "mock_fake")):
+        if any(sig_str.lower().startswith(p) for p in ("fake", "fabricated", "arbitrary", "mock", "sha256_mock", "test_mock", "mock_fake")):
             return EvidenceVerificationResult(
                 outcome=EvidenceVerificationOutcome.REJECTED,
                 source_provider=raw.get("provider", "fabricated_sig"),
@@ -619,11 +619,8 @@ async def verify_commercial_evidence_db(
         canon_sig_notime = generate_capture_signature(c_run.id, item_ref, s_price_f, None)
         valid_signatures = {canon_sig_ts, canon_sig_notime}
         is_canonical = sig_str in valid_signatures
-        is_test_mock = (sig_str.startswith("sha256_mock_sig_") or sig_str.startswith("sha256_sig")) and not any(
-            bad in sig_str.lower() for bad in ("fake", "arbitrary", "fabricated")
-        )
 
-        if not (is_canonical or is_test_mock):
+        if not is_canonical:
             return EvidenceVerificationResult(
                 outcome=EvidenceVerificationOutcome.REJECTED,
                 source_provider=raw.get("provider", "invalid_signature"),
@@ -639,25 +636,34 @@ async def verify_commercial_evidence_db(
                 verification_notes=f"REJECTED: Capture signature verification failed. Provided signature '{sig_str}' does not match canonical digest.",
             )
 
-    has_capture_proof = (
-        sig is not None
-        or (
-            raw.get("provider") in RECOGNIZED_PROVIDERS
-            and raw.get("raw_http_status") == 200
-            and raw.get("verified_source") is True
-        )
-        or (
-            raw.get("apify_dataset_item_id") is not None
-            and raw.get("verified_source") is True
-        )
-        or (
-            raw.get("source_capture_ref") is not None
-            and raw.get("verified_source") is True
-        )
+    # Disallow caller-generated SHA-256 hashes, raw_http_status=200, and verified_source=True as sole proof.
+    # Bind verification strictly to inspectable acquisition artifacts on disk or authorized Apify dataset items.
+    artifact_ref = (
+        raw.get("artifact_path")
+        or raw.get("source_capture_ref")
+        or raw.get("raw_capture_file")
+        or raw.get("artifact_file")
+    )
+    has_valid_disk_artifact = False
+    if artifact_ref:
+        from pathlib import Path
+        art_p = Path(artifact_ref)
+        if not art_p.is_absolute():
+            repo_root = Path(__file__).resolve().parent.parent.parent
+            art_p = repo_root / artifact_ref
+        if art_p.exists() and art_p.is_file() and art_p.stat().st_size > 0:
+            has_valid_disk_artifact = True
+
+    has_apify_proof = bool(
+        raw.get("apify_dataset_item_id")
+        and not any(bad in str(raw.get("apify_dataset_item_id")).lower() for bad in ("mock", "fake", "arbitrary"))
+        and raw.get("provider") in RECOGNIZED_PROVIDERS
     )
 
     # Fail closed if no verifiable capture proof exists
-    if not has_capture_proof:
+    if not (has_valid_disk_artifact or has_apify_proof):
+        notes = "REJECTED: SourceRecord lacks verifiable capture signature, inspectable acquisition artifact on disk, or authorized Apify dataset item. "
+        notes += "Caller-generated SHA-256 hashes, raw_http_status=200, and verified_source flags alone are not proof of external collection."
         return EvidenceVerificationResult(
             outcome=EvidenceVerificationOutcome.REJECTED,
             source_provider=raw.get("provider", "unverified"),
@@ -670,11 +676,11 @@ async def verify_commercial_evidence_db(
             currency=currency,
             observed_at=observed_at,
             raw_extraction=raw,
-            verification_notes="REJECTED: SourceRecord lacks verifiable capture signature, authentic provider capture receipt, or verifiable capture proof.",
+            verification_notes=notes,
         )
 
     # If self-generated verification flags without proof:
-    if raw.get("verified_source") is True and sig is None and raw.get("raw_http_status") != 200 and not raw.get("apify_dataset_item_id"):
+    if raw.get("verified_source") is True and not (has_valid_disk_artifact or has_apify_proof):
         return EvidenceVerificationResult(
             outcome=EvidenceVerificationOutcome.REJECTED,
             source_provider=raw.get("provider", "self_generated"),

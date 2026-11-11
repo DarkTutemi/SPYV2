@@ -480,7 +480,181 @@ async def test_scenario_10_legacy_script_permanently_disabled_raises_runtime_err
 
 @pytest.mark.asyncio
 async def test_scenario_11_authentic_record_with_canonical_signature_verified(disposable_db):
-    """Positive Control: Truly authentic record with canonical SHA-256 signature is VERIFIED."""
+    """Positive Control: Truly authentic record with canonical SHA-256 signature AND disk artifact is VERIFIED."""
+    run_id = f"run_valid_{_uuid()[:8]}"
+    asin = "B08N5WRWNW"
+    price = 29.99
+    ts = "2026-11-10T14:30:00Z"
+
+    # Create temporary inspectable acquisition artifact on disk
+    fd, art_path = tempfile.mkstemp(prefix=f"artifact_{asin}_", suffix=".html")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(f"<html><head><title>B08N5WRWNW</title></head><body>Price: ${price}</body></html>")
+
+    try:
+        c_run = CollectionRun(
+            id=run_id,
+            job_id="job_real_crawler",
+            status=CollectionJobStatus.COMPLETED,
+            started_at=_utcnow(),
+            completed_at=_utcnow(),
+        )
+        disposable_db.add(c_run)
+
+        canonical_sig = generate_capture_signature(run_id, asin, price, ts)
+
+        srec = SourceRecord(
+            id=f"srec_{_uuid()[:12]}",
+            collection_run_id=run_id,
+            source_type=DataSourceType.AMAZON,
+            external_id=asin,
+            geo_confidence=ConfidenceLevel.HIGH,
+            is_synthetic=False,
+            raw_data={
+                "url": f"https://www.amazon.com/dp/{asin}",
+                "provider": "authentic_public_marketplace_capture",
+                "retailer": "amazon",
+                "asin": asin,
+                "observed_price": price,
+                "source_timestamp": ts,
+                "capture_signature": canonical_sig,
+                "artifact_path": art_path,
+            },
+        )
+        disposable_db.add(srec)
+        await disposable_db.commit()
+
+        result = await verify_commercial_evidence_db(
+            db=disposable_db,
+            url=f"https://www.amazon.com/dp/{asin}",
+            price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+            source_record_id=srec.id,
+            expected_asin=asin,
+            observed_price=price,
+        )
+        assert result.outcome == EvidenceVerificationOutcome.VERIFIED
+        assert "Documented external provider acquisition record" in result.verification_notes
+
+        # Strict validation also passes without raising
+        validated_type = await validate_commercial_evidence_strict_db(
+            db=disposable_db,
+            url=f"https://www.amazon.com/dp/{asin}",
+            price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+            source_record_id=srec.id,
+            expected_asin=asin,
+            observed_price=price,
+        )
+        assert validated_type == PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value
+    finally:
+        if os.path.exists(art_path):
+            os.remove(art_path)
+
+
+@pytest.mark.asyncio
+async def test_scenario_12_caller_generated_sha256_hash_without_artifact_rejected(disposable_db):
+    """Scenario 12: Caller-generated SHA-256 hash without acquisition artifact or Apify item -> REJECTED."""
+    run_id = f"run_valid_{_uuid()[:8]}"
+    asin = "B08N5WRWNW"
+    price = 29.99
+    ts = "2026-11-10T14:30:00Z"
+
+    c_run = CollectionRun(
+        id=run_id,
+        job_id="job_real_crawler",
+        status=CollectionJobStatus.COMPLETED,
+        started_at=_utcnow(),
+        completed_at=_utcnow(),
+    )
+    disposable_db.add(c_run)
+
+    # In-memory caller generates canonical SHA-256 hash, but provides NO artifact on disk and NO Apify item
+    canonical_sig = generate_capture_signature(run_id, asin, price, ts)
+
+    srec = SourceRecord(
+        id=f"srec_{_uuid()[:12]}",
+        collection_run_id=run_id,
+        source_type=DataSourceType.AMAZON,
+        external_id=asin,
+        geo_confidence=ConfidenceLevel.HIGH,
+        is_synthetic=False,
+        raw_data={
+            "url": f"https://www.amazon.com/dp/{asin}",
+            "provider": "authentic_public_marketplace_capture",
+            "retailer": "amazon",
+            "asin": asin,
+            "observed_price": price,
+            "source_timestamp": ts,
+            "capture_signature": canonical_sig,
+            # No artifact_path and no apify_dataset_item_id!
+        },
+    )
+    disposable_db.add(srec)
+    await disposable_db.commit()
+
+    result = await verify_commercial_evidence_db(
+        db=disposable_db,
+        url=f"https://www.amazon.com/dp/{asin}",
+        price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+        source_record_id=srec.id,
+        expected_asin=asin,
+        observed_price=price,
+    )
+    assert result.outcome == EvidenceVerificationOutcome.REJECTED
+    assert "inspectable acquisition artifact on disk" in result.verification_notes
+
+
+@pytest.mark.asyncio
+async def test_scenario_13_mock_signature_prefix_rejected(disposable_db):
+    """Scenario 13: Mock signature prefix (e.g. sha256_mock_sig_...) -> REJECTED."""
+    run_id = f"run_valid_{_uuid()[:8]}"
+    asin = "B08N5WRWNW"
+    price = 29.99
+    ts = "2026-11-10T14:30:00Z"
+
+    c_run = CollectionRun(
+        id=run_id,
+        job_id="job_real_crawler",
+        status=CollectionJobStatus.COMPLETED,
+        started_at=_utcnow(),
+        completed_at=_utcnow(),
+    )
+    disposable_db.add(c_run)
+
+    srec = SourceRecord(
+        id=f"srec_{_uuid()[:12]}",
+        collection_run_id=run_id,
+        source_type=DataSourceType.AMAZON,
+        external_id=asin,
+        geo_confidence=ConfidenceLevel.HIGH,
+        is_synthetic=False,
+        raw_data={
+            "url": f"https://www.amazon.com/dp/{asin}",
+            "provider": "authentic_public_marketplace_capture",
+            "retailer": "amazon",
+            "asin": asin,
+            "observed_price": price,
+            "source_timestamp": ts,
+            "capture_signature": "sha256_mock_sig_test1234",  # Disallowed mock prefix!
+        },
+    )
+    disposable_db.add(srec)
+    await disposable_db.commit()
+
+    result = await verify_commercial_evidence_db(
+        db=disposable_db,
+        url=f"https://www.amazon.com/dp/{asin}",
+        price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+        source_record_id=srec.id,
+        expected_asin=asin,
+        observed_price=price,
+    )
+    assert result.outcome == EvidenceVerificationOutcome.REJECTED
+    assert "arbitrary or fabricated" in result.verification_notes
+
+
+@pytest.mark.asyncio
+async def test_scenario_14_nonexistent_artifact_path_rejected(disposable_db):
+    """Scenario 14: Nonexistent artifact path on disk -> REJECTED."""
     run_id = f"run_valid_{_uuid()[:8]}"
     asin = "B08N5WRWNW"
     price = 29.99
@@ -512,6 +686,7 @@ async def test_scenario_11_authentic_record_with_canonical_signature_verified(di
             "observed_price": price,
             "source_timestamp": ts,
             "capture_signature": canonical_sig,
+            "artifact_path": "docs/run_reports/artifacts/nonexistent_ghost_file_9999.html",
         },
     )
     disposable_db.add(srec)
@@ -525,16 +700,5 @@ async def test_scenario_11_authentic_record_with_canonical_signature_verified(di
         expected_asin=asin,
         observed_price=price,
     )
-    assert result.outcome == EvidenceVerificationOutcome.VERIFIED
-    assert "Documented external provider acquisition record" in result.verification_notes
-
-    # Strict validation also passes without raising
-    validated_type = await validate_commercial_evidence_strict_db(
-        db=disposable_db,
-        url=f"https://www.amazon.com/dp/{asin}",
-        price_evidence_type=PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
-        source_record_id=srec.id,
-        expected_asin=asin,
-        observed_price=price,
-    )
-    assert validated_type == PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value
+    assert result.outcome == EvidenceVerificationOutcome.REJECTED
+    assert "inspectable acquisition artifact on disk" in result.verification_notes

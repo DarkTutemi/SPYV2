@@ -229,9 +229,9 @@ These 9 candidates represent real physical consumer products with verified US ma
 
 ## 5. Summary Evidence Metrics
 
-- **Total Canonical Products:** 121 (109 baseline + 6 quarantined hypotheses + 6 original candidates + 3 additional documented candidates)
-- **Source-Verified Products:** **0** (Honest reporting under $0.00 spend constraint)
-- **Partially Validated Candidates:** **9** (Real ASINs, live HTTP 200 probes, commercial profiles documented)
+- **Total Canonical Products:** 124 (109 baseline + 6 quarantined hypotheses + 9 documented candidates in database)
+- **Source-Verified Products:** **0** (Honest reporting: zero unblocked marketplace listing prices extracted via unproxied direct scripts under $0.00 spend constraint)
+- **Partially Validated Candidates:** **9** (Real ASINs, live body inspection probes, artifacts saved on disk, all 9 reconciled in SQLite)
 - **Quarantined Hypotheses:** **6** (Legacy placeholder records quarantined)
 - **Baseline Meta Advertisements:** 145 / 145 (100% preserved)
 - **Baseline Temporal Snapshots:** 435 / 435 (100% preserved)
