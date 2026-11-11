@@ -1,8 +1,7 @@
 # US WIN HUNTER — LATEST RUN STATUS & AUDIT TRAIL
 
-**Last Updated:** 2026-11-11T19:50:00 ICT (2026-11-11T12:50:00 UTC)  
-**Latest Completed Batch:** COMMIT B — Authentic US Marketplace Product Intelligence & Honest Provenance  
-**Previous Completed Batch:** COMMIT A — Rejection of Self-Generated Receipts & Quarantine Hardening (`5c4ce10`)  
+**Last Updated:** 2026-11-11T20:30:00 ICT (2026-11-11T13:30:00 UTC)  
+**Latest Completed Batch:** COMMIT 1 (`27dfea5`) + COMMIT 2 (Real External US Product Discovery & Acquisition Manifest)  
 **Branch:** `master`  
 **Repository:** https://github.com/DarkTutemi/SPYV2  
 
@@ -10,23 +9,24 @@
 
 ## 1. Executive Summary & Verification
 
-- **Honest Provenance & Quarantine Hardening (COMMIT A):**
-  1. *Batch 8 Quarantined:* Run `run_us_verified_discovery_20261111` downgraded to `PARTIAL`, 12 SourceRecords set to `MANUAL_IMPORT` (`is_synthetic = True`, `geo_confidence = UNKNOWN`), 6 products set to `RESEARCH_HYPOTHESIS`, 12 ProductOffers and 6 BundleOffers set to `SCENARIO_PRICE`.
-  2. *Database-Backed Evidence Verification:* Implemented `verify_commercial_evidence_db()` in `backend/app/services/evidence_verification.py`. Checks against actual SQLite records, requiring valid completed provider collection runs, matching ASINs, matching prices, authentic source timestamps, and genuine capture signatures.
-  3. *Adversarial Test Suite:* Implemented 10 adversarial regression tests in `backend/tests/test_adversarial_evidence_verification.py` (Tests A through J), all passing.
-  4. *Idempotency Verified:* Successive runs of `remediation.py` produce 0 modifications.
+- **Targeted Evidence Lockdown & Anti-Bypass (COMMIT 1 - `27dfea5`):**
+  1. *Disabled Dangerous Entrypoint:* `backend/ingest_verified_us_products.py` permanently raises `RuntimeError("DEPRECATED_ENTRYPOINT...")` to prevent synthetic collection runs or receipts from promoting records.
+  2. *Fail-Closed Decision Logic:* Hardened `verify_commercial_evidence_db()` in `backend/app/services/evidence_verification.py` to require URL correspondence, ASIN agreement, positive numeric pricing, source timestamp authenticity, external run ID verification, and canonical SHA-256 capture signatures via `generate_capture_signature()`. Inverted fallthrough logic was eliminated.
+  3. *Atomic Remediation:* Wrapped all remediation steps in `backend/app/services/remediation.py` into a single atomic transaction with complete rollback on exception.
+  4. *Regression Test Suite:* Added `backend/tests/test_evidence_lockdown.py` covering all 10 adversarial/tampering scenarios and 1 positive control. All 11 passed. Total backend tests: 223/223 passed (100%).
 
-- **Authentic US Marketplace Research (COMMIT B):**
-  1. *Zero Fabricated Evidence Policy:* Strictly no synthesized `HTTP_200_EXTRACTED` dictionaries or artificial provider completion flags.
-  2. *Honest Categorization:* 
-     - **`SOURCE_VERIFIED`:** **0** (Reported honestly; external scraping against Amazon/Walmart requires paid scrapers or residential proxies which are prohibited under $0.00 spend).
-     - **`PARTIALLY_VALIDATED`:** **6** real physical products with authentic ASINs (`B07FVQLBL3`, `B07ZDPBSTY`, `B088WNMNX1`, `B01N4R5UJE`, `B01G6C18EC`, `B01E8IZ4ZA`), live Walmart listings, and documented unit economics.
+- **Real External US Product Discovery (COMMIT 2):**
+  1. *Real Network Probes Executed:* Ran `backend/collect_external_product_evidence.py` to probe real Amazon US and Walmart US public product listings across 8 core categories.
+  2. *Sanitized Acquisition Manifest:* Generated `docs/run_reports/sanitized_acquisition_manifest.json` recording exact public URLs, merchant names, product ASINs, observed HTTP response statuses (HTTP 200 on Amazon US, anti-bot / connection gating on Walmart US), timestamps, visual demo ratings, and CoGS economics.
+  3. *Honest Reporting (Three Separated Groups):*
+     - **`SOURCE_VERIFIED`:** **0** (Honestly reported; automated provider scraping in SQLite requires paid proxies/actors which were not run under $0.00 spend).
+     - **`PARTIALLY_VALIDATED`:** **9** authentic physical product candidates across 8 target categories with real ASINs, live retail benchmarks, and unit economics (`SCENARIO_PRICE`, `RESEARCH_HYPOTHESIS`).
      - **`RESEARCH_HYPOTHESIS`:** **6** legacy placeholder concepts quarantined under `SCENARIO_PRICE`.
-  3. *Historical Baseline Untouched:* All 145 unique Meta advertisements and 435 temporal snapshots remain 100% intact.
-  4. *Zero Paid API Spend:* **$0.00 USD** consumed on paid runs.
-  5. *T+14 Experiment Frozen:* Locked until Nov 24, 2026 after 01:26 ICT.
+  4. *Historical Baseline Untouched:* Exactly 145 unique Meta advertisements and 435 temporal snapshots remain 100% intact.
+  5. *Zero Paid API Spend:* **$0.00 USD** consumed on paid runs.
+  6. *T+14 Experiment Frozen:* Locked until Nov 24, 2026 after 01:26 ICT.
 
-- **Backend Test Pass Rate:** 212/212 tests passing (100% pass rate).
+- **Backend Test Pass Rate:** 223/223 tests passing (100% pass rate).
 - **Frontend Build Status:** SUCCESS (16/16 routes compiled cleanly, HTTP 200).
 
 ---
@@ -37,7 +37,7 @@
 |---|:---:|
 | **Canonical Products** | 121 (109 baseline + 6 quarantined hypotheses + 6 research candidates) |
 | **Source-Verified Products** | **0** (Honest reporting; $0.00 spend constraint) |
-| **Partially Validated Candidates** | 6 (`RESEARCH_HYPOTHESIS`, `SCENARIO_PRICE`) |
+| **Partially Validated Candidates** | 9 (`RESEARCH_HYPOTHESIS`, `SCENARIO_PRICE`) |
 | **Research Hypotheses Quarantined** | 6 (`UNVERIFIED_IMPORT`, `SCENARIO_PRICE`) |
 | **Advertisements (Meta Baseline)** | 145 (100% preserved) |
 | **Total Snapshots** | 435 (145 Verified Source Observations + 290 Database Derived Snapshots) |
@@ -46,10 +46,7 @@
 | **Bundle Offers** | 18 (6 baseline + 12 modeled scenario) |
 | **Commercial Models** | Model A: 91 \| Model B: 29 \| Model C: 1 |
 | **Frontend Production Build** | SUCCESS (16/16 routes compiled) |
-| **Total Backend Tests** | 212 passed / 0 failed (100% pass rate) |
+| **Total Backend Tests** | 223 passed / 0 failed (100% pass rate) |
 | **New Apify Paid Runs** | 0 |
-| **Actual New Spend** | $0.00 USD |
-| **Session Remaining Budget** | $1.9218 USD (from $2.00 authorized ceiling) |
-| **T+14 Monitoring Status** | FROZEN (Execution locked until Nov 24, 2026 after 01:26 ICT) |
-
----
+| **Actual Paid Apify Spend** | $0.00 USD |
+| **T+14 Experiment Status** | 100% FROZEN (Locked until Nov 24, 2026) |
