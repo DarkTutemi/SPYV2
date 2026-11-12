@@ -1,9 +1,31 @@
 # US WIN HUNTER — LATEST RUN STATUS & AUDIT TRAIL
 
+**Last Updated:** 2026-11-12T15:40:00 ICT (`2026-11-12T08:40:00 UTC`)  
+**Latest Completed Batch:** Batch 3 Commercial Validation (`31aabef`) + ECC Harness & Documentation Sync  
+**Branch:** `master` (separate staged skills remain unmerged on `chore/antigravity-skills-staging` `25a6de3`)  
+**Repository:** https://github.com/DarkTutemi/SPYV2
+
+> **Note:** Section 0 below reflects the current live `data/winhunter.db` and test state as of `2026-11-12`. Sections 1–2 preserve the prior `2026-11-11` remediation checkpoint verbatim for audit continuity.
+
+---
+
+## 0. Current 2026-11-12 Production & Validation Snapshot
+
+- **Batch 1 (`ingest_dtc_evidence.py`, commit `3a62039` / `7ac3264`):** Verified DTC/OEM evidence flows for Delta `GR150-SP` (`$174.70` `OEM_LIST_PRICE`), AstroAI `1000813` (`$9.99` `DTC_MANUFACTURER_OBSERVED_PRICE`), and ChomChom Roller (`$24.99` `DTC_MANUFACTURER_OBSERVED_PRICE` + unobserved merchant bundle), while Etekcity (`EL11`, `HTTP 429`) remains `RESEARCH_HYPOTHESIS`.
+- **Batch 2 (`ingest_batch2_dtc_evidence.py`, commit `18d9dff`):** Added 5 multi-category US OEM captures (`GENIUS5` `$69.95`, `KPHJ320` `$39.99`, `DLC-2ABC` `$39.95`, `GS23L` `$41.52`, `841230028873` `$104.00`) under `OEM_LIST_PRICE` and `PARTIALLY_VALIDATED`.
+- **Batch 3 + v2 Commercial Validation (`ingest_batch3_us_opportunities.py`, commit `31aabef`):** Isolated competitor retail benchmarks (`RuffRover $159.95`, `Aquasana $99.99`, `AquaBliss $64.99`, `Weddell Duo $79.99`, `Fanttik B10 Pro $49.99`) and corded category benchmark (`XPOWER A-2 $65.00`) from `OpportunityScore.observed_single_price_usd`; captured exact factory records (`Doglemi PD50128`/`PD50128-L`, `ZHONGHE ZH2087T` & matched handle-chamber cartridges, `HonkCare 29347` `$51.99` / `29334` `$37.99`).
+- **Live SQLite (`data/winhunter.db`) Counts:** `132` canonical products (`84` `PROMISING`, `31` `DISCOVERED`, `11` `PARTIALLY_VALIDATED`, `3` `QUALIFIED_OPPORTUNITY`, `2` `NEEDS_SAFETY_VERIFICATION`, `1` `RESEARCH_HYPOTHESIS`), `72` advertisers, `145` Meta ads, `435` snapshots (`145` `VERIFIED_SOURCE_OBSERVATION` + `290` `DATABASE_DERIVED_SNAPSHOT`), `24` collection runs, `256` source records, `95` product offers, `16` bundle offers, `365` opportunity scores, `0` Apify spend reservations (`$0.00` spent).
+- **Offline Test & Verification Posture:**
+  - `152 passed / 1 failed` across 19 non-`app.main` pytest files; `8` `app.main`-importing test files currently fail collection strictly due to uncommitted pasted text in `backend/app/api/temporal.py` lines `189–313` (preserved untouched pending operator cleanup).
+  - Frontend `npx tsc --noEmit`: `PASS` (`0` errors). Frontend `npm run lint` (`eslint`): `FAIL` (`26` pre-existing findings: `12` errors, `14` warnings).
+  - `T+14` Experiment: **100% FROZEN** until after `2026-11-24 01:26:00 ICT`.
+
+---
+
+## Archive Checkpoint — 2026-11-11T22:05:00 ICT (Historical Baseline Prior to Batches 1–3)
+
 **Last Updated:** 2026-11-11T22:05:00 ICT (2026-11-11T15:05:00 UTC)  
-**Latest Completed Batch:** Body-Level Inspection, Mock Bypass Lockdown, and Database Candidate Reconciliation  
-**Branch:** `master`  
-**Repository:** https://github.com/DarkTutemi/SPYV2  
+**Latest Completed Batch (Archived):** Body-Level Inspection, Mock Bypass Lockdown, and Database Candidate Reconciliation  
 
 ---
 
