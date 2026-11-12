@@ -392,8 +392,8 @@ def sanitize_html_content(raw_html: str) -> str:
 
     # 1. Remove tracking, analytics, and telemetry script blocks
     tracking_script_patterns = [
-        r'<script[^>]*src=["\'][^"\']*(?:google-analytics|googletagmanager|gtag|facebook|fbevents|clarity|datadoghq|sentry|newrelic|amazon-adsystem|csm/csm)[^"\']*["\'][^>]*>.*?</script>',
-        r'<script[^>]*>(?:(?!(?:application/ld\+json)).)*?(?:ga\(|gtag\(|fbq\(|dataLayer\.push|_satellite|_track).*?</script>',
+        r'<script[^>]*src=["\'][^"\']*(?:google-analytics|googletagmanager|gtag|facebook|fbevents|clarity|datadoghq|sentry|newrelic|amazon-adsystem|csm/csm)[^"\']*["\'][^>]*>(?:(?!</script>).)*?</script>',
+        r'<script[^>]*>(?:(?!</script>|application/ld\+json).)*?(?:ga\(|gtag\(|fbq\(|dataLayer\.push|_satellite|_track)(?:(?!</script>).)*?</script>',
     ]
     for pat in tracking_script_patterns:
         text = re.sub(pat, '<!-- [REDACTED: Analytics / Tracking Script] -->', text, flags=re.IGNORECASE | re.DOTALL)

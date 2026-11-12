@@ -77,6 +77,21 @@ NON_OEM_RETAIL_PRICE_TYPES = (
     PriceEvidenceType.MARKETPLACE_OBSERVED_PRICE,
 )
 
+COMPETITOR_BENCHMARK_OFFER_ROLES = frozenset({
+    "competitor_retail_benchmark",
+    "competitor_refill_benchmark",
+    "category_benchmark_corded",
+})
+
+
+def _is_competitor_benchmark_offer(offer: ProductOffer) -> bool:
+    """Return True when an offer records a competitor/category reference rather than the candidate itself."""
+    raw = offer.raw_data if isinstance(offer.raw_data, dict) else {}
+    return bool(
+        raw.get("is_competitor_benchmark") is True
+        or raw.get("offer_role") in COMPETITOR_BENCHMARK_OFFER_ROLES
+    )
+
 
 class ScoringEngine:
     """Deterministic opportunity scoring & qualification for products."""
@@ -196,8 +211,11 @@ class ScoringEngine:
 
             verified_offers.append(o)
 
-        oem_offers = [o for o in verified_offers if o.price_evidence_type == PriceEvidenceType.OEM_LIST_PRICE]
-        retail_or_dtc_offers = [o for o in verified_offers if o.price_evidence_type in NON_OEM_RETAIL_PRICE_TYPES]
+        candidate_verified_offers = [o for o in verified_offers if not _is_competitor_benchmark_offer(o)]
+        competitor_benchmark_offers = [o for o in verified_offers if _is_competitor_benchmark_offer(o)]
+
+        oem_offers = [o for o in candidate_verified_offers if o.price_evidence_type == PriceEvidenceType.OEM_LIST_PRICE]
+        retail_or_dtc_offers = [o for o in candidate_verified_offers if o.price_evidence_type in NON_OEM_RETAIL_PRICE_TYPES]
         oem_catalog_price = oem_offers[0].price_usd if oem_offers else None
 
         obs_single = None
@@ -221,6 +239,14 @@ class ScoringEngine:
         elif not is_manual_origin and len(ads) > 0 and (product.min_price_usd or product.max_price_usd):
             # Legacy ad-backed fallback only for non-manual products
             obs_single = product.min_price_usd or product.max_price_usd
+
+        obs_competitor_price = competitor_benchmark_offers[0].price_usd if competitor_benchmark_offers else None
+        obs_competitor_type = (
+            (competitor_benchmark_offers[0].raw_data or {}).get("offer_role")
+            if competitor_benchmark_offers and isinstance(competitor_benchmark_offers[0].raw_data, dict)
+            else None
+        )
+        has_competitor_benchmark_price = obs_competitor_price is not None
 
         obs_bundle = None
         obs_bundle_qty = None
@@ -254,6 +280,9 @@ class ScoringEngine:
             oem_catalog_price=oem_catalog_price,
             has_verified_offer_url=has_verified_offer_url,
             is_manual_origin=is_manual_origin,
+            has_competitor_benchmark_price=has_competitor_benchmark_price,
+            obs_competitor_price=obs_competitor_price,
+            obs_competitor_type=obs_competitor_type,
         )
 
         # 7. Emergence Score (Momentum if longitudinal; else grounded in discovery signal)
@@ -301,6 +330,9 @@ class ScoringEngine:
                 is_manual_origin=is_manual_origin,
                 obs_single=obs_single,
                 obs_price_type=obs_price_type,
+                has_competitor_benchmark_price=has_competitor_benchmark_price,
+                obs_competitor_price=obs_competitor_price,
+                obs_competitor_type=obs_competitor_type,
             )
             composite = self._compute_composite_balanced(
                 model=comm_model,
@@ -337,6 +369,9 @@ class ScoringEngine:
                 is_manual_origin=is_manual_origin,
                 obs_single=obs_single,
                 obs_price_type=obs_price_type,
+                has_competitor_benchmark_price=has_competitor_benchmark_price,
+                obs_competitor_price=obs_competitor_price,
+                obs_competitor_type=obs_competitor_type,
             )
             composite = self._compute_composite(
                 bundle_potential=bundle_eval["score"],
@@ -369,6 +404,7 @@ class ScoringEngine:
             obs_price_type=obs_price_type,
             is_manual_origin=is_manual_origin,
             oem_catalog_price=oem_catalog_price,
+            competitor_offers=competitor_benchmark_offers,
         )
 
         # Verification flag
@@ -789,6 +825,9 @@ class ScoringEngine:
         oem_catalog_price: Optional[float] = None,
         has_verified_offer_url: bool = False,
         is_manual_origin: bool = False,
+        has_competitor_benchmark_price: bool = False,
+        obs_competitor_price: Optional[float] = None,
+        obs_competitor_type: Optional[str] = None,
     ) -> dict:
         """
         Evaluate factual evidence quality scaled 0–100 strictly based on verified source data:
@@ -863,8 +902,8 @@ class ScoringEngine:
             if obs_price_type == PriceEvidenceType.OEM_LIST_PRICE.value:
                 pricing_pts = 75.0
                 pricing_desc = (
-                    f"Verified branded OEM catalog list price (${obs_single:.2f} USD via OEM_LIST_PRICE) — "
-                    "tracked separately from generic dropshipping retail, checkout price, AOV, and supplier cost"
+                    f"Verified equivalent manufacturer/OEM catalog price (${obs_single:.2f} USD via OEM_LIST_PRICE) — "
+                    "tracked separately from competitor retail, proposed target price, B2B FOB quote, landed US cost, and customer AOV"
                 )
             elif obs_price_type in (
                 PriceEvidenceType.DTC_MANUFACTURER_OBSERVED_PRICE.value,
@@ -879,6 +918,12 @@ class ScoringEngine:
             else:
                 pricing_pts = 100.0
                 pricing_desc = "Verified observed checkout or ad pricing"
+        elif has_competitor_benchmark_price:
+            pricing_pts = 45.0
+            pricing_desc = (
+                f"Observed competitor/category benchmark (${obs_competitor_price:.2f} USD via {obs_competitor_type}) — "
+                "NOT a verified offer for this generic candidate; candidate equivalent retail price, supplier FOB quote, landed US cost, and customer AOV remain UNKNOWN"
+            )
         else:
             pricing_pts = 0.0
             pricing_desc = "Missing observed price evidence (price unknown)"
@@ -889,6 +934,9 @@ class ScoringEngine:
             "description": pricing_desc,
             "price_evidence_type": obs_price_type,
             "observed_price_usd": obs_single,
+            "observed_competitor_price_usd": obs_competitor_price,
+            "competitor_benchmark_role": obs_competitor_type,
+            "is_competitor_benchmark_only": (not has_observed_price) and has_competitor_benchmark_price,
             "oem_catalog_price_usd": oem_catalog_price,
             "is_branded_oem_catalog": obs_price_type == PriceEvidenceType.OEM_LIST_PRICE.value,
         }
@@ -907,11 +955,11 @@ class ScoringEngine:
             total = min(20.0, round(total * 0.25, 2))
 
         if is_manual_origin:
-            if not has_observed_price and indep_adv_count == 0:
+            if not has_observed_price and not has_competitor_benchmark_price and indep_adv_count == 0:
                 total = min(10.0, round(total * 0.15, 2))
             elif indep_adv_count == 0:
-                # Partial validation only: DTC/OEM price is verified, but manual concept assumptions
-                # & independent ad competition remain unverified (keep strictly < 50.0).
+                # Partial validation only: DTC/OEM or competitor benchmark price observed, but manual concept
+                # assumptions & independent local Meta ad demand remain unverified (keep strictly < 50.0).
                 total = min(49.0, round(total * 0.85, 2))
 
         return {"score": total, "components": components}
@@ -1010,6 +1058,9 @@ class ScoringEngine:
         is_manual_origin: bool = False,
         obs_single: Optional[float] = None,
         obs_price_type: Optional[str] = None,
+        has_competitor_benchmark_price: bool = False,
+        obs_competitor_price: Optional[float] = None,
+        obs_competitor_type: Optional[str] = None,
     ) -> tuple[str, str]:
         """
         Classify opportunity into Phase 9 evidence states:
@@ -1025,7 +1076,7 @@ class ScoringEngine:
             return "SYNTHETIC_FIXTURE", "Synthetic fixture or test data — strictly excluded from live opportunity pipeline."
 
         if is_manual_origin:
-            if not has_observed_price:
+            if not has_observed_price and not has_competitor_benchmark_price:
                 raw_st = getattr(product, "opportunity_status", None)
                 if raw_st in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS"):
                     current_st = raw_st
@@ -1038,11 +1089,18 @@ class ScoringEngine:
                     "Unverified research hypothesis import — strictly excluded from verified commercial opportunities until independent marketplace or DTC verification.",
                 )
             if indep_adv_count == 0 or clone_detected:
-                price_disp = f"${obs_single:.2f} USD" if obs_single is not None else "unknown"
+                if has_observed_price:
+                    price_disp = f"${obs_single:.2f} USD" if obs_single is not None else "unknown"
+                    return (
+                        "PARTIALLY_VALIDATED",
+                        f"Verified external commercial price observed ({price_disp} via {obs_price_type}), "
+                        "while original manual concept assumptions, independent advertiser demand (0 verified advertisers), customer AOV, and supplier cost remain unverified.",
+                    )
+                comp_disp = f"${obs_competitor_price:.2f} USD" if obs_competitor_price is not None else "unknown"
                 return (
                     "PARTIALLY_VALIDATED",
-                    f"Verified external commercial price observed ({price_disp} via {obs_price_type}), "
-                    "while original manual concept assumptions, independent advertiser demand (0 verified advertisers), customer AOV, and supplier cost remain unverified.",
+                    f"Observed competitor/category benchmark price ({comp_disp} via {obs_competitor_type}), "
+                    "while candidate equivalent retail price (UNKNOWN), supplier FOB quote, landed US cost, customer AOV, and independent local ad demand remain unverified.",
                 )
 
         if not product.is_physical or product.target_country != "US":
@@ -1352,12 +1410,15 @@ class ScoringEngine:
         is_manual_origin: bool = False,
         obs_single: Optional[float] = None,
         obs_price_type: Optional[str] = None,
+        has_competitor_benchmark_price: bool = False,
+        obs_competitor_price: Optional[float] = None,
+        obs_competitor_type: Optional[str] = None,
     ) -> tuple[str, str]:
         if getattr(product, "is_synthetic", False) or product.name.startswith("DEMO ") or product.source_type == DataSourceType.OTHER:
             return "SYNTHETIC_FIXTURE", "Synthetic fixture or test data — strictly excluded from live opportunity pipeline."
 
         if is_manual_origin:
-            if not has_observed_price:
+            if not has_observed_price and not has_competitor_benchmark_price:
                 raw_st = getattr(product, "opportunity_status", None)
                 if raw_st in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS"):
                     current_st = raw_st
@@ -1370,11 +1431,18 @@ class ScoringEngine:
                     "Unverified research hypothesis import — strictly excluded from verified commercial opportunities until independent marketplace or DTC confirmation.",
                 )
             if indep_adv_count == 0 or clone_detected:
-                price_disp = f"${obs_single:.2f} USD" if obs_single is not None else "unknown"
+                if has_observed_price:
+                    price_disp = f"${obs_single:.2f} USD" if obs_single is not None else "unknown"
+                    return (
+                        "PARTIALLY_VALIDATED",
+                        f"Verified external commercial price observed ({price_disp} via {obs_price_type}), "
+                        "while original manual concept assumptions, independent advertiser demand (0 verified advertisers), customer AOV, and supplier cost remain unverified.",
+                    )
+                comp_disp = f"${obs_competitor_price:.2f} USD" if obs_competitor_price is not None else "unknown"
                 return (
                     "PARTIALLY_VALIDATED",
-                    f"Verified external commercial price observed ({price_disp} via {obs_price_type}), "
-                    "while original manual concept assumptions, independent advertiser demand (0 verified advertisers), customer AOV, and supplier cost remain unverified.",
+                    f"Observed competitor/category benchmark price ({comp_disp} via {obs_competitor_type}), "
+                    "while candidate equivalent retail price (UNKNOWN), supplier FOB quote, landed US cost, customer AOV, and independent local ad demand remain unverified.",
                 )
 
         if not product.is_physical or product.target_country != "US":
@@ -1499,6 +1567,7 @@ class ScoringEngine:
         obs_price_type: Optional[str] = None,
         is_manual_origin: bool = False,
         oem_catalog_price: Optional[float] = None,
+        competitor_offers: Optional[list[ProductOffer]] = None,
     ) -> dict:
         if model == "MODEL_A_SINGLE_PRODUCT":
             why_high = "High-utility hero problem solver with demonstrable physical mechanism and strong single-unit consumer purchase intent."
@@ -1522,18 +1591,35 @@ class ScoringEngine:
             price_str = f"${obs_single:.2f}" if obs_single else f"${obs_bundle:.2f}"
             if obs_price_type == PriceEvidenceType.OEM_LIST_PRICE.value:
                 evidence_points.append(
-                    f"Verified branded OEM catalog list price at {price_str} (OEM_LIST_PRICE — distinct from dropship retail, checkout AOV, or supplier cost)"
+                    f"Verified equivalent manufacturer/OEM catalog price at {price_str} USD (OEM_LIST_PRICE — distinct from competitor retail, proposed target price, B2B FOB quote, landed US cost, and customer AOV)"
                 )
             elif obs_price_type == PriceEvidenceType.DTC_MANUFACTURER_OBSERVED_PRICE.value:
                 evidence_points.append(
-                    f"Verified DTC manufacturer catalog price at {price_str} (DTC_MANUFACTURER_OBSERVED_PRICE — distinct from checkout AOV or supplier cost)"
+                    f"Verified DTC manufacturer catalog price at {price_str} USD (DTC_MANUFACTURER_OBSERVED_PRICE — distinct from checkout AOV or supplier cost)"
                 )
             elif obs_price_type == PriceEvidenceType.OBSERVED_CHECKOUT_PRICE.value:
-                evidence_points.append(f"Observed checkout pricing at {price_str}")
+                evidence_points.append(f"Observed checkout pricing at {price_str} USD")
             else:
-                evidence_points.append(f"Observed retail catalog listing price at {price_str}")
+                evidence_points.append(f"Observed retail catalog listing price at {price_str} USD")
         if oem_catalog_price is not None and obs_price_type != PriceEvidenceType.OEM_LIST_PRICE.value:
-            evidence_points.append(f"Separate branded OEM catalog reference at ${oem_catalog_price:.2f} (OEM_LIST_PRICE)")
+            evidence_points.append(f"Separate branded OEM catalog reference at ${oem_catalog_price:.2f} USD (OEM_LIST_PRICE)")
+        if competitor_offers:
+            comp_parts = []
+            for co in competitor_offers:
+                raw_co = co.raw_data if isinstance(co.raw_data, dict) else {}
+                role_lbl = raw_co.get("offer_role", "competitor_retail_benchmark")
+                retailer_lbl = raw_co.get("retailer", "competitor")
+                if co.price_usd is not None:
+                    comp_parts.append(f"{retailer_lbl} ${co.price_usd:.2f} USD [{role_lbl}]")
+            if comp_parts:
+                evidence_points.append(
+                    "Observed competitor/category benchmarks ONLY (NOT candidate offers): " + ", ".join(comp_parts)
+                )
+        raw_prod = product.raw_data if isinstance(product.raw_data, dict) else {}
+        if raw_prod.get("proposed_selling_price_usd"):
+            evidence_points.append(
+                f"Proposed target selling price: {raw_prod['proposed_selling_price_usd']} (unverified strategy target, NOT observed offer)"
+            )
         if is_manual_origin:
             evidence_points.append("Original concept provenance: manual research import (auditable)")
         if product.category:
@@ -1541,11 +1627,16 @@ class ScoringEngine:
         what_evidence = "; ".join(evidence_points) if evidence_points else "Early initial discovery record."
 
         what_unknown = (
-            "Supplier landed COGS from verified manufacturer (1688/CJ Dropshipping), "
-            "return/chargeback rate baseline, actual checkout conversion price and customer AOV."
+            "Supplier FOB quote (RFQ required), landed US cost, "
+            "return/chargeback rate baseline, actual checkout conversion price, and customer AOV (UNKNOWN)."
         )
+        if not has_observed_price and competitor_offers:
+            what_unknown = (
+                "Verified retail price for an equivalent sourcing candidate SKU (UNKNOWN — competitor retail benchmarks are NOT candidate offers). "
+                + what_unknown
+            )
         if is_manual_origin and not ads:
-            what_unknown = f"Independent advertiser demand, competitive Meta/TikTok creatives, stock availability (UNKNOWN), and verified business economics. {what_unknown}"
+            what_unknown = f"Local tracked Meta/TikTok ad dataset (0 captured DB ads — UNKNOWN DEMAND EVIDENCE), stock confirmation across unverified variants. {what_unknown}"
         if safety_warning:
             what_unknown = f"Authentic UL/ETL safety testing laboratory certificate and factory quality inspection report. {what_unknown}"
 
