@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-import hashlib
+import json
 from pathlib import Path
 import shutil
 import sys
@@ -165,50 +165,70 @@ async def ingest_dtc_evidence():
             c_run.completed_at = datetime(2026, 11, 11, 17, 51, 0, tzinfo=timezone.utc)
             print(f"[RUN] Using existing CollectionRun: {c_run_id}")
 
+        # Load authoritative acquisition manifest (never trust self-computed file hash alone)
+        manifest_path = REPO_ROOT / "docs" / "run_reports" / "sanitized_acquisition_manifest.json"
+        if not manifest_path.exists():
+            raise FileNotFoundError(f"Missing acquisition manifest: {manifest_path}")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_by_artifact = {
+            e.get("sanitized_artifact_path"): e
+            for e in manifest.get("dtc_manufacturer_evidence", [])
+            if isinstance(e, dict) and e.get("sanitized_artifact_path")
+        }
+
         # 2. Ingest verified DTC product captures
         for item in DTC_CAPTURES:
-            art_path = REPO_ROOT / item["artifact_rel_path"]
+            art_rel = str(item["artifact_rel_path"]).replace("\\", "/")
+            art_path = REPO_ROOT / art_rel
             if not art_path.exists():
                 raise FileNotFoundError(f"Missing required artifact: {art_path}")
 
-            art_bytes = art_path.read_bytes()
-            art_sha256 = hashlib.sha256(art_bytes).hexdigest()
+            m_entry = manifest_by_artifact.get(art_rel)
+            if not m_entry:
+                raise KeyError(f"Artifact '{art_rel}' is missing from acquisition manifest {manifest_path}")
 
-            # Pre-audit artifact content
+            manifest_sha256 = m_entry["sanitized_artifact_sha256"]
+            manifest_url = m_entry["source_url"]
+            manifest_ts = m_entry["capture_timestamp"]
+            manifest_avail = m_entry.get("actual_availability", "UNKNOWN")
+
+            # Verify artifact digest strictly against the acquisition manifest & header
             is_valid, err, meta = inspect_artifact_content(
                 artifact_path=art_path,
-                expected_digest=art_sha256,
+                expected_digest=manifest_sha256,
                 expected_identity=item["external_id"],
                 expected_price=item["observed_price"],
                 expected_currency=item["currency"],
-                source_url=item["source_url"],
+                source_url=manifest_url,
+                expected_timestamp=manifest_ts,
+                repo_root=REPO_ROOT,
             )
             if not is_valid:
                 raise ValueError(f"Artifact audit failed for {item['external_id']}: {err}")
-            print(f"[AUDIT] Verified artifact {art_path.name} (SHA-256: {art_sha256[:12]}...)")
+            print(f"[AUDIT] Manifest-verified artifact {art_path.name} (SHA-256: {manifest_sha256[:12]}...)")
 
-            # Generate canonical capture signature
+            # Generate canonical capture signature bound to manifest timestamp
             canon_sig = generate_capture_signature(
                 collection_run_id=c_run.id,
                 external_id=item["external_id"],
                 price=item["observed_price"],
-                timestamp=item["source_timestamp"],
+                timestamp=manifest_ts,
             )
 
             # Persist SourceRecord
             srec = await session.get(SourceRecord, item["source_record_id"])
             raw_data = {
-                "url": item["source_url"],
+                "url": manifest_url,
                 "provider": item["provider"],
                 "retailer": item["retailer"],
                 "external_id": item["external_id"],
                 "observed_price": item["observed_price"],
                 "currency": item["currency"],
-                "availability": item["availability"],
-                "source_timestamp": item["source_timestamp"],
+                "availability": manifest_avail,
+                "source_timestamp": manifest_ts,
                 "capture_signature": canon_sig,
-                "artifact_path": str(item["artifact_rel_path"]).replace("\\", "/"),
-                "artifact_sha256": art_sha256,
+                "artifact_path": art_rel,
+                "artifact_sha256": manifest_sha256,
                 "raw_http_status": 200,
                 "notes": item["notes"],
             }
@@ -236,21 +256,21 @@ async def ingest_dtc_evidence():
             offer_raw = {
                 "source_record_id": srec.id,
                 "collection_run_id": c_run.id,
-                "artifact_path": str(item["artifact_rel_path"]).replace("\\", "/"),
-                "artifact_sha256": art_sha256,
+                "artifact_path": art_rel,
+                "artifact_sha256": manifest_sha256,
                 "capture_signature": canon_sig,
-                "availability": item["availability"],
+                "availability": manifest_avail,
                 "retailer": item["retailer"],
                 "notes": item["notes"],
             }
-            obs_dt = datetime.fromisoformat(item["source_timestamp"].replace("Z", "+00:00"))
+            obs_dt = datetime.fromisoformat(manifest_ts.replace("Z", "+00:00"))
 
             if not offer:
                 offer = ProductOffer(
                     id=item["offer_id"],
                     product_id=item["product_id"],
                     advertiser_id=None,
-                    source_url=item["source_url"],
+                    source_url=manifest_url,
                     price_usd=item["observed_price"],
                     compare_at_price_usd=None,
                     currency=item["currency"],
@@ -264,6 +284,7 @@ async def ingest_dtc_evidence():
                 session.add(offer)
                 print(f"[OFFER] Created ProductOffer: {offer.id} (${offer.price_usd} {offer.price_evidence_type})")
             else:
+                offer.source_url = manifest_url
                 offer.price_usd = item["observed_price"]
                 offer.price_evidence_type = item["price_evidence_type"]
                 offer.evidence_type = item["evidence_type"]
@@ -275,7 +296,7 @@ async def ingest_dtc_evidence():
             # 3. Assert DB-backed Strict Verification Passes
             db_res = await verify_commercial_evidence_db(
                 db=session,
-                url=item["source_url"],
+                url=manifest_url,
                 price_evidence_type=item["price_evidence_type"].value,
                 source_record_id=srec.id,
                 expected_asin=None,
@@ -283,7 +304,7 @@ async def ingest_dtc_evidence():
                 currency=item["currency"],
                 retailer_name=item["retailer"],
                 product_identity=item["external_id"],
-                observed_at=item["source_timestamp"],
+                observed_at=manifest_ts,
             )
             if db_res.outcome != EvidenceVerificationOutcome.VERIFIED:
                 raise ValueError(
@@ -291,18 +312,41 @@ async def ingest_dtc_evidence():
                 )
             print(f"[GATE] DB-backed strict verification PASSED for {offer.id} ({db_res.verification_notes})")
 
-        # 4. Ingest ChomChom Merchant Bundle (Roller + Detailer)
+        # 4. Ingest ChomChom Merchant Bundle (Roller + Detailer) linked to authentic homepage artifact
         b_item = CHOMCHOM_BUNDLE
+        chom_art_rel = "docs/run_reports/artifacts/capture_ChomChom_chomchom_pets.html"
+        chom_art_path = REPO_ROOT / chom_art_rel
+        chom_manifest = manifest_by_artifact[chom_art_rel]
+        chom_sha256 = chom_manifest["sanitized_artifact_sha256"]
+        chom_ts = chom_manifest["capture_timestamp"]
+
+        # Inspect authentic homepage artifact confirms bundle handle exists on storefront without fabricating price
+        b_valid, b_err, _ = inspect_artifact_content(
+            artifact_path=chom_art_path,
+            expected_digest=chom_sha256,
+            expected_identity=b_item["external_id"],
+            expected_price=None,  # Current price remains UNKNOWN
+            source_url=chom_manifest["source_url"],
+            expected_timestamp=chom_ts,
+            repo_root=REPO_ROOT,
+        )
+        if not b_valid:
+            raise ValueError(f"Bundle artifact audit failed for {b_item['external_id']}: {b_err}")
+
         b_srec = await session.get(SourceRecord, b_item["source_record_id"])
         b_raw = {
-            "url": b_item["source_url"],
+            "url": chom_manifest["source_url"],
+            "bundle_product_url": b_item["source_url"],
             "provider": "public_dtc_shopify_collector",
             "retailer": "ChomChom Pets (DTC Storefront)",
             "external_id": b_item["external_id"],
+            "artifact_path": chom_art_rel,
+            "artifact_sha256": chom_sha256,
+            "source_timestamp": chom_ts,
             "components": b_item["components"],
-            "availability": b_item["availability"],
-            "bundle_price_usd": b_item["bundle_price_usd"],
-            "price_evidence_type": b_item["price_evidence_type"].value,
+            "availability": "UNKNOWN",
+            "bundle_price_usd": None,
+            "price_evidence_type": PriceEvidenceType.UNKNOWN.value,
             "notes": b_item["notes"],
         }
         if not b_srec:
@@ -323,28 +367,33 @@ async def ingest_dtc_evidence():
         await session.flush()
 
         bundle = await session.get(BundleOffer, b_item["bundle_id"])
-        notes_str = f"Components: {', '.join(b_item['components'])}. SourceRecord: {b_srec.id}. {b_item['notes']}"
+        notes_str = (
+            f"Components: {', '.join(b_item['components'])}. "
+            f"SourceRecord: {b_srec.id} (linked to {chom_art_rel}, SHA-256: {chom_sha256[:12]}...). "
+            f"{b_item['notes']}"
+        )
         if not bundle:
             bundle = BundleOffer(
                 id=b_item["bundle_id"],
                 product_id=b_item["product_id"],
                 quantity=b_item["quantity"],
-                bundle_price_usd=b_item["bundle_price_usd"],
+                bundle_price_usd=None,
                 bundle_mechanism=b_item["bundle_mechanism"],
-                bundle_status=b_item["bundle_status"],
+                bundle_status="unobserved_price",
                 source_url=b_item["source_url"],
-                evidence_type=EvidenceType.OBSERVED_FACT,
-                price_evidence_type=b_item["price_evidence_type"],
+                evidence_type=EvidenceType.UNKNOWN,
+                price_evidence_type=PriceEvidenceType.UNKNOWN,
                 mechanism_evidence=notes_str,
-                natural_bundle_reasoning="Merchant sells ChomChom Roller bundled with ChomChom Detailer for complete whole-house + travel coverage.",
+                natural_bundle_reasoning="Merchant sells ChomChom Roller bundled with ChomChom Detailer (homepage handle verified; direct page 429, price & availability UNKNOWN).",
             )
             session.add(bundle)
             print(f"[BUNDLE] Created BundleOffer: {bundle.id} (Qty {bundle.quantity}, Status: {bundle.bundle_status})")
         else:
             bundle.quantity = b_item["quantity"]
-            bundle.bundle_price_usd = b_item["bundle_price_usd"]
-            bundle.bundle_status = b_item["bundle_status"]
-            bundle.price_evidence_type = b_item["price_evidence_type"]
+            bundle.bundle_price_usd = None
+            bundle.bundle_status = "unobserved_price"
+            bundle.evidence_type = EvidenceType.UNKNOWN
+            bundle.price_evidence_type = PriceEvidenceType.UNKNOWN
             bundle.mechanism_evidence = notes_str
             print(f"[BUNDLE] Updated BundleOffer: {bundle.id}")
         await session.flush()

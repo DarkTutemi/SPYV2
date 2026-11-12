@@ -275,6 +275,70 @@ def extract_structured_product_evidence(html_text: str) -> Dict[str, Any]:
     }
 
 
+def _normalize_utc_second(ts_str: Optional[str]) -> Optional[str]:
+    if not ts_str:
+        return None
+    try:
+        clean = str(ts_str).strip()
+        if clean.endswith("Z"):
+            clean = clean[:-1] + "+00:00"
+        dt = datetime.fromisoformat(clean)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        return str(ts_str).strip()[:19]
+
+
+def _parse_artifact_acquisition_header(content_text: str) -> Optional[Dict[str, str]]:
+    """Parses the acquisition metadata header comment if present on disk artifact."""
+    m = re.match(r'^\s*<!--([\s\S]*?)-->', content_text)
+    if not m:
+        return None
+    block = m.group(1)
+    if "US WIN HUNTER COMMERCIAL EVIDENCE ACQUISITION ARTIFACT" not in block:
+        return None
+    parsed: Dict[str, str] = {}
+    for line in block.splitlines():
+        if ":" in line:
+            k, v = line.split(":", 1)
+            k_norm = k.strip().lower()
+            v_norm = v.strip()
+            if k_norm == "target asin/id":
+                parsed["target_id"] = v_norm
+            elif k_norm == "source url":
+                parsed["source_url"] = v_norm
+            elif k_norm == "captured at":
+                parsed["captured_at"] = v_norm
+            elif k_norm == "original response bytes sha-256":
+                parsed["original_sha256"] = v_norm
+    return parsed
+
+
+def _lookup_manifest_entry(artifact_path: Path, repo_root: Path) -> Optional[Dict[str, Any]]:
+    """Looks up an artifact's authoritative entry in sanitized_acquisition_manifest.json."""
+    try:
+        manifest_path = (repo_root / "docs" / "run_reports" / "sanitized_acquisition_manifest.json").resolve()
+        if not manifest_path.exists():
+            return None
+        art_resolved = artifact_path.resolve()
+        try:
+            rel_path = art_resolved.relative_to(repo_root.resolve()).as_posix()
+        except ValueError:
+            return None
+
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for section_key in ("dtc_manufacturer_evidence", "candidates"):
+            entries = manifest.get(section_key, [])
+            if isinstance(entries, list):
+                for entry in entries:
+                    if isinstance(entry, dict) and entry.get("sanitized_artifact_path") == rel_path:
+                        return entry
+    except Exception:
+        pass
+    return None
+
+
 def inspect_artifact_content(
     artifact_path: Path,
     expected_digest: Optional[str] = None,
@@ -282,17 +346,20 @@ def inspect_artifact_content(
     expected_price: Optional[float] = None,
     expected_currency: str = "USD",
     source_url: Optional[str] = None,
+    expected_timestamp: Optional[str] = None,
+    repo_root: Optional[Path] = None,
 ) -> Tuple[bool, Optional[str], Dict[str, Any]]:
     """
     Performs content-based inspection of a captured artifact file:
     1. Verifies file existence and non-zero size.
-    2. Computes file SHA-256 digest and verifies against recorded digest if present.
-    3. Detects and rejects bot challenge / CAPTCHA / WAF interstitial pages.
-    4. Parses structured product evidence excluding assistant-generated acquisition preambles.
-    5. Checks presence of expected product identity / SKU / ASIN in content.
-    6. Checks presence of expected observed price and currency in content.
-    7. Validates source URL against canonical URL / host if present.
-    8. Returns (is_valid, rejection_reason, metadata).
+    2. Computes file SHA-256 digest and verifies against acquisition manifest & recorded digest.
+    3. Binds recorded acquisition header (source URL, identity, timestamp) when present.
+    4. Detects and rejects bot challenge / CAPTCHA / WAF interstitial pages.
+    5. Parses structured product evidence excluding assistant-generated acquisition preambles.
+    6. Checks presence of expected product identity / SKU / ASIN in content.
+    7. Checks presence of expected observed price and currency in content.
+    8. Validates source URL against canonical URL / host if present.
+    9. Returns (is_valid, rejection_reason, metadata).
     """
     if not artifact_path.exists() or not artifact_path.is_file():
         return False, f"Artifact file '{artifact_path}' does not exist on disk. An inspectable acquisition artifact on disk is required.", {}
@@ -307,6 +374,30 @@ def inspect_artifact_content(
         return False, f"Failed to read artifact file: {str(e)}", {}
 
     actual_digest = hashlib.sha256(content_bytes).hexdigest()
+
+    # Check authoritative manifest digest if artifact belongs to docs/run_reports/artifacts
+    resolved_root = repo_root if repo_root is not None else Path(__file__).resolve().parents[3]
+    manifest_entry = _lookup_manifest_entry(artifact_path, resolved_root)
+    if manifest_entry:
+        m_sha = str(manifest_entry.get("sanitized_artifact_sha256") or "").strip().lower()
+        if m_sha.startswith("sha256:"):
+            m_sha = m_sha[7:]
+        if m_sha and actual_digest.lower() != m_sha:
+            return False, (
+                f"Artifact SHA-256 integrity check against acquisition manifest failed. "
+                f"File digest is '{actual_digest}', manifest digest was '{m_sha}'."
+            ), {"actual_sha256": actual_digest}
+        if source_url and manifest_entry.get("source_url"):
+            if _normalize_listing_url(source_url) != _normalize_listing_url(manifest_entry.get("source_url")):
+                return False, (
+                    f"Source URL '{source_url}' does not match acquisition manifest URL '{manifest_entry.get('source_url')}'."
+                ), {"actual_sha256": actual_digest}
+        if expected_timestamp and manifest_entry.get("capture_timestamp"):
+            if _normalize_utc_second(expected_timestamp) != _normalize_utc_second(manifest_entry.get("capture_timestamp")):
+                return False, (
+                    f"Capture timestamp '{expected_timestamp}' does not match acquisition manifest timestamp '{manifest_entry.get('capture_timestamp')}'."
+                ), {"actual_sha256": actual_digest}
+
     if expected_digest:
         clean_exp = str(expected_digest).strip().lower()
         if clean_exp.startswith("sha256:"):
@@ -320,13 +411,34 @@ def inspect_artifact_content(
     content_text = content_bytes.decode("utf-8", errors="replace")
     content_lower = content_text.lower()
 
-    # Bot challenge / CAPTCHA detection
+    # Bot challenge / CAPTCHA detection (must run before metadata checks on gated captures)
     for pattern in BOT_CHALLENGE_PATTERNS:
         if pattern in content_lower:
             return False, (
                 f"Artifact content contains bot challenge / automated access restriction: '{pattern}'. "
                 f"Commercial observation cannot be verified from a gated response."
             ), {"actual_sha256": actual_digest, "bot_pattern": pattern}
+
+    # Bind acquisition header fields (URL, identity, capture timestamp) when header is present
+    acq_header = _parse_artifact_acquisition_header(content_text)
+    if acq_header:
+        if source_url and acq_header.get("source_url"):
+            if _normalize_listing_url(source_url) != _normalize_listing_url(acq_header["source_url"]):
+                return False, (
+                    f"Artifact acquisition header Source URL mismatch: expected '{source_url}', header recorded '{acq_header['source_url']}'."
+                ), {"actual_sha256": actual_digest}
+        if expected_identity and acq_header.get("target_id"):
+            exp_id_low = str(expected_identity).strip().lower()
+            hdr_id_low = acq_header["target_id"].strip().lower()
+            if not (hdr_id_low == exp_id_low or hdr_id_low in exp_id_low or exp_id_low in hdr_id_low):
+                return False, (
+                    f"Artifact acquisition header identity mismatch: expected '{expected_identity}', header recorded '{acq_header['target_id']}'."
+                ), {"actual_sha256": actual_digest}
+        if expected_timestamp and acq_header.get("captured_at"):
+            if _normalize_utc_second(expected_timestamp) != _normalize_utc_second(acq_header["captured_at"]):
+                return False, (
+                    f"Artifact acquisition header timestamp mismatch: expected '{expected_timestamp}', header recorded '{acq_header['captured_at']}'."
+                ), {"actual_sha256": actual_digest}
 
     # Extract structured evidence (excluding assistant preambles and HTML comments)
     evidence = extract_structured_product_evidence(content_text)
@@ -1009,6 +1121,8 @@ async def verify_commercial_evidence_db(
             expected_price=s_price_f,
             expected_currency=currency,
             source_url=captured_url,
+            expected_timestamp=str(src_ts),
+            repo_root=repo_root,
         )
 
         if not is_content_valid:

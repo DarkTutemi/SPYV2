@@ -55,8 +55,27 @@ from app.models.models import (
     ProductOffer,
     SourceRecord,
 )
+from app.services.evidence_verification import (
+    EvidenceVerificationOutcome,
+    verify_commercial_evidence_db,
+)
 
 logger = logging.getLogger(__name__)
+
+VERIFIED_RETAIL_OR_DTC_PRICE_TYPES = (
+    PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
+    PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+    PriceEvidenceType.DTC_MANUFACTURER_OBSERVED_PRICE,
+    PriceEvidenceType.MARKETPLACE_OBSERVED_PRICE,
+    PriceEvidenceType.OEM_LIST_PRICE,
+)
+
+NON_OEM_RETAIL_PRICE_TYPES = (
+    PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
+    PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+    PriceEvidenceType.DTC_MANUFACTURER_OBSERVED_PRICE,
+    PriceEvidenceType.MARKETPLACE_OBSERVED_PRICE,
+)
 
 
 class ScoringEngine:
@@ -124,10 +143,12 @@ class ScoringEngine:
         # 5. Bundle Potential Score (natural 3, 5, 10 demand; penalize artificial discounts)
         bundle_eval = await self._compute_bundle_potential(product, ads)
 
-        # Check observed pricing across product and non-modeled bundle offers
-        is_unverified_product = (
+        # Audit original manual/hypothesis provenance & verified external price observations
+        raw_prov = (product.raw_data or {}).get("provenance") if isinstance(product.raw_data, dict) else None
+        is_manual_origin = (
             getattr(product, "opportunity_status", None) in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
             or product.source_type == DataSourceType.MANUAL_IMPORT
+            or raw_prov in ("unverified_manual_import", "unverified_manual_hypothesis")
         )
 
         offers_res = await self.db.execute(
@@ -140,47 +161,99 @@ class ScoringEngine:
         )
         bundle_offers = list(bundle_offers_res.scalars().all())
 
-        obs_single = None
-        if not is_unverified_product:
-            for o in offers:
-                if (
-                    not o.is_bundle
-                    and o.price_usd
-                    and o.price_evidence_type in (
-                        PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
-                        PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
-                    )
-                    and o.evidence_type != EvidenceType.UNVERIFIED_HYPOTHESIS
+        verified_offers = []
+        for o in offers:
+            if (
+                o.is_bundle
+                or o.price_usd is None
+                or o.price_usd <= 0
+                or o.price_evidence_type in (PriceEvidenceType.SCENARIO_PRICE, PriceEvidenceType.UNKNOWN, None)
+                or o.evidence_type in (EvidenceType.UNVERIFIED_HYPOTHESIS, EvidenceType.SCENARIO_PRICE, EvidenceType.UNKNOWN)
+                or o.price_evidence_type not in VERIFIED_RETAIL_OR_DTC_PRICE_TYPES
+            ):
+                continue
+
+            srec_id = o.raw_data.get("source_record_id") if isinstance(o.raw_data, dict) else None
+            if srec_id:
+                audit = await verify_commercial_evidence_db(
+                    db=self.db,
+                    url=o.source_url or "",
+                    price_evidence_type=o.price_evidence_type.value,
+                    source_record_id=srec_id,
+                    observed_price=o.price_usd,
+                    currency=o.currency or "USD",
+                    observed_at=o.observed_at.isoformat() if o.observed_at else None,
+                )
+                if audit.outcome != EvidenceVerificationOutcome.VERIFIED:
+                    continue
+            else:
+                # Manual-origin concepts and new DTC/OEM types strictly require DB-backed source verification.
+                if is_manual_origin or o.price_evidence_type not in (
+                    PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
+                    PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
                 ):
-                    obs_single = o.price_usd
-                    break
-            # Fallback to Product.min_price_usd ONLY if supported by authentic ad evidence
-            # and product is verified (never for unverified imports or manual hypotheses).
-            if not obs_single and len(ads) > 0 and (product.min_price_usd or product.max_price_usd):
-                obs_single = product.min_price_usd or product.max_price_usd
+                    continue
+
+            verified_offers.append(o)
+
+        oem_offers = [o for o in verified_offers if o.price_evidence_type == PriceEvidenceType.OEM_LIST_PRICE]
+        retail_or_dtc_offers = [o for o in verified_offers if o.price_evidence_type in NON_OEM_RETAIL_PRICE_TYPES]
+        oem_catalog_price = oem_offers[0].price_usd if oem_offers else None
+
+        obs_single = None
+        obs_price_type = None
+        if retail_or_dtc_offers:
+            priority_order = {
+                PriceEvidenceType.OBSERVED_CHECKOUT_PRICE: 0,
+                PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE: 1,
+                PriceEvidenceType.MARKETPLACE_OBSERVED_PRICE: 2,
+                PriceEvidenceType.DTC_MANUFACTURER_OBSERVED_PRICE: 3,
+            }
+            best_offer = sorted(
+                retail_or_dtc_offers,
+                key=lambda x: priority_order.get(x.price_evidence_type, 99),
+            )[0]
+            obs_single = best_offer.price_usd
+            obs_price_type = best_offer.price_evidence_type.value
+        elif oem_offers:
+            obs_single = oem_offers[0].price_usd
+            obs_price_type = PriceEvidenceType.OEM_LIST_PRICE.value
+        elif not is_manual_origin and len(ads) > 0 and (product.min_price_usd or product.max_price_usd):
+            # Legacy ad-backed fallback only for non-manual products
+            obs_single = product.min_price_usd or product.max_price_usd
 
         obs_bundle = None
-        if not is_unverified_product:
-            for b in bundle_offers:
-                if (
-                    b.bundle_price_usd is not None
-                    and b.bundle_status != "modeled_scenario"
-                    and b.price_evidence_type in (
-                        PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE,
-                        PriceEvidenceType.OBSERVED_CHECKOUT_PRICE,
-                    )
-                    and b.evidence_type != EvidenceType.UNVERIFIED_HYPOTHESIS
-                ):
-                    obs_bundle = b.bundle_price_usd
-                    if not obs_single and b.unit_price_usd:
-                        obs_single = b.unit_price_usd
-                    break
+        obs_bundle_qty = None
+        for b in bundle_offers:
+            if (
+                b.bundle_status not in ("modeled_scenario", "unobserved_price")
+                and b.price_evidence_type not in (PriceEvidenceType.SCENARIO_PRICE, PriceEvidenceType.UNKNOWN, None)
+                and b.evidence_type not in (EvidenceType.UNVERIFIED_HYPOTHESIS, EvidenceType.SCENARIO_PRICE, EvidenceType.UNKNOWN)
+            ):
+                if b.bundle_price_usd is not None and b.bundle_price_usd > 0 and b.price_evidence_type in VERIFIED_RETAIL_OR_DTC_PRICE_TYPES:
+                    if not is_manual_origin:
+                        obs_bundle = b.bundle_price_usd
+                        if not obs_single and b.unit_price_usd:
+                            obs_single = b.unit_price_usd
+                        break
+            if b.bundle_status == "unobserved_price" and b.quantity:
+                obs_bundle_qty = b.quantity
 
         has_observed_price = (obs_single is not None) or (obs_bundle is not None)
+        has_verified_offer_url = any(bool(o.source_url) for o in verified_offers)
 
         # 6. Evidence Confidence (independent sources, traceability, product identity, price proof)
         confidence_eval = await self._compute_confidence(
-            product, ads, indep_count, clone_detected, has_observed_price
+            product=product,
+            ads=ads,
+            indep_adv_count=indep_count,
+            clone_detected=clone_detected,
+            has_observed_price=has_observed_price,
+            obs_price_type=obs_price_type,
+            obs_single=obs_single,
+            oem_catalog_price=oem_catalog_price,
+            has_verified_offer_url=has_verified_offer_url,
+            is_manual_origin=is_manual_origin,
         )
 
         # 7. Emergence Score (Momentum if longitudinal; else grounded in discovery signal)
@@ -196,7 +269,14 @@ class ScoringEngine:
 
         # Core Opportunity Score (0-100) (Decoupled from mandatory multi-unit purchasing)
         core_opp_score, core_opp_components = self._compute_core_opportunity(
-            product, ads, discovery_signal, functional_benefit, has_observed_price
+            product=product,
+            ads=ads,
+            discovery_signal=discovery_signal,
+            functional_benefit=functional_benefit,
+            has_observed_price=has_observed_price,
+            obs_single=obs_single,
+            obs_price_type=obs_price_type,
+            is_manual_origin=is_manual_origin,
         )
 
         # Bundle Upside Score (0-100) (Optional positive bonus, not exclusion penalty)
@@ -218,6 +298,9 @@ class ScoringEngine:
                 indep_adv_count=indep_count,
                 claim_warning=claim_warn,
                 safety_warning=safety_warn,
+                is_manual_origin=is_manual_origin,
+                obs_single=obs_single,
+                obs_price_type=obs_price_type,
             )
             composite = self._compute_composite_balanced(
                 model=comm_model,
@@ -251,6 +334,9 @@ class ScoringEngine:
                 has_observed_price=has_observed_price,
                 clone_detected=clone_detected,
                 indep_adv_count=indep_count,
+                is_manual_origin=is_manual_origin,
+                obs_single=obs_single,
+                obs_price_type=obs_price_type,
             )
             composite = self._compute_composite(
                 bundle_potential=bundle_eval["score"],
@@ -280,10 +366,13 @@ class ScoringEngine:
             status=status,
             claim_warning=claim_warn,
             safety_warning=safety_warn,
+            obs_price_type=obs_price_type,
+            is_manual_origin=is_manual_origin,
+            oem_catalog_price=oem_catalog_price,
         )
 
         # Verification flag
-        requires_verification = (status == "PROMISING") or (confidence_eval["score"] < 50.0)
+        requires_verification = (status in ("PROMISING", "PARTIALLY_VALIDATED", "UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")) or (confidence_eval["score"] < 50.0)
 
         # Upsert OpportunityScore
         existing = await self.db.execute(
@@ -312,8 +401,12 @@ class ScoringEngine:
         score.observed_single_price_usd = obs_single
         score.observed_bundle_price_usd = obs_bundle
         score.customer_aov_usd = None  # Unknown unless order transaction data exists
-        if bundle_eval.get("primary_qty"):
+        if bundle_eval.get("primary_qty") and len(ads) > 0:
             score.estimated_bundle_scenario = f"Observed {bundle_eval['primary_qty']}-pack offer in market ads"
+        elif obs_bundle_qty:
+            score.estimated_bundle_scenario = f"Observed merchant bundle handle (qty={obs_bundle_qty}; price/availability UNKNOWN)"
+        elif is_manual_origin:
+            score.estimated_bundle_scenario = "Unobserved bundle checkout scenario (0 verified ad multi-pack orders)"
         else:
             score.estimated_bundle_scenario = "Modeled 3, 5, 10-unit replenishment ($30–$90)"
         score.natural_quantity_rationale = bundle_eval.get("reasoning", "Natural multi-unit replenishment utility")
@@ -628,16 +721,21 @@ class ScoringEngine:
             else:
                 reasoning = "Consumable refill with natural room-by-room rotation and laundry cycle replacement (pack count unobserved in text)."
         else:
-            # Check if bundle offers exist in DB
+            # Check if genuinely observed merchant bundle offers exist in DB (exclude hypothetical scenarios)
             bundle_res = await self.db.execute(
                 select(BundleOffer).where(BundleOffer.product_id == product.id)
             )
-            bundles = list(bundle_res.scalars().all())
+            bundles = [
+                b for b in bundle_res.scalars().all()
+                if b.bundle_status not in ("modeled_scenario", "unobserved_price")
+                and b.evidence_type not in (EvidenceType.UNVERIFIED_HYPOTHESIS, EvidenceType.UNKNOWN)
+                and b.price_evidence_type not in (PriceEvidenceType.SCENARIO_PRICE, PriceEvidenceType.UNKNOWN)
+            ]
             if not bundles:
                 components["natural_necessity"] = {
                     "raw": 20.0,
                     "weight": 0.40,
-                    "description": "No bundle offers observed and no consumable rotation signal",
+                    "description": "No priced merchant bundle offers observed and no consumable rotation signal",
                 }
                 components["utility_at_quantities"] = {
                     "raw": 20.0,
@@ -651,7 +749,7 @@ class ScoringEngine:
                 }
                 score = 20.0
                 primary_qty = 1
-                reasoning = "No multi-unit utility or bundle offers observed."
+                reasoning = "No multi-unit utility or verified bundle pricing observed."
             else:
                 has_natural = any(b.is_natural_bundle for b in bundles)
                 if has_natural:
@@ -667,7 +765,7 @@ class ScoringEngine:
                     components["aov_fit"] = {"raw": 40.0, "weight": 0.30, "description": "Estimated AOV check"}
                     score = 40.0
                     primary_qty = observed_qty or 3
-                    reasoning = "General bundle offer present."
+                    reasoning = "Observed merchant bundle offer present."
 
         return {
             "score": score,
@@ -686,6 +784,11 @@ class ScoringEngine:
         indep_adv_count: int,
         clone_detected: bool,
         has_observed_price: bool = False,
+        obs_price_type: Optional[str] = None,
+        obs_single: Optional[float] = None,
+        oem_catalog_price: Optional[float] = None,
+        has_verified_offer_url: bool = False,
+        is_manual_origin: bool = False,
     ) -> dict:
         """
         Evaluate factual evidence quality scaled 0–100 strictly based on verified source data:
@@ -693,7 +796,8 @@ class ScoringEngine:
         - Traceable URLs (25%)
         - Product identification completeness (25%)
         - Pricing evidence (25%)
-        Synthetic fixtures and unverified sources are capped.
+        Synthetic fixtures and unverified sources are capped; manual concepts with partial DTC
+        observations remain bounded below full qualification threshold until demand is observed.
         """
         components = {}
 
@@ -719,11 +823,23 @@ class ScoringEngine:
         # 2. Traceable URLs (25%)
         has_lp = any(a.landing_page_url for a in ads)
         has_ad_url = any(a.ad_url for a in ads)
-        trace_pts = 100.0 if (has_lp and has_ad_url) else (50.0 if has_lp or has_ad_url else 10.0)
+        if has_lp and has_ad_url:
+            trace_pts = 100.0
+            trace_desc = "Traceable Meta Ad Library URLs and active destination landing pages"
+        elif has_lp or has_ad_url:
+            trace_pts = 50.0
+            trace_desc = "Partial Meta Ad / destination landing page traceability"
+        elif has_verified_offer_url:
+            trace_pts = 35.0
+            trace_desc = "Traceable external manufacturer/DTC source URL with inspected disk artifact (awaiting Meta Ad Library URLs)"
+        else:
+            trace_pts = 10.0
+            trace_desc = "Traceable Meta Ad Library URLs and active destination landing pages"
+
         components["evidence_links"] = {
             "raw": trace_pts,
             "weight": 0.25,
-            "description": "Traceable Meta Ad Library URLs and active destination landing pages",
+            "description": trace_desc,
         }
 
         # 3. Product identity completeness (25%)
@@ -743,11 +859,38 @@ class ScoringEngine:
         }
 
         # 4. Pricing Evidence (25%)
-        pricing_pts = 100.0 if has_observed_price else 0.0
+        if has_observed_price:
+            if obs_price_type == PriceEvidenceType.OEM_LIST_PRICE.value:
+                pricing_pts = 75.0
+                pricing_desc = (
+                    f"Verified branded OEM catalog list price (${obs_single:.2f} USD via OEM_LIST_PRICE) — "
+                    "tracked separately from generic dropshipping retail, checkout price, AOV, and supplier cost"
+                )
+            elif obs_price_type in (
+                PriceEvidenceType.DTC_MANUFACTURER_OBSERVED_PRICE.value,
+                PriceEvidenceType.MARKETPLACE_OBSERVED_PRICE.value,
+                PriceEvidenceType.OBSERVED_RETAIL_LISTING_PRICE.value,
+            ):
+                pricing_pts = 85.0
+                pricing_desc = (
+                    f"Verified external commercial price (${obs_single:.2f} USD via {obs_price_type}) — "
+                    "independent checkout price, customer AOV, and supplier cost remain unobserved"
+                )
+            else:
+                pricing_pts = 100.0
+                pricing_desc = "Verified observed checkout or ad pricing"
+        else:
+            pricing_pts = 0.0
+            pricing_desc = "Missing observed price evidence (price unknown)"
+
         components["pricing_evidence"] = {
             "raw": pricing_pts,
             "weight": 0.25,
-            "description": "Verified observed checkout or ad pricing" if has_observed_price else "Missing observed price evidence (price unknown)",
+            "description": pricing_desc,
+            "price_evidence_type": obs_price_type,
+            "observed_price_usd": obs_single,
+            "oem_catalog_price_usd": oem_catalog_price,
+            "is_branded_oem_catalog": obs_price_type == PriceEvidenceType.OEM_LIST_PRICE.value,
         }
 
         total = round(
@@ -758,17 +901,18 @@ class ScoringEngine:
             2,
         )
 
-        # Synthetic fixture penalty & unverified import cap
+        # Synthetic fixture penalty & manual provenance safeguards
         is_synth = getattr(product, "is_synthetic", False) or product.name.startswith("DEMO ") or product.source_type == DataSourceType.OTHER
         if is_synth:
             total = min(20.0, round(total * 0.25, 2))
 
-        is_unverified = (
-            getattr(product, "opportunity_status", None) in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS")
-            or product.source_type == DataSourceType.MANUAL_IMPORT
-        )
-        if is_unverified:
-            total = min(10.0, round(total * 0.15, 2))
+        if is_manual_origin:
+            if not has_observed_price and indep_adv_count == 0:
+                total = min(10.0, round(total * 0.15, 2))
+            elif indep_adv_count == 0:
+                # Partial validation only: DTC/OEM price is verified, but manual concept assumptions
+                # & independent ad competition remain unverified (keep strictly < 50.0).
+                total = min(49.0, round(total * 0.85, 2))
 
         return {"score": total, "components": components}
 
@@ -863,10 +1007,15 @@ class ScoringEngine:
         has_observed_price: bool = False,
         clone_detected: bool = False,
         indep_adv_count: int = 1,
+        is_manual_origin: bool = False,
+        obs_single: Optional[float] = None,
+        obs_price_type: Optional[str] = None,
     ) -> tuple[str, str]:
         """
         Classify opportunity into Phase 9 evidence states:
         - SYNTHETIC_FIXTURE
+        - UNVERIFIED_IMPORT / RESEARCH_HYPOTHESIS
+        - PARTIALLY_VALIDATED
         - REJECTED
         - QUALIFIED (or QUALIFIED_OPPORTUNITY)
         - PROMISING
@@ -875,12 +1024,26 @@ class ScoringEngine:
         if getattr(product, "is_synthetic", False) or product.name.startswith("DEMO ") or product.source_type == DataSourceType.OTHER:
             return "SYNTHETIC_FIXTURE", "Synthetic fixture or test data — strictly excluded from live opportunity pipeline."
 
-        if getattr(product, "opportunity_status", None) in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS") or product.source_type == DataSourceType.MANUAL_IMPORT:
-            current_st = getattr(product, "opportunity_status", None) or "UNVERIFIED_IMPORT"
-            return (
-                current_st,
-                "Unverified research hypothesis import — strictly excluded from verified commercial opportunities until independent marketplace confirmation.",
-            )
+        if is_manual_origin:
+            if not has_observed_price:
+                raw_st = getattr(product, "opportunity_status", None)
+                if raw_st in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS"):
+                    current_st = raw_st
+                elif isinstance(product.raw_data, dict) and product.raw_data.get("provenance") == "unverified_manual_hypothesis":
+                    current_st = "RESEARCH_HYPOTHESIS"
+                else:
+                    current_st = raw_st or "UNVERIFIED_IMPORT"
+                return (
+                    current_st,
+                    "Unverified research hypothesis import — strictly excluded from verified commercial opportunities until independent marketplace or DTC verification.",
+                )
+            if indep_adv_count == 0 or clone_detected:
+                price_disp = f"${obs_single:.2f} USD" if obs_single is not None else "unknown"
+                return (
+                    "PARTIALLY_VALIDATED",
+                    f"Verified external commercial price observed ({price_disp} via {obs_price_type}), "
+                    "while original manual concept assumptions, independent advertiser demand (0 verified advertisers), customer AOV, and supplier cost remain unverified.",
+                )
 
         if not product.is_physical or product.target_country != "US":
             return "REJECTED", "Non-physical product or non-US market targeting."
@@ -1029,6 +1192,9 @@ class ScoringEngine:
         discovery_signal: dict,
         functional_benefit: float,
         has_observed_price: bool,
+        obs_single: Optional[float] = None,
+        obs_price_type: Optional[str] = None,
+        is_manual_origin: bool = False,
     ) -> tuple[float, dict]:
         """
         Core Product Opportunity Score (0-100):
@@ -1073,9 +1239,13 @@ class ScoringEngine:
         fulfillment_pts = 5.0 if bulky_or_fragile else 10.0
 
         # 6. Commercial margin headroom (10 pts)
-        price = product.min_price_usd or product.max_price_usd
+        # Never rely on unverified scenario product.min_price_usd for manual-origin concepts.
+        price = obs_single if (obs_single is not None) else (None if is_manual_origin else (product.min_price_usd or product.max_price_usd))
         if price:
-            if 30.0 <= price <= 90.0:
+            if obs_price_type == PriceEvidenceType.OEM_LIST_PRICE.value:
+                # Branded OEM catalog list price does not establish dropship retail margin sweet spot
+                price_pts = 6.0
+            elif 30.0 <= price <= 90.0:
                 price_pts = 10.0
             elif 20.0 <= price < 30.0:
                 price_pts = 7.5
@@ -1179,16 +1349,33 @@ class ScoringEngine:
         indep_adv_count: int = 1,
         claim_warning: str = "",
         safety_warning: str = "",
+        is_manual_origin: bool = False,
+        obs_single: Optional[float] = None,
+        obs_price_type: Optional[str] = None,
     ) -> tuple[str, str]:
         if getattr(product, "is_synthetic", False) or product.name.startswith("DEMO ") or product.source_type == DataSourceType.OTHER:
             return "SYNTHETIC_FIXTURE", "Synthetic fixture or test data — strictly excluded from live opportunity pipeline."
 
-        if getattr(product, "opportunity_status", None) in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS") or product.source_type == DataSourceType.MANUAL_IMPORT:
-            current_st = getattr(product, "opportunity_status", None) or "UNVERIFIED_IMPORT"
-            return (
-                current_st,
-                "Unverified research hypothesis import — strictly excluded from verified commercial opportunities until independent marketplace confirmation.",
-            )
+        if is_manual_origin:
+            if not has_observed_price:
+                raw_st = getattr(product, "opportunity_status", None)
+                if raw_st in ("UNVERIFIED_IMPORT", "RESEARCH_HYPOTHESIS"):
+                    current_st = raw_st
+                elif isinstance(product.raw_data, dict) and product.raw_data.get("provenance") == "unverified_manual_hypothesis":
+                    current_st = "RESEARCH_HYPOTHESIS"
+                else:
+                    current_st = raw_st or "UNVERIFIED_IMPORT"
+                return (
+                    current_st,
+                    "Unverified research hypothesis import — strictly excluded from verified commercial opportunities until independent marketplace or DTC confirmation.",
+                )
+            if indep_adv_count == 0 or clone_detected:
+                price_disp = f"${obs_single:.2f} USD" if obs_single is not None else "unknown"
+                return (
+                    "PARTIALLY_VALIDATED",
+                    f"Verified external commercial price observed ({price_disp} via {obs_price_type}), "
+                    "while original manual concept assumptions, independent advertiser demand (0 verified advertisers), customer AOV, and supplier cost remain unverified.",
+                )
 
         if not product.is_physical or product.target_country != "US":
             return "REJECTED", "Non-physical product or non-US market targeting."
@@ -1309,6 +1496,9 @@ class ScoringEngine:
         status: str,
         claim_warning: str = "",
         safety_warning: str = "",
+        obs_price_type: Optional[str] = None,
+        is_manual_origin: bool = False,
+        oem_catalog_price: Optional[float] = None,
     ) -> dict:
         if model == "MODEL_A_SINGLE_PRODUCT":
             why_high = "High-utility hero problem solver with demonstrable physical mechanism and strong single-unit consumer purchase intent."
@@ -1330,15 +1520,32 @@ class ScoringEngine:
             evidence_points.append(f"{len(ads)} observed Meta/TikTok ad creatives")
         if has_observed_price:
             price_str = f"${obs_single:.2f}" if obs_single else f"${obs_bundle:.2f}"
-            evidence_points.append(f"Observed checkout pricing at {price_str}")
+            if obs_price_type == PriceEvidenceType.OEM_LIST_PRICE.value:
+                evidence_points.append(
+                    f"Verified branded OEM catalog list price at {price_str} (OEM_LIST_PRICE — distinct from dropship retail, checkout AOV, or supplier cost)"
+                )
+            elif obs_price_type == PriceEvidenceType.DTC_MANUFACTURER_OBSERVED_PRICE.value:
+                evidence_points.append(
+                    f"Verified DTC manufacturer catalog price at {price_str} (DTC_MANUFACTURER_OBSERVED_PRICE — distinct from checkout AOV or supplier cost)"
+                )
+            elif obs_price_type == PriceEvidenceType.OBSERVED_CHECKOUT_PRICE.value:
+                evidence_points.append(f"Observed checkout pricing at {price_str}")
+            else:
+                evidence_points.append(f"Observed retail catalog listing price at {price_str}")
+        if oem_catalog_price is not None and obs_price_type != PriceEvidenceType.OEM_LIST_PRICE.value:
+            evidence_points.append(f"Separate branded OEM catalog reference at ${oem_catalog_price:.2f} (OEM_LIST_PRICE)")
+        if is_manual_origin:
+            evidence_points.append("Original concept provenance: manual research import (auditable)")
         if product.category:
             evidence_points.append(f"Classified under {product.category}")
         what_evidence = "; ".join(evidence_points) if evidence_points else "Early initial discovery record."
 
         what_unknown = (
             "Supplier landed COGS from verified manufacturer (1688/CJ Dropshipping), "
-            "return/chargeback rate baseline, exact landing page checkout conversion rate."
+            "return/chargeback rate baseline, actual checkout conversion price and customer AOV."
         )
+        if is_manual_origin and not ads:
+            what_unknown = f"Independent advertiser demand, competitive Meta/TikTok creatives, stock availability (UNKNOWN), and verified business economics. {what_unknown}"
         if safety_warning:
             what_unknown = f"Authentic UL/ETL safety testing laboratory certificate and factory quality inspection report. {what_unknown}"
 

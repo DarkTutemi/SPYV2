@@ -74,10 +74,24 @@ export default function ProductReport({ params }: { params: Promise<{ id: string
   if (!r) return <p>Loading…</p>;
   const stat = (label: string, v: unknown) => <div className="bg-white rounded shadow p-3"><div className="text-xs text-slate-500">{label}</div><div className="text-lg font-semibold">{fmt(v)}</div></div>;
 
-  const isUnverified = r.product.opportunity_status === "UNVERIFIED_IMPORT" || r.product.source_type === "manual_import";
+  const isPartiallyValidated = r.product.opportunity_status === "PARTIALLY_VALIDATED";
+  const isUnverified = !isPartiallyValidated && (
+    r.product.opportunity_status === "UNVERIFIED_IMPORT" ||
+    r.product.opportunity_status === "RESEARCH_HYPOTHESIS" ||
+    r.product.source_type === "manual_import"
+  );
 
   return (
     <div className="space-y-5 max-w-6xl">
+      {isPartiallyValidated && (
+        <div className="p-3 bg-teal-50 border border-teal-300 rounded-md text-teal-900 text-sm font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>ℹ️</span>
+            <span>PARTIALLY VALIDATED (Manual Concept Provenance) — External DTC/OEM catalog price observed; independent ad demand, customer AOV, stock, and supplier COGS remain unverified.</span>
+          </div>
+          <span className="text-xs bg-teal-200 px-2 py-0.5 rounded text-teal-950 font-bold uppercase">Partially Validated</span>
+        </div>
+      )}
       {isUnverified && (
         <div className="p-3 bg-amber-50 border border-amber-300 rounded-md text-amber-900 text-sm font-semibold flex items-center justify-between">
           <div className="flex items-center gap-2">
