@@ -1,91 +1,61 @@
-# TOP 5 COMPETITOR HOOK & ANGLE INTELLIGENCE MATRIX
-## CROSS-COMPETITOR COMPARISON, AUDITED FREQUENCY METRICS & SATURATION ANALYSIS
-### SPYV2 / US WIN HUNTER — ULTRA OVERNIGHT V4 RESEARCH SUITE (AUDITED)
+# MA TRẬN PHÂN TÍCH GÓC TIẾP CẬN & HOOK QUẢNG CÁO CỦA TOP 5 ĐỐI THỦ
+## AUDITED META AD INTELLIGENCE MATRIX | 58 AUDITED AD CREATIVES
 
-- **Reference Date:** November 14, 2026 (Audited & Qualified)
-- **Market:** United States (US Only)
-- **Target Category:** Heavy Flow / Overnight Period Underwear & Menstrual Sleep Shorts
-- **Audited Dataset:** 58 Verified Advertising Records (52 Authentic DOM Meta Ad Library Cards + 6 Deep-Dive Campaign Probes)
-- **Preserved Datasets:** Raw dataset preserved at `TOP5_CREATIVE_EVIDENCE_RAW.csv`; Audited dataset at `TOP5_CREATIVE_EVIDENCE_AUDITED.csv`.
-- **Competitors Audited:** Knix / Kt by Knix (33), Saalt (4), Thinx (4), The Period Company (2), Revol Cares (2), Category Benchmarks (13).
-
----
-
-## 1. AUDITED COMPETITOR COMPARISON MATRIX
-
-Bảng đối chiếu 5 đối thủ chính dựa trên dữ liệu quảng cáo thực tế và thông số kỹ thuật chính thức từ storefront đã được kiểm toán:
-
-| Tiêu chí | REVOL CARES | KNIX / KT BY KNIX | SAALT (SAALT WEAR) | THINX | THE PERIOD COMPANY |
-|---|---|---|---|---|---|
-| **Chủ quản doanh nghiệp** | Độc lập (Canada/US) | Essity AB (Thụy Điển) | Doanh nghiệp B-Corp (Mỹ) | Kimberly-Clark Corp (Mỹ) | Độc lập (Mỹ / Karla Welch) |
-| **Sản phẩm Hero Ngủ/Đêm** | The Charlie Sleep Short | Super Leakproof Dream Short/Boxer | Leakproof Comfort CloudShort | All-Night Ultra Soft Sleep Shorts | The Sleeper |
-| **Giá bán đơn lẻ (USD)** | $38.50 – $55.00 | $35.00 – $48.00 | $39.00 – $47.00 | $38.00 – $43.00 | $18.00 – $26.98 |
-| **Dung tích công bố** | 140 mL (~10 pads claim) | Up to 8 tampons (~40 mL) | Up to 8 tampons (Super) | 5 tampons (~45 mL) | 8–10 tampons (~45 mL) |
-| **Thiết kế bảo vệ công bố** | Waistband-to-waistband claim | Front-to-back & 360 LeakSeal | Ergonomic mid-rise gusset | 3-layer moisture lock core | 5-layer organic cotton padding |
-| **Hook 0–3s quan sát thực tế** | *"Heavy flow was never the problem. Pad coverage was."* | *"Sleep easy, your sheets are safe"* / *"Still changing sheets at 2AM?"* | *"Pads can't keep up? The CloudShort can."* | *"Holds 5 super tampons? Let's test it"* | *"Whatever day it is"* / *"Pads were invented in 1888"* |
-| **Góc tiếp cận chính** | ANG-02: Extended Gusset | ANG-01: Sheet Anxiety & ANG-04: Tampons | ANG-03: Anti-Diaper Comfort | ANG-04: Absorbency & ANG-06: PFAS-Free | ANG-07: Cost / Anti-Pink-Tax |
-| **Định dạng Media quan sát** | Video dọc 9:16 Lo-Fi | Video UGC Creator & Static Banners | Video Aesthetic / Static Banners | Video Lab Demo & 3D Infographics | Video đời thường / Chữ đậm |
-| **Cơ chế chứng minh (Proof)** | So sánh thước dây & Đổ lỏng 140 mL | Creator thử nghiệm thực tế & Thông số tampon | Trải nghiệm đồ ngủ không sột soạt | Thử nghiệm ống đong & Ép khăn khô | Lập luận kinh tế & Đệm bông hữu cơ |
-| **Hạn chế ghi nhận từ người dùng** | Vải bông French terry đọng ẩm dính; phơi lâu khô | Đũng phẳng dán nhiệt có thể tràn viền khi xả ồ ạt | Đũng tập trung vùng đáy, dung tích trung bình | Trần thấm 45 mL; bóng ma pháp lý PFAS | Đệm nỉ cotton nhiều lớp dày cộm; phơi lâu khô |
+- **Quy mô tập mẫu kiểm toán:** 58 quảng cáo độc lập được kiểm toán nguồn gốc nghiêm ngặt.
+  - **Nhóm Top 5 Đối thủ Chính (Top 5 Competitors):** **45 quảng cáo** (Knix: 33, Saalt: 4, Thinx: 4, Period Co: 2, Revol Cares: 2).
+  - **Nhóm Tiêu chuẩn Ngành (Category Benchmarks):** **13 quảng cáo** (Lil Helper: 3, Hello Period: 2, Veloura: 2, Always ZZZ: 1, Organyc: 1, Peace Pads: 1, Dailys: 1, Rejuveen: 1, Orykas: 1).
+- **Phân tầng bằng chứng thực tế (Strict Evidence Tiers):**
+  - `VERIFIED_AD_CARD`: **51 quảng cáo (87.9%)** — Thẻ quảng cáo, văn bản copy và thuộc tính phần tử DOM được xác thực qua trình duyệt Chrome DevTools; video playback uninspected.
+  - `VERIFIED_AD_LIBRARY_ACTIVE`: **6 quảng cáo (10.3%)** — Thẻ quảng cáo hoạt động công khai trên Meta Ad Library và trang storefront DTC; video playback uninspected.
+  - `HISTORICAL_SOURCE`: **1 quảng cáo (1.7%)** — Chiến dịch Thinx 2019 có chứng thực báo chí lưu trữ.
+  - `VERIFIED_VIDEO`: **0 quảng cáo (0.0%)** — Chưa có bản ghi phát video từng khung hình được quay lại trực tiếp.
+- **Tình trạng tuân thủ chi phí:** Chi phí Apify: $0.00 | Thí nghiệm T+14: Đóng băng an toàn tuyệt đối.
 
 ---
 
-## 2. AUDITED ANGLE FREQUENCY METRICS (TẦN SUẤT GÓC TIẾP CẬN ĐÃ KIỂM TOÁN)
+## 1. BẢNG PHÂN PHỐI TẦN SUẤT GÓC TIẾP CẬN (TÁCH BIỆT MẪU ĐỐI THỦ & TIÊU CHUẨN NGÀNH)
 
-Số liệu được tính toán trực tiếp từ tệp dữ liệu đã kiểm toán với mẫu số rõ ràng:
+Để đảm bảo tính chính xác khoa học, dữ liệu tần suất góc tiếp cận được bóc tách rành mạch theo 3 mẫu số:
+1. **Mẫu Top 5 Đối thủ Cốt lõi (N = 45)**
+2. **Mẫu Tiêu chuẩn Ngành Benchmarks (N = 13)**
+3. **Mẫu Toàn bộ Hợp nhất (N = 58)**
 
-### A. Tần suất trên toàn bộ 58 bản ghi (Mẫu số = 58):
-```
-+----------------------------------------------------------------------------------------------------+
-| MÃ GÓC | NỘI DUNG GÓC TIẾP CẬN MARKETING                    | SỐ LƯỢNG AD | TỶ LỆ (%) | TÌNH TRẠNG |
-+----------------------------------------------------------------------------------------------------+
-| ANG-07 | Cost Accessibility / Value Bundling / Promo Offers | 26 / 58     | 44.8%     | Bão hòa cao|
-| ANG-04 | High Absorbency Quantification (Tampon Equivalents)| 16 / 58     | 27.6%     | Bão hòa vừa|
-| ANG-01 | Overnight Leak Anxiety & Stained Sheets            | 14 / 58     | 24.1%     | Phổ biến   |
-| ANG-03 | Non-Bulky Comfort / Anti-Diaper Contrast           |  8 / 58     | 13.8%     | Khá ít     |
-| ANG-06 | Clean Materials / PFAS-Free / Sensitive Skin       |  4 / 58     |  6.9%     | Rất ít     |
-| ANG-02 | Extended Back Gusset / Rear Waistband Coverage     |  2 / 58     |  3.4%     | CỰC KỲ HIẾM|
-| ANG-05 | Backup Protection with Cup/Disc/Pads               |  1 / 58     |  1.7%     | Rất hiếm   |
-| ANG-08 | Stigma Reduction & Cultural Normalization          |  1 / 58     |  1.7%     | Chiến dịch |
-+----------------------------------------------------------------------------------------------------+
-```
+### Bảng tần suất Góc Tiếp Cận Chính (Primary Angles)
 
-### B. Tần suất trong mẫu DOM Meta Ad Library nguyên bản (Mẫu số = 52):
-- **ANG-07 (Cost / Bundling):** 25 / 52 (48.1%)
-- **ANG-01 (Overnight Leak Anxiety):** 14 / 52 (26.9%)
-- **ANG-04 (High Absorbency):** 13 / 52 (25.0%)
-- **ANG-03 (Non-Bulky Comfort):** 3 / 52 (5.8%)
-- **ANG-06 (Clean Materials):** 3 / 52 (5.8%)
-- **ANG-02 (Extended Rear Coverage):** 1 / 52 (1.9%) — Duy nhất 1 quảng cáo của Revol Cares (`1411871190653903`)!
-- **ANG-05 (Backup Protection):** 1 / 52 (1.9%)
-
-### Phát hiện kiểm toán đột phá:
-Dữ liệu kiểm toán chính xác cho thấy góc tiếp cận **ANG-02 (Extended Back Gusset Coverage) chỉ chiếm 3.4% trên tổng mẫu (2/58) và chỉ 1.9% trong mẫu DOM (1/52)**. 
-Điều này chứng minh rằng nỗi đau kinh nguyệt tràn ngược ra sau lưng khi ngủ nằm ngửa là một **KHOẢNG TRỐNG CỰC KỲ LỚN (Massive Whitespace)** chưa hề bị các thương hiệu lớn khai thác trên Meta Ads!
+| Mã Góc | Tên Góc Tiếp Cận | Top 5 Đối Thủ (N = 45) | Tỷ lệ (%) | Tiêu Chuẩn Ngành (N = 13) | Tỷ lệ (%) | Mẫu Toàn Bộ (N = 58) | Tỷ lệ Toàn Bộ (%) |
+|---|---|---|---|---|---|---|---|
+| **ANG-07** | **Cost / Value Bundling / Promo** | 17 / 45 | **37.8%** | 7 / 13 | **53.8%** | 24 / 58 | **41.4%** |
+| **ANG-04** | **High Absorbency Quantification** | 12 / 45 | **26.7%** | 0 / 13 | **0.0%** | 12 / 58 | **20.7%** |
+| **ANG-01** | **Overnight Leak Anxiety & Stained Sheets** | 9 / 45 | **20.0%** | 3 / 13 | **23.1%** | 12 / 58 | **20.7%** |
+| **ANG-03** | **Non-Bulky Comfort / Anti-Diaper Contrast** | 4 / 45 | **8.9%** | 1 / 13 | **7.7%** | 5 / 58 | **8.6%** |
+| **ANG-06** | **Clean Materials / PFAS-Free / Sensitive Skin** | 1 / 45 | **2.2%** | 2 / 13 | **15.4%** | 3 / 58 | **5.2%** |
+| **ANG-02** | **Extended Back Gusset Coverage (Full-Spine)** | **1 / 45** | **2.2%** | **0 / 13** | **0.0%** | **1 / 58** | **1.7%** |
+| **ANG-08** | **Stigma Reduction & Normalization** | 1 / 45 | **2.2%** | 0 / 13 | **0.0%** | 1 / 58 | **1.7%** |
+| **ANG-05** | **Backup Protection with Cup/Disc** | 0 / 45 | **0.0%** | 0 / 13 | **0.0%** | 0 / 58 | **0.0%** |
 
 ---
 
-## 3. PHÂN TÍCH QUY LUẬT HOOK MỞ ĐẦU (0–3 GIÂY)
+### Bảng tổng số lần đề cập (Primary + Secondary Mentions)
 
-*Lưu ý phương pháp luận: Phân tích Hook 0–3 giây âm thanh và hình ảnh chuyển động chỉ được áp dụng trên 12 quảng cáo thuộc cấp bậc `VERIFIED_VIDEO` đã được quan sát phát thực tế. Đối với 46 quảng cáo còn lại (`VERIFIED_AD_CARD`), phân tích dựa trên tiêu đề và câu mở đầu của văn bản quảng cáo (ad copy).*
-
-1. **Mẫu 1: The 2AM Sheet Shock (Kt by Knix):** *"Your 2AM Google search brought you here"* — Đánh trúng nỗi đau thức giấc nửa đêm thay ga giường.
-2. **Mẫu 2: The Physical Pad Measurement (Revol Cares):** *"Heavy flow was never the problem. Pad coverage was"* — Đo thước dây vạch trần sự thiếu hụt chiều dài của băng vệ sinh tiêu chuẩn.
-3. **Mẫu 3: The Creator Tampon Disbelief (Knix):** *"Okay but… up to 8 super tampons?! 👀 I had to try this"* — Nghi ngờ thông số để kích hoạt sự tò mò.
-4. **Mẫu 4: The Sensory Anti-Diaper Contrast (Saalt):** *"Pads can't keep up? The CloudShort can"* — Đối lập cảm giác sột soạt của bỉm nhựa với đồ lót êm ái.
-5. **Mẫu 5: The Contrarian History (Period.co):** *"Pads were invented in 1888. Why are you still sleeping in one?"* — Đặt câu hỏi kích thích tư duy về sự lạc hậu của công nghệ cũ.
+| Mã Góc | Tên Góc Tiếp Cận | Top 5 Đối Thủ (N = 45) | Tỷ lệ (%) | Tiêu Chuẩn Ngành (N = 13) | Tỷ lệ (%) | Mẫu Toàn Bộ (N = 58) | Tỷ lệ Toàn Bộ (%) | Nhận xét Cơ hội Chiến lược |
+|---|---|---|---|---|---|---|---|---|
+| **ANG-07** | **Cost / Value Bundling / Promo** | 18 / 45 | **40.0%** | 8 / 13 | **61.5%** | 26 / 58 | **44.8%** | Đại dương đỏ cạnh tranh về giá và ưu đãi bundle. |
+| **ANG-04** | **High Absorbency Quantification** | 16 / 45 | **35.6%** | 0 / 13 | **0.0%** | 16 / 58 | **27.6%** | Khẳng định số lượng tampon/pad; dễ bão hòa. |
+| **ANG-01** | **Overnight Leak Anxiety & Stained Sheets** | 11 / 45 | **24.4%** | 3 / 13 | **23.1%** | 14 / 58 | **24.1%** | Nỗi đau cốt lõi, nhưng đa số chỉ khai thác cảm xúc mà thiếu cơ chế vật lý. |
+| **ANG-03** | **Non-Bulky Comfort / Anti-Diaper** | 7 / 45 | **15.6%** | 1 / 13 | **7.7%** | 8 / 58 | **13.8%** | Góc phụ xuất sắc để đối chiếu với băng dày/tã cộm. |
+| **ANG-06** | **Clean Materials / PFAS-Free** | 2 / 45 | **4.4%** | 2 / 13 | **15.4%** | 4 / 58 | **6.9%** | Góc xây dựng lòng tin kỹ thuật và tuân thủ luật định. |
+| **ANG-02** | **Extended Back Gusset Coverage** | **2 / 45** | **4.4%** | **0 / 13** | **0.0%** | **2 / 58** | **3.4%** | **GÓC TIẾP CẬN ÍT XUẤT HIỆN TRONG TẬP MẪU QUAN SÁT (Underrepresented Opportunity)**: Chỉ có 2 mẫu nhắc tới (Revol Cares), các ông lớn bỏ ngỏ cơ chế rãnh lưng! |
+| **ANG-08** | **Stigma Reduction & Normalization** | 1 / 45 | **2.2%** | 0 / 13 | **0.0%** | 1 / 58 | **1.7%** | Chiến dịch thương hiệu, không ưu tiên cho DR trực tiếp. |
+| **ANG-05** | **Backup Protection with Cup/Disc** | 0 / 45 | **0.0%** | 1 / 13 | **7.7%** | 1 / 58 | **1.7%** | Góc ngách cho người dùng cốc nguyệt san (Lil Helper). |
 
 ---
 
-## 4. MA TRẬN KHÁC BIỆT HÓA CHO V4 — FULL-SPINE ULTRA OVERNIGHT™
+## 2. NHẬN ĐỊNH VỀ KHOẢNG TRỐNG THỊ TRƯỜNG & HIỆU CHỈNH KHOA HỌC
 
-```
-+----------------------------------------------------------------------------------------------------+
-| VÙNG BÃO HÒA CAO (NÊN TRÁNH LÀM HOOK CHÍNH)    | VÙNG ĐẠI DƯƠNG XANH (ƯU TIÊN LÀM HERO HOOK)       |
-+----------------------------------------------------------------------------------------------------+
-| - Tuyên bố số lượng tampon chung chung         | - Vạch trần khoảng hở thắt lưng khi nằm ngửa      |
-| - Giảm giá 15-20% hoặc quảng cáo quà tặng      | - Rào cản đàn hồi chống tràn mép đùi (SideSeal™)  |
-| - Cảnh creator cầm sản phẩm không có thử nghiệm| - Thử nghiệm âm thanh ASMR (Vải câm vs Băng ồn)   |
-| - Thông điệp bảo vệ ga giường đơn thuần        | - Thử thách dòng kinh trào mạnh dồn dập ban đêm   |
-+----------------------------------------------------------------------------------------------------+
-```
+1. **Hiệu chỉnh khẳng định về rò rỉ lưng ban đêm:**
+   - *Trước đây:* Một số tài liệu sơ bộ đưa ra khẳng định chưa được chứng minh rằng "80% rò rỉ ban đêm xảy ra ở lưng".
+   - *Hiệu chỉnh kiểm toán:* **Đã loại bỏ hoàn toàn con số khẳng định 80% này.** 
+   - *Cơ sở thực tế khách quan:* Dưới tác động của trọng lực khi nằm ngửa (supine position), dịch kinh nguyệt tự nhiên có xu hướng dồn về phía sau rãnh mông và hõm thắt lưng. Khách hàng thường xuyên phản ánh lo âu về vết ố ở mép sau quần và ga giường, nhưng chưa có nghiên cứu dịch tễ học lâm sàng công bố tỷ lệ phần trăm chính xác cho toàn bộ dân số.
+2. **Hiệu chỉnh thuật ngữ "Massive Market Whitespace":**
+   - *Thay thế bằng:* **"Góc tiếp cận ít xuất hiện trong tập mẫu quan sát (Underrepresented in the observed sample)".**
+   - *Căn cứ dữ liệu:* Trong 45 quảng cáo của Top 5 đối thủ, chỉ có **2 quảng cáo (4.4%)** đề cập đến yếu tố kéo dài vách lót ra sau lưng (`ANG-02`), và đều thuộc về một thương hiệu độc lập (Revol Cares). Ba thương hiệu lớn nhất (Knix, Saalt, Thinx) tập trung chủ yếu vào số lượng tampon (`ANG-04`) và ưu đãi giá (`ANG-07`), hoàn toàn chưa khai thác trực quan cơ chế bảo vệ rãnh lưng cho người nằm ngửa.

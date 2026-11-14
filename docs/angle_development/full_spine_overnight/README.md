@@ -82,6 +82,7 @@
 37. [`competitor_ad_intelligence/ULTRA_OVERNIGHT_15_HOOKS.md`](competitor_ad_intelligence/ULTRA_OVERNIGHT_15_HOOKS.md) — 15 ranked original hook concepts (5 pain, 5 demo, 5 curiosity/emotion) with 5-criterion rubric scoring.
 38. [`competitor_ad_intelligence/ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md`](competitor_ad_intelligence/ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md) — Three detailed 9:16 vertical video creative storyboards with natural American English scripts.
 39. [`competitor_ad_intelligence/RESEARCH_LIMITATIONS_AND_PROVENANCE.md`](competitor_ad_intelligence/RESEARCH_LIMITATIONS_AND_PROVENANCE.md) — Sources, evidence tiering, zero-spend audit trail, and methodological limitations.
+40. [`competitor_ad_intelligence/EVIDENCE_VERIFICATION_GATE.md`](competitor_ad_intelligence/EVIDENCE_VERIFICATION_GATE.md) — Official evidence verification gate table classifying concepts, physical prototypes, and lab test requirements.
 
 ---
 
