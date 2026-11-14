@@ -34,7 +34,7 @@
 
 ---
 
-## 2. COMPLETE REPOSITORY DOCUMENT DIRECTORY (27 DOCUMENTS)
+## 2. COMPLETE REPOSITORY DOCUMENT DIRECTORY (39 DOCUMENTS)
 
 ### 2.1 Commercial Flagship V4 Documentation (New Deliverables)
 1. [`V4_VERSION_DECISION_RECORD.md`](V4_VERSION_DECISION_RECORD.md) — Official Version Decision Record formalizing the transition to V4 Flagship while preserving V1/V2/V3 benchmarks.
@@ -68,6 +68,20 @@
 25. [`META_AD_CREATIVE_C.md`](META_AD_CREATIVE_C.md) — Ad script and creative storyboard for Angle C: "Non-Bulky Overnight Comfort".
 26. [`AI_VIDEO_PRODUCTION_PROMPTS.md`](AI_VIDEO_PRODUCTION_PROMPTS.md) — Production prompts for Midjourney v6, Runway Gen-3 Alpha, and HeyGen.
 27. [`docs/chat_history/20261114_041055Z_session_287265b7-292d-48b5-adfd-fb4de12751fd_spyv2_sanitized.md`](../../chat_history/20261114_041055Z_session_287265b7-292d-48b5-adfd-fb4de12751fd_spyv2_sanitized.md) — Sanitized conversation backup transcript capturing all research sessions, preflights, and V4 Flagship engineering decisions.
+
+### 2.4 Top 5 Competitor Ad Intelligence & Real Hook Research Suite (`competitor_ad_intelligence/`)
+28. [`competitor_ad_intelligence/README.md`](competitor_ad_intelligence/README.md) — Research index, methodology, and strategic intelligence executive summary.
+29. [`competitor_ad_intelligence/REVOL_CARES_DEEP_DIVE.md`](competitor_ad_intelligence/REVOL_CARES_DEEP_DIVE.md) — Independent ad intelligence deep dive on Revol Cares (Sections A through G).
+30. [`competitor_ad_intelligence/KNIX_DEEP_DIVE.md`](competitor_ad_intelligence/KNIX_DEEP_DIVE.md) — Independent ad intelligence deep dive on Knix & Kt by Knix / Essity AB (Sections A through G).
+31. [`competitor_ad_intelligence/SAALT_DEEP_DIVE.md`](competitor_ad_intelligence/SAALT_DEEP_DIVE.md) — Independent ad intelligence deep dive on Saalt (Sections A through G).
+32. [`competitor_ad_intelligence/THINX_DEEP_DIVE.md`](competitor_ad_intelligence/THINX_DEEP_DIVE.md) — Independent ad intelligence deep dive on Thinx / Kimberly-Clark (Sections A through G).
+33. [`competitor_ad_intelligence/THE_PERIOD_COMPANY_DEEP_DIVE.md`](competitor_ad_intelligence/THE_PERIOD_COMPANY_DEEP_DIVE.md) — Independent ad intelligence deep dive on The Period Company (Sections A through G).
+34. [`competitor_ad_intelligence/TOP5_HOOK_ANGLE_MATRIX.md`](competitor_ad_intelligence/TOP5_HOOK_ANGLE_MATRIX.md) — Cross-competitor comparison matrix, angle frequencies (ANG-01 to ANG-07), and saturation analysis.
+35. [`competitor_ad_intelligence/TOP5_CREATIVE_EVIDENCE.csv`](competitor_ad_intelligence/TOP5_CREATIVE_EVIDENCE.csv) — Structured dataset of 58 verified competitor ads with 26 standardized fields.
+36. [`competitor_ad_intelligence/ULTRA_OVERNIGHT_CREATIVE_GAP_ANALYSIS.md`](competitor_ad_intelligence/ULTRA_OVERNIGHT_CREATIVE_GAP_ANALYSIS.md) — Creative gap analysis and detailed answers to 10 strategic questions mapping findings to V4 Flagship.
+37. [`competitor_ad_intelligence/ULTRA_OVERNIGHT_15_HOOKS.md`](competitor_ad_intelligence/ULTRA_OVERNIGHT_15_HOOKS.md) — 15 ranked original hook concepts (5 pain, 5 demo, 5 curiosity/emotion) with 5-criterion rubric scoring.
+38. [`competitor_ad_intelligence/ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md`](competitor_ad_intelligence/ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md) — Three detailed 9:16 vertical video creative storyboards with natural American English scripts.
+39. [`competitor_ad_intelligence/RESEARCH_LIMITATIONS_AND_PROVENANCE.md`](competitor_ad_intelligence/RESEARCH_LIMITATIONS_AND_PROVENANCE.md) — Sources, evidence tiering, zero-spend audit trail, and methodological limitations.
 
 ---
 
