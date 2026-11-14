@@ -39,11 +39,20 @@ Toàn bộ các thông số kỹ thuật dưới đây là **MỤC TIÊU KỸ TH
 - **Bờ cản 3D SideSeal:** Ý tưởng thiết kế cơ học bờ cản nổi đàn hồi ngăn trượt mép đùi khi nằm nghiêng, bắt buộc phải có mẫu thử vật lý và thử nghiệm fitting trên cơ thể trước khi trình diễn.
 - **Độ bền 50–100 chu kỳ giặt (WashGuard):** Mục tiêu độ bền màng chống thấm sau giặt máy, cần biên bản thử nghiệm giặt lặp lại AATCC 135.
 
-### D. Chuẩn hóa dải kích cỡ thương phẩm & dải size kiểm tra mẫu thử (Size Range Standardization)
-1. **Dải kích cỡ thương phẩm dự kiến (Proposed Commercial Size Range):**
-   - **7 kích cỡ tiêu chuẩn:** `XS, S, M, L, XL, 2XL, 3XL` (đáp ứng vòng eo từ 24 inch đến 48 inch, vòng mông từ 34 inch đến 58 inch theo bảng thông số nhân trắc học US).
+### D. Chuẩn hóa dải kích cỡ thương phẩm & Biên bản quyết định lệch size (Specification Decision Record)
+Tham chiếu văn kiện chính thức: [`SPECIFICATION_DECISION_RECORD_SIZING.md`](SPECIFICATION_DECISION_RECORD_SIZING.md) (`SDR-001`).
+
+1. **Ghi nhận sự khác biệt dải size giữa các tài liệu:**
+   - **Đề xuất ra mắt SPYV2 (Launch Proposal):** `XS, S, M, L, XL, 2XL, 3XL` (7 kích cỡ) nhằm tối ưu số lượng SKU lưu kho đợt đầu.
+   - **Cấu hình phát triển Shopify & Đặc tả kỹ thuật gốc OEM (`PROTOTYPE_V4_FLAGSHIP_SPEC.md`):** `XS, S, M, L, XL, 2XL, 3XL, 4XL` (8 kích cỡ) theo chuẩn mở rộng ASTM D5585.
+   - **Quy tắc điều hành:** Tuyệt đối không tự ý sửa đổi biến thể trên cửa hàng Shopify/TRYMALORA. Tuyệt đối không tuyên bố bất kỳ dải size nào là "được xưởng phê duyệt" khi chưa nhận được bảng thông số rập nhảy size và MOQ chính thức từ nhà máy OEM.
 2. **Dải kích cỡ kiểm tra mẫu thử ban đầu tại nhà máy (Initial Prototype Sample Testing Range):**
    - **3 kích cỡ trọng tâm:** `S, M, L` (trong đó size **M** là kích cỡ chuẩn - fit mannequin chuẩn để đo đạc chiều dài đũng 46 cm và thể tích thấm hút chuẩn).
+
+### E. Phân định 3 giai đoạn sản xuất sáng tạo (Creative Production Stages)
+- **STAGE A (Sẵn sàng sản xuất ngay):** Kịch bản, casting diễn viên, bối cảnh phòng ngủ đời thường, đồ họa giải phẫu 3D trung tính, concept boards vải & bao bì.
+- **STAGE B (Bắt buộc có mẫu thử vật lý từ xưởng):** Trình diễn mặc thực tế (wearing fit), thu âm ASMR ma sát vải thật, thử nghiệm bờ cản SideSeal™ trên cơ thể, đối chiếu độ dày vật lý.
+- **STAGE C (Bắt buộc có biên bản test lab độc lập):** Khẳng định dung tích 150–160 mL, thử nghiệm nén chống thấm ngược (rewet), thử nghiệm màng TPU chống nước, cam kết độ bền 50–100 chu kỳ giặt máy.
 
 ---
 

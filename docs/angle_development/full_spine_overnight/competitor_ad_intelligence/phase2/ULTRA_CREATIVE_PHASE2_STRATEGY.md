@@ -32,13 +32,13 @@
 - **Knix chiếm ưu thế về số lượng ngân sách hiển thị, nhưng không tối ưu về chiều sâu cơ học:** 
   Hơn 50% quảng cáo của Knix tập trung vào đối tượng mẹ mua cho con gái tuổi teen (Kt by Knix) với thông điệp chống ngại ngùng khi đi cắm trại. Trong khi đó, phân khúc khách hàng cốt lõi của V4 là **phụ nữ trưởng thành (22–45 tuổi)** có lượng kinh nặng xuyên đêm, đang tự chi trả và chịu đựng sự mệt mỏi vì thức giấc 2h sáng. Bắt chước Knix sẽ đẩy V4 vào cạnh tranh trực diện với một tập đoàn đa quốc gia có nguồn lực thương hiệu khổng lồ.
 
-### B. Học hỏi và vượt lên Revol Cares: Cơ chế Full-Spine hoàn thiện
-- Revol Cares là đối thủ duy nhất trong tập mẫu thực sự chạm vào nỗi đau rò rỉ lưng (`ANG-02`). Tuy nhiên, Revol giải quyết bằng cách may một chiếc quần boxer bằng vải French terry bông xù rất dày, dẫn đến cảm giác ẩm dính và phơi lâu khô.
-- **Bước nhảy vọt của V4:** Giữ nguyên góc tiếp cận vách lót chạm cạp lưng sau (Full-Spine 46 cm), nhưng giải quyết triệt để điểm yếu của Revol bằng cấu trúc màng ADL phân tán dịch nhanh một chiều (DryTouch) và vải thân quần cellulose siêu mềm thoáng khí, tạo cảm giác như mặc đồ ngủ cao cấp.
+### B. Đối sánh định hướng thiết kế với Revol Cares: Cơ chế Full-Spine mở rộng
+- Revol Cares là đối thủ duy nhất trong tập mẫu thực sự chạm vào nỗi đau rò rỉ lưng (`ANG-02`). Tuy nhiên, mẫu The Charlie của họ sử dụng chất liệu French terry tương đối dày.
+- **Định hướng thiết kế của V4:** Giữ nguyên ý tưởng vách lót mở rộng cao tới cạp lưng sau (mục tiêu thiết kế 46 cm cho prototype size M), kết hợp cấu trúc màng ADL phân tán dịch nhanh (DryTouch) và vải dệt cellulose siêu mềm thoáng khí nhằm tối ưu cảm giác mặc ban đêm.
 
-### C. Học hỏi Saalt: Khai thác giác quan êm ái (Anti-Diaper Positioning)
-- Saalt rất thành công trong việc định vị "CloudShort" đối lập với cảm giác mặc tã cộm dày.
-- **Bước nhảy vọt của V4:** Khắc phục nhược điểm của Saalt (vách lót ngắn chỉ tới giữa mông, dung tích trung bình) bằng cách đưa sự êm ái không tiếng sột soạt vào phom dáng sleep short có vách lót phủ kín tới thắt lưng.
+### C. Đối sánh định hướng thiết kế với Saalt: Cảm giác mặc êm dịu không cộm tã
+- Saalt định vị thành công dòng "CloudShort" đối lập với cảm giác mặc tã cộm dày.
+- **Định hướng thiết kế của V4:** Hướng tới cảm giác êm dịu tương tự từ sợi cellulose thoáng khí, đồng thời mở rộng vùng che chắn ra phía sau thắt lưng (Full-Spine coverage) để hỗ trợ tốt hơn cho người nằm ngửa.
 
 ---
 
@@ -68,3 +68,25 @@
    - Đóng vai trò là đòn bẩy lý tính tạo sự khác biệt độc tôn (Unique Selling Proposition). Minh họa giải phẫu học hõm thắt lưng giúp khách hàng "À thì ra là thế!", hiểu được lý do vì sao mọi loại băng vệ sinh trước đây đều thất bại khi nằm ngửa.
 3. **Trụ cột C — Anti-Diaper Comfort (Êm ái chống cộm tã & Yên tĩnh phòng ngủ):**
    - Đóng vai trò phá vỡ rào cản chuyển đổi. Khách hàng sợ rằng quần thấm nhiều thì sẽ dày cộm như tã người lớn. Trụ cột này chứng minh phom dáng boxer/sleep short thời trang, êm dịu và không phát tiếng ồn.
+
+---
+
+## 4. QUẢN TRỊ 3 GIAI ĐOẠN SẢN XUẤT SÁNG TẠO (STAGED PRODUCTION ROADMAP)
+
+Để đảm bảo an toàn pháp lý tuyệt đối trước khi sản phẩm vật lý xuất xưởng và có kiểm nghiệm lab độc lập, quy trình sản xuất sáng tạo được phân định nghiêm ngặt thành 3 giai đoạn:
+
+1. **STAGE A — Sẵn sàng sản xuất ngay (Can produce now):**
+   - Hoàn thiện kịch bản chi tiết, casting diễn viên, quay các cảnh phòng ngủ đời thường (thức dậy 2h sáng, giặt ga trải giường, chuẩn bị đồ ngủ).
+   - Thiết kế đồ họa 3D mô phỏng góc nghiêng giải phẫu hõm thắt lưng (Lumbar lordosis).
+   - Concept boards về vải dệt mềm mại và bao bì tối giản.
+2. **STAGE B — Bắt buộc có mẫu thử vật lý từ xưởng (Requires actual prototype):**
+   - Quay người mẫu mặc phom dáng thực tế (Wearing & Fit demonstrations).
+   - Thu âm ASMR cọ xát vải thật (Fabric acoustic ASMR).
+   - Trình diễn gờ cản chống tràn SideSeal™ trên cơ thể.
+   - Đối chiếu độ dày thực tế của sản phẩm.
+3. **STAGE C — Bắt buộc có biên bản test lab độc lập (Requires certified lab evidence):**
+   - Công bố dung tích thấm hút 150–160 mL (Modified ISO 9073-6 / AATCC 197).
+   - Trình diễn kiểm tra giữ nước chống thấm ngược (Rewet blot test) và nén tỳ đè (50 mmHg compression).
+   - Cam kết độ bền 50–100 chu kỳ giặt máy (AATCC 135) và an toàn hóa chất PFAS (California AB 2515).
+
+*Ghi chú đặc tả kích cỡ:* Tham chiếu [`SPECIFICATION_DECISION_RECORD_SIZING.md`](SPECIFICATION_DECISION_RECORD_SIZING.md) (`SDR-001`) để nắm rõ việc ghi nhận độ lệch giữa đề xuất ra mắt SPYV2 (XS–3XL, 7 size) và cấu hình gốc OEM/Shopify (XS–4XL, 8 size); bảo toàn nguyên tắc không tự động sửa đổi Shopify và không công bố dải size là đã phê duyệt khi chưa có xác nhận từ xưởng.

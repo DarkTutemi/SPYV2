@@ -12,6 +12,10 @@
 - **Quy chuẩn ngôn ngữ:**
   - Lời thoại (Voiceover) & Chữ hiển thị (On-Screen Text): Tiếng Anh Mỹ tự nhiên (Natural US English).
   - Phân tích đạo diễn, góc máy, yêu cầu diễn viên & ghi chú sản xuất: Tiếng Việt.
+- **Phân loại 3 giai đoạn sản xuất sáng tạo (Creative Production Stages):**
+  - **STAGE A (Triển khai ngay):** Kịch bản, casting diễn viên, cảnh phòng ngủ đời thường, đồ họa giải phẫu 3D trung tính, concept boards vải & bao bì.
+  - **STAGE B (Chờ mẫu thử vật lý xưởng):** Mặc trình diễn thực tế (wearing fit), thu âm ASMR ma sát vải thật, thử nghiệm kéo dãn bờ cản SideSeal™, đối chiếu độ dày vật lý.
+  - **STAGE C (Chờ biên bản lab độc lập):** Khẳng định dung tích 150–160 mL, kiểm nghiệm nén chống thấm ngược (rewet), thử nghiệm màng TPU chống nước, độ bền 50–100 chu kỳ giặt.
 - **Ranh giới pháp lý & An toàn thương mại (Claims & Compliance Safeguards):**
   - **Tất cả tài sản phân cảnh được phân loại:** `INTERNAL CONCEPT & PRE-PRODUCTION ASSETS`.
   - **Không cam kết đảm bảo:** Nghiêm cấm hoàn toàn các cam kết "100% leak-proof", "chống tràn tuyệt đối".
@@ -49,8 +53,8 @@ Góc máy (Angle):     9:16 Trung cận cảnh (Medium Close-Up) chếch góc 45
 Hình ảnh (Visual):   Người mẫu ngồi tự nhiên trên giường, nghiêng người chỉ ngón tay trực tiếp vào hõm 
                      thắt lưng phía sau lưng mình (khoảng hõm giữa thắt lưng và mặt nệm). Biểu cảm 
                      suy ngẫm, thấu hiểu.
-Thoại (Audio):       "Ever wonder why your overnight pad always leaks right here at your lower back? 
-                     It's not your flow. It's anatomy."
+Thoại (Audio):       "Ever wonder why your overnight pad can leak right here at your lower back? 
+                     Sleeping flat changes how gravity moves fluid."
 Chữ hiển thị (OST):  Why Overnight Pads Leak Here 👆
                      [Font: Clean Sans-Serif, nền mờ đen tối giản]
 Âm thanh (SFX):      Tiếng gõ "BING" nhẹ thu hút sự chú ý, tiếp nối bằng nhạc nền Lo-fi trầm ấm.
@@ -86,16 +90,16 @@ Chữ hiển thị (OST):  Continuous Full-Spine Shield 🛡️
 Âm thanh (SFX):      Tiếng lướt tay êm ái trên mặt vải dệt mềm mại (ASMR fabric sweep).
 
 ====================================================================================================
-SCENE 4: ULTRA-SOFT CELLULOSE FABRIC & SIDESEAL (00:19 – 00:24) [SECONDARY USP]
+SCENE 4: ULTRA-SOFT CELLULOSE FABRIC & SIDESEAL TARGET (00:19 – 00:24) [STAGE A CONCEPT / STAGE B PROTOTYPE]
 ====================================================================================================
-Phân loại tài sản:   READY TO SHOOT (Thao tác trên mẫu vải prototype)
+Phân loại tài sản:   STAGE A CONCEPT (Vải mẫu dệt) / STAGE B PROTOTYPE (Thử nghiệm SideSeal)
 Góc máy (Angle):     9:16 Cận cảnh góc xiên (Extreme Close-Up 45°).
-Hình ảnh (Visual):   Bàn tay người mẫu vò nhẹ chất vải thân quần để khoe độ rủ mềm mại như lụa, sau đó 
-                     kéo nhẹ mép đùi để lộ gờ viền SideSeal™ co giãn ôm khít vòng đùi mà không thít chặt.
-Thoại (Audio):       "Crafted from ultra-soft breathable cellulose knit, plus flexible side guards that move 
-                     with you if you turn over. No crinkling plastic, no diaper bulk."
+Hình ảnh (Visual):   STAGE A (Hiện tại): Bàn tay người mẫu vuốt nhẹ chất vải dệt cellulose mẫu để khoe độ rủ 
+                     mềm mại; STAGE B (Sau khi nhận mẫu xưởng): Thử nghiệm kéo nhẹ mép đùi kiểm tra gờ viền SideSeal™.
+Thoại (Audio):       "Crafted from ultra-soft breathable cellulose knit, with flexible side guard concepts 
+                     engineered to move with you if you turn over. No noisy plastic, no bulky feel."
 Chữ hiển thị (OST):  Ultra-Soft Breathable Knit ☁️
-                     Flexible Side Guards
+                     Side Guard Design Target
 Âm thanh (SFX):      Hoàn toàn không có tiếng sột soạt nilon, giai điệu nhạc chuyển sang thư giãn dễ chịu.
 
 ====================================================================================================
@@ -105,9 +109,9 @@ Phân loại tài sản:   READY TO SHOOT (Quay tại bối cảnh phòng ngủ)
 Góc máy (Angle):     9:16 Toàn cảnh phòng ngủ ban mai ngập tràn ánh nắng ấm áp (Wide Shot).
 Hình ảnh (Visual):   Người mẫu tỉnh giấc khoan khoái, vươn vai mỉm cười tự tin trên chiếc giường ga trắng tinh. 
                      Khung hình chuyển cảnh mượt sang hộp sản phẩm V4 thanh lịch bên cạnh gối ngủ.
-Thoại (Audio):       "Sleep through the night and wake up to clean sheets. Explore the Full-Spine sleep 
+Thoại (Audio):       "Designed for overnight peace of mind. Explore the Full-Spine sleep 
                      short concept today. Tap below to learn more."
-Chữ hiển thị (OST):  Clean Sheets. Real Sleep. ✨
+Chữ hiển thị (OST):  Designed for Overnight Peace of Mind ✨
                      V4 FULL-SPINE ULTRA OVERNIGHT™
                      [Tap Link Below to Explore Concept]
 Âm thanh (SFX):      Tiếng chim hót ban mai dịu êm, nốt nhạc kết thúc vang nhẹ trong trẻo.
@@ -171,7 +175,7 @@ Phân loại tài sản:   READY TO SHOOT (Thao tác đo đạc thực tế)
 Góc máy (Angle):     9:16 Cận cảnh thao tác tay (Close-Up Tracking Shot).
 Hình ảnh (Visual):   Chiếc quần ngủ V4 được lộn trái đặt cạnh chiếc quần ban ngày. Bàn tay kéo thước dây 
                      từ cạp trước, chạy liên tục qua đáy quần và kéo dài hết cỡ chạm cạp chun lưng sau 
-                     tại đúng vạch 46 cm. Sự tương phản chiều dài gấp hơn 2 lần đập ngay vào mắt người xem.
+                     tại đúng vạch 46 cm. Sự tương phản trực quan về chiều dài vách lót mở rộng so với phom dáng ban ngày thông thường đập ngay vào mắt người xem.
 Thoại (Audio):       "That's why the Full-Spine sleep short concept is engineered with a 46-centimeter 
                      protection zone—designed to run continuously from the front all the way up to the back waistband."
 Chữ hiển thị (OST):  Full-Spine Target: 46 cm Waistband-to-Waistband 🔒
@@ -278,7 +282,7 @@ Góc máy (Angle):     9:16 Góc máy nhìn từ trên cao xuống giường ng�
 Hình ảnh (Visual):   Người phụ nữ nằm ngủ say sưa trên chiếc giường ga trắng tinh, tư thế nằm ngửa thoải mái, 
                      gương mặt hoàn toàn thư thái, không còn vẻ căng thẳng phòng thủ hay đặt khăn lót bên dưới.
 Thoại (Audio):       "No midnight alarms. No backup towels on the bed. Just uninterrupted rest and 
-                     waking up to clean sheets."
+                     bedtime peace of mind."
 Chữ hiển thị (OST):  No Midnight Panic. ✨
                      No Dark Towels Needed.
 Âm thanh (SFX):      Âm thanh hơi thở đều đặn bình yên, giai điệu du dương thư thái.
@@ -292,7 +296,7 @@ Hình ảnh (Visual):   Người phụ nữ thức dậy khoan khoái, kéo rèm
                      Khung hình hiển thị logo V4 Ultra Overnight kèm liên kết tìm hiểu sản phẩm.
 Thoại (Audio):       "Reclaim your bedtime peace of mind. Explore the Full-Spine Ultra Overnight concept. 
                      Link below."
-Chữ hiển thị (OST):  Wake Up to Clean Sheets ☀️
+Chữ hiển thị (OST):  Designed for Overnight Peace of Mind ✨
                      V4 FULL-SPINE ULTRA OVERNIGHT™
                      [Tap to Explore Concept]
 Âm thanh (SFX):      Nốt chuông vui tươi, âm vang hoàn tất nhẹ nhàng.
@@ -323,3 +327,4 @@ Chữ hiển thị (OST):  Wake Up to Clean Sheets ☀️
 - [x] **Minh bạch hóa thông số kỹ thuật:** Con số 46 cm luôn đi kèm từ "target / engineered target" (mục tiêu thiết kế cho prototype size M).
 - [x] **Không đưa ra số liệu bôi nhọ đối thủ:** Chỉ so sánh khách quan giữa thiết kế ban ngày thông thường (daytime padding) và đồ ngủ chuyên dụng ban đêm (purpose-built sleep shorts).
 - [x] **Xử lý xung đột vật liệu an toàn:** Miêu tả chất liệu là "ultra-soft breathable cellulose knit" (vải dệt sợi cellulose siêu mềm thoáng khí), không cam kết tỷ lệ % cố định trước khi xưởng may hoàn thiện mẫu lab dip.
+

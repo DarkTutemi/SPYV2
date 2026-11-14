@@ -37,7 +37,9 @@
 18. [`phase2/CORRECTED_CREATIVE_RANKING.md`](phase2/CORRECTED_CREATIVE_RANKING.md) — Bảng xếp hạng tự động 15 hook sau khi hiệu chỉnh điểm Feas cho demo chưa có mẫu vật lý và giải quyết triệt để xung đột vật liệu/cam kết.
 19. [`phase2/ULTRA_5_ORIGINAL_SCRIPTS.md`](phase2/ULTRA_5_ORIGINAL_SCRIPTS.md) — 5 kịch bản gốc hoàn chỉnh bằng tiếng Anh Mỹ tự nhiên kèm ghi chú sản xuất tiếng Việt, CTA an toàn, loại bỏ hoàn toàn ưu đãi dùng thử 30 ngày chưa duyệt.
 20. [`phase2/ULTRA_TOP3_STORYBOARDS.md`](phase2/ULTRA_TOP3_STORYBOARDS.md) — 3 bản phân cảnh sản xuất chi tiết 9:16 cho Top 3 ý tưởng đạt điểm cao nhất (Hook 02, Hook 06, Hook 01) kèm danh mục đạo cụ và diễn viên.
-21. [`phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md`](phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md) — Cổng kiểm soát quản trị sáng tạo phân định rõ ràng giữa tài sản concept, mẫu thử vật lý và kiểm nghiệm phòng lab độc lập.
+21. [`phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md`](phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md) — Cổng kiểm soát quản trị sáng tạo phân định rõ ràng giữa 3 giai đoạn sản xuất (Stage A, Stage B, Stage C) và danh mục tuyên bố cấm/cần hiệu chỉnh.
+22. [`phase2/SPECIFICATION_DECISION_RECORD_SIZING.md`](phase2/SPECIFICATION_DECISION_RECORD_SIZING.md) — Biên bản quyết định đặc tả kỹ thuật (SDR-001) ghi nhận lệch size (XS–3XL vs XS–4XL) và cam kết không tự ý sửa đổi Shopify.
+23. [`phase2/artifacts/video_playback/`](phase2/artifacts/video_playback/) — Kho lưu trữ 12 ảnh chụp màn hình khung hình video thực tế (0s, 1s, 2s, 2.5s) phục vụ kiểm chứng độc lập.
 
 ---
 

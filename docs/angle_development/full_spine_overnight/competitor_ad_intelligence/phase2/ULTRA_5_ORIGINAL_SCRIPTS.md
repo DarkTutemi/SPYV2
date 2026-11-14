@@ -56,8 +56,8 @@ Chữ hiển thị:    Full-Spine Protection Concept 🌙
 ====================================================================================================
 Góc máy:         Góc toàn cảnh (Wide Shot) phòng ngủ ngập tràn ánh nắng ban mai.
 Hình ảnh:        Người mẫu thức dậy khoan khoái, vươn vai tự do trên chiếc đệm trắng tinh tươm.
-Thoại (Audio):   "No midnight panic. No towel on the bed. Just sleeping through the night and waking up to completely clean sheets."
-Chữ hiển thị:    Clean Sheets. Real Sleep. ☀️
+Thoại (Audio):   "No midnight panic. No towel on the bed. Just peaceful, uninterrupted rest with dedicated night protection."
+Chữ hiển thị:    Rest Easy. Purpose-Built for Sleep. ☀️
 Âm thanh:        Tiếng chim hót ban mai, giai điệu vui vẻ, nhẹ nhõm.
 
 ====================================================================================================
@@ -89,7 +89,7 @@ CTA:             "Explore Full-Spine Sleep Shorts"
 ====================================================================================================
 Góc máy:         Trung cận cảnh (Medium Close-Up) người mẫu ngồi nghiêng trên giường.
 Hình ảnh:        Người mẫu chỉ ngón tay vào vùng thắt lưng cong tự nhiên phía sau lưng mình.
-Thoại (Audio):   "Ever wonder why your overnight pad always leaks right here at your lower back? It's not your flow. It's anatomy."
+Thoại (Audio):   "Ever wonder why your overnight pad can leak right here at your lower back? Sleeping flat changes how gravity moves fluid."
 Chữ hiển thị:    Why Overnight Pads Leak Here 👆
 Âm thanh:        Tiếng "BING" nhẹ kích hoạt sự chú ý.
 
@@ -119,7 +119,7 @@ Chữ hiển thị:    Engineered Target: 46 cm Lumbar Coverage Zone 📏
 Góc máy:         Góc quay từ trên cao (Top-down Bird's Eye View).
 Hình ảnh:        Người mẫu nằm ngửa duỗi thẳng chân thoải mái, ngủ say sưa không cần co ro phòng thủ.
 Thoại (Audio):   "Sleep on your back without second-guessing every time you shift positions."
-Chữ hiển thị:    Sleep Flat. Wake Clean. ✨
+Chữ hiển thị:    Sleep Flat. Rest Easy. ✨
 Âm thanh:        Nhạc piano êm dịu, ấm cúng.
 
 ====================================================================================================
@@ -169,7 +169,7 @@ Chữ hiển thị:    The Bedtime Pad Crunch 🛑
 ====================================================================================================
 Góc máy:         Ánh sáng ban mai êm dịu, cận cảnh chất vải rủ mềm mại.
 Hình ảnh:        Người mẫu mặc chiếc quần ngủ V4 dáng boxer biker short màu đen tuyền, cử động xoay người êm ái.
-Thoại (Audio):   "This is our Ultra Overnight sleep short concept. Crafted from breathable, ultra-soft modal knit that feels like your favorite loungewear—with serious built-in core protection."
+Thoại (Audio):   "This is our Ultra Overnight sleep short concept. Crafted from breathable, ultra-soft cellulose knit that feels like your favorite loungewear—with serious built-in core protection."
 Chữ hiển thị:    Feels Like Loungewear. Protects Like an Overnight Shield. ☁️
 Âm thanh:        Nhạc acoustic ấm áp, giai điệu thư giãn tuyệt đối.
 
@@ -179,7 +179,7 @@ Chữ hiển thị:    Feels Like Loungewear. Protects Like an Overnight Shield.
 Góc máy:         Trung cảnh người mẫu cuộn mình đọc sách trên sofa.
 Hình ảnh:        Tư thế ngồi co chân tự nhiên, không vết lằn cộm, không cảm giác tã dày.
 Thoại (Audio):   "No bulky diaper feeling. No sticky adhesive shifting around. Just quiet, breathable bedtime comfort."
-Chữ hiển thị:    Zero Bulk. 100% Breathable Comfort. 🌿
+Chữ hiển thị:    Non-Bulky Feel. Breathable Comfort. 🌿
 Âm thanh:        Giai điệu thư thái, tích cực.
 
 ====================================================================================================

@@ -76,3 +76,13 @@
 2. **Cơ chế chứng minh:**
    - Trực quan hóa tốc độ thấm hút và độ mỏng của cấu trúc nhiều lớp.
 3. **Bài học cho V4:** Đây là hình thức demo có sức thuyết phục cao nhất đối với nhóm khách hàng hoài nghi. Tuy nhiên, theo quy chuẩn an toàn của SPYV2, V4 bắt buộc phải hoàn thành thử nghiệm lab trước khi thực hiện kịch bản này.
+
+---
+
+## 3. DANH MỤC HIỆN VẬT HÌNH ẢNH & BẰNG CHỨNG PHÁT VIDEO ĐÃ LƯU TRỮ
+
+Toàn bộ 12 ảnh chụp khung hình trích xuất từ các thời điểm phát video (t=0s, t=1s, t=2s, t=2.5s) đã được sao lưu độc lập vào kho lưu trữ nội bộ tại:  
+[`docs/angle_development/full_spine_overnight/competitor_ad_intelligence/phase2/artifacts/video_playback/`](artifacts/video_playback/)
+
+Dữ liệu đối soát 27 cột tiêu chuẩn bao gồm: `brand`, `advertiser_name`, `ad_id`, `source_type` (phân định Meta Ad vs Brand PDP), `ad_url`, `product_name`, `product_url`, `media_source_url`, `observation_timestamp`, `playback_status`, `duration_seconds`, `spoken_audio_0_3s`, `onscreen_text_0_3s`, `visual_action_0_3s`, `frame_artifact_0s`, `frame_artifact_1s`, `frame_artifact_2s`, `frame_artifact_3s`, `observation_log_ref`, `shot_structure_3_15s`, `primary_psychological_angle`, `demonstration_proof_mechanism`, `cta_text`, `commercial_offer`, `evidence_tier`, `confidence_score`, `verification_notes` được cập nhật đồng bộ tại:  
+[`COMPETITOR_VIDEO_PLAYBACK_EVIDENCE.csv`](COMPETITOR_VIDEO_PLAYBACK_EVIDENCE.csv).

@@ -34,7 +34,7 @@
 
 ---
 
-## 2. COMPLETE REPOSITORY DOCUMENT DIRECTORY (47 DOCUMENTS)
+## 2. COMPLETE REPOSITORY DOCUMENT DIRECTORY (48 DOCUMENTS)
 
 ### 2.1 Commercial Flagship V4 Documentation (New Deliverables)
 1. [`V4_VERSION_DECISION_RECORD.md`](V4_VERSION_DECISION_RECORD.md) — Official Version Decision Record formalizing the transition to V4 Flagship while preserving V1/V2/V3 benchmarks.
@@ -92,6 +92,8 @@
 45. [`competitor_ad_intelligence/phase2/ULTRA_5_ORIGINAL_SCRIPTS.md`](competitor_ad_intelligence/phase2/ULTRA_5_ORIGINAL_SCRIPTS.md) — 5 production-ready original scripts in natural US English with Vietnamese production notes, safe CTAs, and zero unapproved trial claims.
 46. [`competitor_ad_intelligence/phase2/ULTRA_TOP3_STORYBOARDS.md`](competitor_ad_intelligence/phase2/ULTRA_TOP3_STORYBOARDS.md) — 3 detailed 9:16 vertical video production-ready storyboards with scene-by-scene shot lists, talent specs, prop lists, and concept asset callouts.
 47. [`competitor_ad_intelligence/phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md`](competitor_ad_intelligence/phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md) — Strict creative governance approval gate separating concept assets, physical prototypes, lab test dependencies, and prohibited claims.
+48. [`competitor_ad_intelligence/phase2/SPECIFICATION_DECISION_RECORD_SIZING.md`](competitor_ad_intelligence/phase2/SPECIFICATION_DECISION_RECORD_SIZING.md) — Official Specification Decision Record (SDR-001) documenting the sizing discrepancy (SPYV2 XS–3XL vs Shopify XS–4XL) and safeguarding engineering targets.
+49. [`competitor_ad_intelligence/phase2/artifacts/video_playback/`](competitor_ad_intelligence/phase2/artifacts/video_playback/) — Repository directory of 12 verified high-resolution frame screenshots at critical timestamps (0s, 1s, 2s, 2.5s) across all playable competitor videos.
 
 ---
 
