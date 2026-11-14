@@ -34,7 +34,7 @@
 
 ---
 
-## 2. COMPLETE REPOSITORY DOCUMENT DIRECTORY (39 DOCUMENTS)
+## 2. COMPLETE REPOSITORY DOCUMENT DIRECTORY (47 DOCUMENTS)
 
 ### 2.1 Commercial Flagship V4 Documentation (New Deliverables)
 1. [`V4_VERSION_DECISION_RECORD.md`](V4_VERSION_DECISION_RECORD.md) — Official Version Decision Record formalizing the transition to V4 Flagship while preserving V1/V2/V3 benchmarks.
@@ -83,6 +83,15 @@
 38. [`competitor_ad_intelligence/ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md`](competitor_ad_intelligence/ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md) — Three detailed 9:16 vertical video creative storyboards with natural American English scripts.
 39. [`competitor_ad_intelligence/RESEARCH_LIMITATIONS_AND_PROVENANCE.md`](competitor_ad_intelligence/RESEARCH_LIMITATIONS_AND_PROVENANCE.md) — Sources, evidence tiering, zero-spend audit trail, and methodological limitations.
 40. [`competitor_ad_intelligence/EVIDENCE_VERIFICATION_GATE.md`](competitor_ad_intelligence/EVIDENCE_VERIFICATION_GATE.md) — Official evidence verification gate table classifying concepts, physical prototypes, and lab test requirements.
+
+### 2.5 Ultra Overnight V4 Creative Intelligence Phase 2 Suite (`competitor_ad_intelligence/phase2/`)
+41. [`competitor_ad_intelligence/phase2/COMPETITOR_VIDEO_PLAYBACK_EVIDENCE.csv`](competitor_ad_intelligence/phase2/COMPETITOR_VIDEO_PLAYBACK_EVIDENCE.csv) — 10 verified competitor video playback records with exact 0–3s visual/audio hooks vs written ad copy.
+42. [`competitor_ad_intelligence/phase2/TOP5_VIDEO_HOOK_DEEP_DIVE.md`](competitor_ad_intelligence/phase2/TOP5_VIDEO_HOOK_DEEP_DIVE.md) — In-depth deconstruction of actual video openings vs ad copy across Knix, Revol Cares, Saalt, The Period Company, and Thinx.
+43. [`competitor_ad_intelligence/phase2/ULTRA_CREATIVE_PHASE2_STRATEGY.md`](competitor_ad_intelligence/phase2/ULTRA_CREATIVE_PHASE2_STRATEGY.md) — Brand-balanced creative strategy preventing Knix volume dominance, deconstructing 3 strategic pillars and positioning V4 against competitor weaknesses.
+44. [`competitor_ad_intelligence/phase2/CORRECTED_CREATIVE_RANKING.md`](competitor_ad_intelligence/phase2/CORRECTED_CREATIVE_RANKING.md) — Programmatic recalculation and re-sorting of all 15 creative hooks, with Feas adjustments for unbuilt physical tests and formal resolution of material/claims conflicts.
+45. [`competitor_ad_intelligence/phase2/ULTRA_5_ORIGINAL_SCRIPTS.md`](competitor_ad_intelligence/phase2/ULTRA_5_ORIGINAL_SCRIPTS.md) — 5 production-ready original scripts in natural US English with Vietnamese production notes, safe CTAs, and zero unapproved trial claims.
+46. [`competitor_ad_intelligence/phase2/ULTRA_TOP3_STORYBOARDS.md`](competitor_ad_intelligence/phase2/ULTRA_TOP3_STORYBOARDS.md) — 3 detailed 9:16 vertical video production-ready storyboards with scene-by-scene shot lists, talent specs, prop lists, and concept asset callouts.
+47. [`competitor_ad_intelligence/phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md`](competitor_ad_intelligence/phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md) — Strict creative governance approval gate separating concept assets, physical prototypes, lab test dependencies, and prohibited claims.
 
 ---
 

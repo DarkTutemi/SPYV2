@@ -27,8 +27,17 @@
 10. [`TOP5_HOOK_ANGLE_MATRIX.md`](TOP5_HOOK_ANGLE_MATRIX.md) — Ma trận phân tích tần suất góc tiếp cận (tách biệt mẫu 45 đối thủ và 13 benchmarks).
 11. [`ULTRA_OVERNIGHT_CREATIVE_GAP_ANALYSIS.md`](ULTRA_OVERNIGHT_CREATIVE_GAP_ANALYSIS.md) — Phân tích khoảng trống sáng tạo và giải đáp 10 câu hỏi chiến lược cho V4.
 12. [`ULTRA_OVERNIGHT_15_HOOKS.md`](ULTRA_OVERNIGHT_15_HOOKS.md) — 15 ý tưởng hook độc đáo cho V4 đã hiệu chính và gắn cờ phê duyệt theo cổng kiểm chứng.
-13. [`ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md`](ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md) — 3 kịch bản storyboard sản xuất chi tiết cho V4.
+13. [`ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md`](ULTRA_OVERNIGHT_TOP3_STORYBOARDS.md) — 3 kịch bản storyboard sản xuất chi tiết cho V4 (phiên bản khởi tạo).
 14. [`RESEARCH_LIMITATIONS_AND_PROVENANCE.md`](RESEARCH_LIMITATIONS_AND_PROVENANCE.md) — Báo cáo phương pháp luận, giới hạn nghiên cứu, thang đo tin cậy và báo cáo chi phí $0.00.
+
+### 1.2 Giai đoạn 2: Tình báo Video thực tế & Bộ công cụ tiền kỳ an toàn (`phase2/`)
+15. [`phase2/COMPETITOR_VIDEO_PLAYBACK_EVIDENCE.csv`](phase2/COMPETITOR_VIDEO_PLAYBACK_EVIDENCE.csv) — Bảng dữ liệu 10 bản ghi phát video thực tế đối thủ (Knix, Revol Cares, Saalt, The Period Company, Thinx) đối chiếu hook 0–3s với văn bản ad copy.
+16. [`phase2/TOP5_VIDEO_HOOK_DEEP_DIVE.md`](phase2/TOP5_VIDEO_HOOK_DEEP_DIVE.md) — Phân tích chuyên sâu sự đối lập 100% giữa hook video thực tế và câu mở đầu ad copy trên cả 5 đối thủ.
+17. [`phase2/ULTRA_CREATIVE_PHASE2_STRATEGY.md`](phase2/ULTRA_CREATIVE_PHASE2_STRATEGY.md) — Chiến lược sáng tạo cân bằng thương hiệu, ngăn chặn sự áp đảo của Knix và thiết lập 3 trụ cột sáng tạo cốt lõi cho V4.
+18. [`phase2/CORRECTED_CREATIVE_RANKING.md`](phase2/CORRECTED_CREATIVE_RANKING.md) — Bảng xếp hạng tự động 15 hook sau khi hiệu chỉnh điểm Feas cho demo chưa có mẫu vật lý và giải quyết triệt để xung đột vật liệu/cam kết.
+19. [`phase2/ULTRA_5_ORIGINAL_SCRIPTS.md`](phase2/ULTRA_5_ORIGINAL_SCRIPTS.md) — 5 kịch bản gốc hoàn chỉnh bằng tiếng Anh Mỹ tự nhiên kèm ghi chú sản xuất tiếng Việt, CTA an toàn, loại bỏ hoàn toàn ưu đãi dùng thử 30 ngày chưa duyệt.
+20. [`phase2/ULTRA_TOP3_STORYBOARDS.md`](phase2/ULTRA_TOP3_STORYBOARDS.md) — 3 bản phân cảnh sản xuất chi tiết 9:16 cho Top 3 ý tưởng đạt điểm cao nhất (Hook 02, Hook 06, Hook 01) kèm danh mục đạo cụ và diễn viên.
+21. [`phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md`](phase2/CLAIMS_AND_ASSETS_APPROVAL_GATE.md) — Cổng kiểm soát quản trị sáng tạo phân định rõ ràng giữa tài sản concept, mẫu thử vật lý và kiểm nghiệm phòng lab độc lập.
 
 ---
 
