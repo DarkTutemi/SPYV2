@@ -73,3 +73,4 @@ All 5 products:
 - **Frozen `T+14` Experiment:** Untouched
 - **Apify Spend Reservations / Paid Spend:** `0` (`$0.00 USD`)
 - **Non-Accessible Public Endpoints Honestly Recorded:** Shopify `/products/*` rate limits (`HTTP 429` on Etekcity, Fanttik, ThermoWorks, Zulay, Uproot, Loop, Renpho, Leatherman retry, HOTO, Simplehuman) and Cloudflare Turnstile/challenges (`HTTP 403` on Bissell, Oster, Sunbeam, Coleman, Hydro Flask, SharkClean) were observed honestly without circumvention.
+

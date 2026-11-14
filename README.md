@@ -108,3 +108,13 @@ docker compose up -d
 4. **`first_seen_at` != launch date:** Timestamps record first engine observation only.
 5. **Unknown state preservation:** Unverified stock (`UNKNOWN`), missing FOB/landed costs, and uncollected Meta ad data (`UNKNOWN DEMAND EVIDENCE`) are never fabricated or guessed.
 6. **Zero CAPTCHA/WAF circumvention:** Gated endpoints fail closed cleanly.
+
+---
+
+## Authoritative Documentation Map & Flagship Engineering
+
+- **Architecture & Status Overview:** [`README.md`](README.md), [`docs/LATEST_RUN_STATUS.md`](docs/LATEST_RUN_STATUS.md)
+- **OEM Flagship Product Engineering:** [`docs/angle_development/full_spine_overnight/README.md`](docs/angle_development/full_spine_overnight/README.md) — **V4 — FULL-SPINE ULTRA OVERNIGHT™** (5-Layer Advanced System, 150–160 mL target absorbency, SideSeal™ Guard, 46 cm continuous shield).
+- **Provenance Manifest & Artifacts:** [`docs/run_reports/sanitized_acquisition_manifest.json`](docs/run_reports/sanitized_acquisition_manifest.json)
+- **Batch Discovery Reports:** [`docs/US_WIN_HUNTER_OPPORTUNITIES_BATCH3.md`](docs/US_WIN_HUNTER_OPPORTUNITIES_BATCH3.md), [`docs/US_NEW_DISCOVERIES_REPORT.md`](docs/US_NEW_DISCOVERIES_REPORT.md), [`docs/VERIFIED_US_PRODUCT_EVIDENCE.md`](docs/VERIFIED_US_PRODUCT_EVIDENCE.md)
+- **Safety & T+14 Safeguards:** [`SECURITY.md`](SECURITY.md), [`docs/T14_CONFIGURATION_FREEZE.md`](docs/T14_CONFIGURATION_FREEZE.md)

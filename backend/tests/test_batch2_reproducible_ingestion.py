@@ -72,3 +72,4 @@ async def test_batch2_ingestion_reproducible_and_idempotent(tmp_path: Path):
         assert res2["dedup_stats"]["offers_updated"] == 5
     finally:
         await engine.dispose()
+

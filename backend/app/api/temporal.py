@@ -187,3 +187,129 @@ async def analytics_overview(
         ],
     }
 
+"""
+# TASK — AUDIT AND SELECTIVELY INTEGRATE CLAUDE SUPER KIT INTO ANTIGRAVITY
+
+You are working inside Google Antigravity IDE on Windows.
+
+The attached Claude-Super_Kit.zip contains ClaudeKit Engineer agents, skills, commands, hooks and scripts.
+
+Your objective is to improve our existing AI agent capabilities WITHOUT replacing the current configuration or disrupting any project.
+
+## 1. Inspect before installation
+
+Analyze the ZIP and identify:
+
+- Available agents and skills.
+- Duplicate capabilities already installed.
+- Compatibility with Google Antigravity IDE.
+- Unsupported Claude Code-specific tools.
+- External dependencies.
+- Executable scripts, hooks and permission risks.
+- Outdated MCP and API instructions.
+
+Do not execute bundled scripts during the initial audit.
+
+## 2. Select only valuable capabilities
+
+Prioritize:
+
+- code-review
+- debugging
+- backend-development
+- databases
+- chrome-devtools
+- mcp-builder
+
+Consider Shopify, repomix and research skills only when they add real value.
+
+Use the official Antigravity workspace skill convention:
+
+.agents/skills/<skill-name>/SKILL.md
+
+Adapt references and frontmatter to Antigravity where necessary.
+
+Do not blindly copy Claude Code subagent definitions, slash commands or hooks.
+
+## 3. Preserve existing configuration
+
+DO NOT overwrite:
+
+- Existing agent instructions.
+- Existing MCP configuration.
+- Existing skills.
+- Existing workspace rules.
+- Existing API credentials.
+- Existing Git configuration.
+
+Do not import settings.local.json.
+
+Do not install automatic tool-approval rules.
+
+Do not enable Discord or Telegram notification hooks.
+
+Do not automatically execute installation scripts or remote packages.
+
+## 4. Correct conflicting instructions
+
+Keep mock data permitted in isolated unit tests.
+
+Never allow mocks, fixtures or manually invented records to become production commercial evidence.
+
+Require actual external source provenance before marking product evidence verified.
+
+Require operator authorization before:
+
+- Paid API launches.
+- Production database mutation.
+- Git push.
+- Live Shopify theme deployment.
+- Destructive operations.
+
+Keep existing SPYV2 T+14 monitoring safeguards intact.
+
+## 5. Adapt Chrome DevTools safely
+
+Audit the included Puppeteer scripts.
+
+Do not disable the browser sandbox by default.
+
+Verify that browser automation works with the Windows environment.
+
+Do not bypass CAPTCHA or website access controls.
+
+Prefer an isolated browser session for UI testing.
+
+## 6. Minimal integration
+
+Perform integration in a separate temporary branch or staging directory.
+
+Install only selected compatible skills.
+
+Avoid unnecessary dependencies.
+
+Run a small functional test for each installed skill.
+
+Verify that existing Antigravity capabilities still work.
+
+Do not modify production application code merely to install skills.
+
+## 7. Final report in Vietnamese
+
+Return:
+
+1. Skills reviewed.
+2. Skills selected.
+3. Skills rejected and reasons.
+4. Existing skills preserved.
+5. Files created or modified.
+6. Dependencies required.
+7. Security risks eliminated.
+8. Functional tests.
+9. How to activate each new skill.
+10. Exact rollback procedure.
+
+Do not push or deploy anything without operator approval.
+
+The goal is a smaller, safer and more capable agent — not installing the entire ZIP.
+"""
