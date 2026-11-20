@@ -1,0 +1,74 @@
+[
+  {
+    "pain_category": "SCENT_AND_ODOR",
+    "complaint_count": 142,
+    "severity": "HIGH",
+    "source_platforms": "Amazon, Reddit, Trustpilot",
+    "affected_products": "Raw Batana Oil, Haitian Black Castor Oil",
+    "typical_verbatim": "Smells like burnt cigarette ash and old coffee grounds. I can't sleep with this in my hair.",
+    "solvability": "HIGH (Steam vacuum deodorization or balanced botanical ester blending)"
+  },
+  {
+    "pain_category": "WHITE_FLAKING_ON_EDGES",
+    "complaint_count": 128,
+    "severity": "HIGH",
+    "source_platforms": "TikTok, Reddit, Ulta",
+    "affected_products": "Traditional Edge Controls, High-Hold Gels",
+    "typical_verbatim": "By noon my edges had a gross white crust that looked like dandruff. Snagged my baby hairs when brushing out.",
+    "solvability": "HIGH (Replace drying alcohol/PVP with water-soluble PHA and castor wax film formers)"
+  },
+  {
+    "pain_category": "SCALP_IRRITATION_AND_SHEDDING",
+    "complaint_count": 115,
+    "severity": "CRITICAL",
+    "source_platforms": "TikTok, Reddit r/Naturalhair, Class Action Lawsuit",
+    "affected_products": "Mielle Rosemary Mint Oil, High-Peppermint Drops",
+    "typical_verbatim": "My scalp started burning and within 2 weeks my hair was shedding in clumps in the shower. Clogged my pores.",
+    "solvability": "CRITICAL_MUST_SOLVE (Eliminate heavy soybean base; use non-comedogenic carrier and dermatologically tested safe dilution)"
+  },
+  {
+    "pain_category": "GREASY_HEAVINESS_LOW_POROSITY",
+    "complaint_count": 96,
+    "severity": "MEDIUM_HIGH",
+    "source_platforms": "Amazon, Sephora, Reddit",
+    "affected_products": "Pure Castor Oil, Raw Batana Paste, Coconut Oil",
+    "typical_verbatim": "This oil just sits on top of my 4C hair. It doesn't sink in, attracts lint, and makes my pillowcase filthy.",
+    "solvability": "HIGH (Formulate with low surface-tension squalane and jojoba ester fractions)"
+  },
+  {
+    "pain_category": "DECEPTIVE_SUBSCRIPTION_BILLING",
+    "complaint_count": 84,
+    "severity": "CRITICAL_COMMERCIAL",
+    "source_platforms": "Trustpilot, BBB",
+    "affected_products": "Azure Boutique (azureboutique.co)",
+    "typical_verbatim": "I bought one bottle for $44 and they charged my card $44 every month without my permission. Impossible to cancel.",
+    "solvability": "GOVERNANCE_ZERO_TOLERANCE (Transparent opt-in subscriptions only; clear self-serve cancellation)"
+  },
+  {
+    "pain_category": "FAKES_AND_DILUTED_OILS",
+    "complaint_count": 78,
+    "severity": "HIGH",
+    "source_platforms": "Amazon, Reddit r/BlackHair",
+    "affected_products": "Amazon Generic Batana Sellers",
+    "typical_verbatim": "This is definitely fake batana. It's bright yellow liquid with perfume, not the dark Honduran paste. Complete scam.",
+    "solvability": "HIGH (Third-party lab COA testing, transparent GC-MS botanical fingerprinting, tamper-evident seals)"
+  },
+  {
+    "pain_category": "MESSY_APPLICATION_FINGER_OILINESS",
+    "complaint_count": 65,
+    "severity": "MEDIUM",
+    "source_platforms": "Reddit, Amazon",
+    "affected_products": "Standard dropper bottles, wide-mouth jars",
+    "typical_verbatim": "Getting oil onto my scalp between braids with a dropper gets oil all down my neck and ruins my clothes.",
+    "solvability": "HIGH (Hardware innovation: cooling ceramic rollerball or precision micro-nozzle)"
+  },
+  {
+    "pain_category": "TRACTION_HEADACHE_AND_ITCH",
+    "complaint_count": 58,
+    "severity": "HIGH",
+    "source_platforms": "TikTok, Reddit r/Naturalhair",
+    "affected_products": "Box braids, knotless braids, sew-in weaves",
+    "typical_verbatim": "The first 4 days after getting braids my scalp is on fire from the tension and the synthetic hair chemical coating.",
+    "solvability": "HIGH (Continuous anti-inflammatory cooling mist with aloe, fermented rice water, and menthyl lactate)"
+  }
+]

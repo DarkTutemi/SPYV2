@@ -1,0 +1,21 @@
+{
+  "mission": "Textured Hair & Edge Care US Market Intelligence 2026-2027",
+  "target_geography": "United States ONLY",
+  "observation_window": "2021-2026 Historical, 2027-2030 Projections",
+  "timestamp_iso": "2026-11-20T23:10:00+07:00",
+  "evidence_tiers": {
+    "OBSERVED": "Directly inspected URLs, official PDPs, USPTO filings, FTC/FDA warning letters, Amazon storefronts, and brand sites",
+    "PROVIDER_ESTIMATE": "Google Trends indices, Statista / Grand View Research textured haircare market valuations, Congruence Market Insights edge control reports",
+    "DERIVED": "SPYV2 100-point rubric calculations, unit economics contribution margins, break-even CAC models",
+    "HYPOTHESIS": "Formulation proposals (ceramide + batana ester rollerball), candidate opportunity positioning",
+    "SCENARIO": "Unit economics Base, Conservative, and Optimistic models ($30-$90 AOV)"
+  },
+  "verified_sources_count": 52,
+  "total_records_analyzed": {
+    "keywords": 45,
+    "competitors": 25,
+    "ad_creatives": 30,
+    "consumer_reviews_mined": 520,
+    "product_opportunities": 12
+  }
+}

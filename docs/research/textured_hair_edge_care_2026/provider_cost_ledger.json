@@ -1,0 +1,25 @@
+{
+  "project": "SPYV2 New Research Mission - Textured Hair & Edge Care",
+  "branch": "research/textured-hair-edge-care-2026",
+  "t14_freeze_status": "FROZEN_INTACT (Watchlist un-modified, 0 unapproved reservations, freeze valid until 2026-11-24 01:26 ICT)",
+  "apify_auto_collection_enabled": false,
+  "paid_api_spend_usd": 0.0,
+  "authorized_quota_remaining_usd": 50.0,
+  "paid_provider_calls": [],
+  "free_and_open_intel_sources": [
+    "Google Trends Historical Public Database",
+    "FDA Warning Letters & 21 CFR § 310.527 Public Repository",
+    "Meta Ad Library Public Commercial Archive",
+    "Reddit Public Community Archives (r/Naturalhair, r/BlackHair, r/Haircare)",
+    "Trustpilot Consumer Reviews Public Database",
+    "Brand DTC Storefronts (azureboutique.co, bahtana.com, mysunday2sunday.com, kreyolessence.com)",
+    "Ulta Beauty, Sephora, Target, and Walmart Public Product Catalogs",
+    "Industry Market Research Publications (Grand View Research, Mintel, Congruence Market Insights, Croda Beauty)"
+  ],
+  "spend_threshold_notifications": {
+    "$10_reached": false,
+    "$25_reached": false,
+    "$50_reached": false
+  },
+  "reconciliation_status": "RECONCILED_ZERO_BILLED"
+}
